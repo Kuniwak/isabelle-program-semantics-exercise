@@ -282,7 +282,7 @@ lemma least_Sup:
 text "完備束の定義で X = \<emptyset> とすると、\<squnion>X は D の最小元になり、X = D とすると \<squnion>X は D の最大限になる。"
 text "すなわち、完備束は常に最小元と最大元を持つことがわかる。"
 definition bot :: 'a
-  where "bot \<equiv> Sup {}"
+  where "bot \<equiv> \<^bold>\<squnion> {}"
 
 sublocale partial_order_bot "(\<sqsubseteq>)" bot
 proof standard
@@ -295,7 +295,7 @@ proof standard
 qed
 
 definition top
-  where "top \<equiv> Sup UNIV"
+  where "top \<equiv> \<^bold>\<squnion> UNIV"
 
 sublocale partial_order_top "(\<sqsubseteq>)" top
 proof standard
@@ -312,23 +312,93 @@ subsection "定義 3.1.5"
 text "半順序集合 D の元の列 a0 \<sqsubseteq> a1 \<sqsubseteq> a2 \<sqsubseteq> \<dots> を \<omega> 鎖（\<omega>-chain）と呼ぶ。"
 text "すなわち、列 (a0, a1, a2, \<dots>) は自然数の集合と1対1に対応し、i \<le> j ならば ai \<sqsubseteq> aj である。"
 
-definition (in partial_order) omega_chain_on :: "'a set \<Rightarrow> 'a list \<Rightarrow> bool"
-  where "omega_chain_on D L \<equiv> list_all (\<lambda>d. d \<in> D) L \<and> (\<forall>i j. i \<le> j \<longrightarrow> L!i \<sqsubseteq> L!j)"
+definition (in partial_order) omega_chain_on :: "'a set \<Rightarrow> (nat \<Rightarrow> 'a) \<Rightarrow> bool"
+  where "omega_chain_on D f \<equiv> \<forall>i j. i \<le> j \<longrightarrow> f i \<in> D \<longrightarrow> f j \<in> D \<longrightarrow> f i \<sqsubseteq> f j"
 
-abbreviation (in partial_order) omega_chain :: "'a list \<Rightarrow> bool"
+abbreviation (in partial_order) omega_chain :: "(nat \<Rightarrow> 'a) \<Rightarrow> bool"
   where "omega_chain \<equiv> omega_chain_on UNIV"
 
+(*
+datatype t = A | B
+
+instantiation t :: partial_order
+begin
+
+fun less_eq_t :: "t \<Rightarrow> t \<Rightarrow> bool"
+  where "less_eq_t B A = False"
+      | "less_eq_t _ _ = True"
+(*
+A \<sqsubseteq> A
+B \<sqsubseteq> B
+A \<sqsubseteq> B
+\<not>(B \<sqsubseteq> A)
+*)
+
+instance
+proof standard
+  show "partial_order ((\<sqsubseteq>) :: t \<Rightarrow> t \<Rightarrow> bool)" by (smt (verit, ccfv_SIG) Program_Semantics_3.partial_order_on_def Program_Semantics_3.refl_on_def antisym_on_def less_eq_t.elims(3) less_eq_t.simps(1) less_eq_t.simps(3) t.exhaust trans_on_def)
+qed
+end
+
+fun some_omega_chain1 :: "nat \<Rightarrow> t"
+  where "some_omega_chain1 0 = A"
+      | "some_omega_chain1 _ = B"
+
+fun some_omega_chain2 :: "nat \<Rightarrow> t"
+  where "some_omega_chain2 _ = B"
+
+
+(*
+a0 = A
+an = B (n > 0)
+\<omega>鎖 =〈a0, a1, a2, ...〉
+    =〈A, B, B, ...〉
+      A \<sqsubseteq> B \<sqsubseteq> B \<sqsubseteq> ...
+
+      B \<sqsubseteq> B \<sqsubseteq> B \<sqsubseteq> ...
+*)
+
+lemma "omega_chain some_omega_chain1"
+unfolding omega_chain_on_def proof auto
+  fix i j :: nat
+  assume i_le_j: "i \<le> j"
+  show "some_omega_chain1 i \<sqsubseteq> some_omega_chain1 j" proof (cases "i = 0")
+    case True
+    have 1: "some_omega_chain1 i = A" using True by simp
+    then show ?thesis proof (cases "j = 0")
+      case True
+      have 2: "some_omega_chain1 j = A" using True by simp
+      show ?thesis unfolding 1 2 by (rule po_refl)
+    next
+      case False
+      have 3: "some_omega_chain1 j = B" using False some_omega_chain1.elims by blast
+      show "some_omega_chain1 i \<sqsubseteq> some_omega_chain1 j" unfolding 1 3 by simp
+    qed
+  next
+    case False
+    have 4: "j \<noteq> 0" using i_le_j False by simp
+    have 5: "some_omega_chain1 i = B" using False some_omega_chain1.elims by blast
+    have 6: "some_omega_chain1 j = B" using 4 some_omega_chain1.elims by blast
+    show "some_omega_chain1 i \<sqsubseteq> some_omega_chain1 j" unfolding 5 6 by simp
+  qed
+qed
+
+lemma "omega_chain some_omega_chain2" by (simp add: omega_chain_on_def)
+*)
 
 subsection "定義 3.1.6"
 text "半順序集合 D の空でない部分集合 X で、"
 text "\<forall>a \<in> X \<forall>b \<in> X \<exists>c \<in> X (a \<sqsubseteq> c かつ b \<sqsubseteq> c)"
 text "が成り立つとき、X は有向集合（directed set）であるという。"
 
-definition (in partial_order) directed_on :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool"
-  where "directed_on D X \<equiv> X \<subseteq> D \<and> X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. a \<sqsubseteq> c \<and> b \<sqsubseteq> c)"
+definition directed_on :: "'a set \<Rightarrow> 'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
+  where "directed_on D X f \<equiv> partial_order_on D f \<and> X \<subseteq> D \<and> (X \<noteq> {} \<longrightarrow> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. f a c \<and> f b c))"
 
-abbreviation (in partial_order) directed :: "'a set \<Rightarrow> bool"
+abbreviation directed :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
   where "directed \<equiv> directed_on UNIV"
+
+class directed = partial_order +
+  assumes "directed (UNIV :: 'a set) (\<sqsubseteq>)"
 
 
 subsection "定義 3.1.7"
@@ -337,7 +407,7 @@ text "(1) D は最小元をもつ。"
 text "(2) D は任意の有向部分集合 X について、X の上限 \<squnion> X \<in> D が存在する。"
 
 class cpo = partial_order_bot +
-  assumes "\<And>X. directed X \<Longrightarrow> \<exists>x. supremum X x"
+  assumes "\<And>X. directed X (\<sqsubseteq>) \<Longrightarrow> \<exists>x. supremum X x"
 
 subsection "例 3.1.8"
 
@@ -348,6 +418,70 @@ subsection "例 3.1.10"
 subsection "例 3.1.11"
 
 subsection "命題 3.1.12"
+text "半順序集合 D について次の2つの条件は同値である。"
+text "(1) 任意の可算[^1]な有向集合 X \<subseteq> D について、X は上限を持つ。"
+text "(2) 任意の \<omega> 鎖は上限を持つ。"
+definition countable :: "'a set \<Rightarrow> bool"
+  where "countable A \<equiv> (\<exists>of_nat :: 'a \<Rightarrow> nat. inj_on of_nat A)"
+
+context partial_order
+begin
+
+lemma omega_chain_countableE:
+  assumes "omega_chain f"
+  shows "countable {a. \<exists>n. a = f n}"
+unfolding countable_def proof -
+  show "\<exists>g :: 'a \<Rightarrow> nat. inj_on g {a. \<exists>n. a = f n}"
+  proof (rule exI[where ?x="inv f"])
+    show "inj_on (inv f) {a. \<exists>n. a = f n}" by (smt (verit) UNIV_I image_eqI inj_onI inv_into_injective mem_Collect_eq)
+  qed
+qed
+
+lemma omega_chain_directedE:
+  assumes "omega_chain f"
+  shows "directed {a. \<exists>n. a = f n}"
+unfolding directed_on_def proof auto
+  fix n m
+  show "\<exists>c. (\<exists>n. c = f n) \<and> f n \<sqsubseteq> c \<and> f m \<sqsubseteq> c" by (metis UNIV_I assms linorder_linear omega_chain_on_def)
+qed
+
+lemma
+  assumes "\<And>X. \<lbrakk>countable X; directed X\<rbrakk> \<Longrightarrow> \<exists>x. supremum X x"
+    and "omega_chain f"
+  obtains x where "supremum {a. \<exists>n. a = f n} x"
+proof -
+  assume 1: "\<And>x. supremum {a. \<exists>n. a = f n} x \<Longrightarrow> thesis" 
+  have "countable {a. \<exists>n. a = f n}" using omega_chain_countableE assms(2) .
+  moreover have "directed {a. \<exists>n. a = f n}" using omega_chain_directedE assms(2) .
+  ultimately have "\<exists>x. supremum {a. \<exists>n. a = f n} x" using assms(1) by blast
+  thus thesis using 1 by blast
+qed
+end
+
+class countable_directed = directed +
+  assumes "countable (UNIV :: 'a set)"
+begin
+
+(*
+inductive_set omega_chain_of :: "(nat \<Rightarrow> 'a) \<Rightarrow> (nat \<times> 'a) set set"
+  for of_nat :: "nat \<Rightarrow> 'a"
+  where "{(0, of_nat 0)} \<in> omega_chain_from_directed of_nat"
+    and "\<lbrakk> c \<in> omega_chain_from_directed of_nat; (n, an) \<in> c; upper_bound {an, f (Suc n)} x \<rbrakk> \<Longrightarrow>
+
+lemma
+  assumes "omega_chain_of f
+
+
+lemma
+  assumes "\<And>f. omega_chain f \<Longrightarrow> \<exists>n. supremum {a. \<exists>m. a = f m} (f n)"
+    and "countable X"
+    and "directed X"
+  obtains x where "supremum X x"
+proof -
+  obtain of_nat :: "'a \<Rightarrow> nat" where "inj_on of_nat X" using assms(2) unfolding countable_def by blast
+*)
+
+end
 
 
 subsection "練習問題 3.1"
@@ -412,12 +546,90 @@ proof -
 qed
 end
 
-section "定義の検証用"
-abbreviation (in partial_order) less :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubset>" 53)
-  where "a \<sqsubset> b \<equiv> a \<noteq> b \<and> a \<sqsubseteq> b"
 
+subsubsection "3"
+text "有限の有向集合はその最大元を含むことを示せ。"
+lemma (in partial_order)
+  assumes "directed (insert x X) (\<sqsubseteq>)"
+    and "x \<notin> X"
+    and "\<not>directed X (\<sqsubseteq>)"
+  shows "supremum X x"
+
+(*
+Nitpick found a counterexample for card 'a = 4:
+  Free variables:
+    X = {a\<^sub>3, a\<^sub>4}
+    (\<sqsubseteq>) =
+      (\<lambda>x. _)
+      (a\<^sub>1 := (\<lambda>x. _)(a\<^sub>1 := True, a\<^sub>2 := False, a\<^sub>3 := False, a\<^sub>4 := False),
+       a\<^sub>2 := (\<lambda>x. _)(a\<^sub>1 := False, a\<^sub>2 := True, a\<^sub>3 := False, a\<^sub>4 := False),
+       a\<^sub>3 := (\<lambda>x. _)(a\<^sub>1 := True, a\<^sub>2 := True, a\<^sub>3 := True, a\<^sub>4 := False),
+       a\<^sub>4 := (\<lambda>x. _)(a\<^sub>1 := True, a\<^sub>2 := True, a\<^sub>3 := False, a\<^sub>4 := True))
+    x = a\<^sub>2
+  Skolem constants:
+    ??.Ball.x = a\<^sub>4
+    ??.Ball.x = a\<^sub>1
+    ??.less_eq_fun.x = a\<^sub>4
+
+a1 a2
+|\ /|
+| X |
+|/ \|
+a3 a4
+*)
+oops
+
+lemma
+  assumes finite: "finite X"
+    and nempty: "X \<noteq> {}" \<comment> \<open>これ必要では\<dots>？\<close>
+    and directed: "directed X (\<sqsubseteq>)"
+  shows "\<exists>x. supremum X x \<and> x \<in> X"
+using assms proof (induct rule: finite_ne_induct)
+  case (singleton x)
+  show ?case proof (rule exI[where ?x=x]; intro conjI)
+    show "supremum {x} x" unfolding supremum_on_def proof auto
+      show "{x} \<^sub>s\<sqsubseteq> x" unfolding upper_bound_on_def proof auto
+        show "x \<sqsubseteq> x" by (rule po_refl)
+      qed
+    next
+      fix a
+      assume "{x} \<^sub>s\<sqsubseteq> a"
+      thus "x \<sqsubseteq> a" unfolding upper_bound_on_def by auto
+    qed
+  next
+    show "x \<in> {x}" by simp
+  qed
+next
+  case (insert x F)
+  show ?case proof (cases "directed F (\<sqsubseteq>)")
+    case True
+    then obtain y where Sup_y: "supremum F y" and "y \<in> F" using insert.hyps(4) by blast
+    then obtain z where 1: "y \<sqsubseteq> z" "x \<sqsubseteq> z" and z_mem: "z \<in> insert x F" using insert.prems unfolding directed_on_def by blast
+    show ?thesis proof (rule exI[where ?x=z]; intro conjI)
+      show "supremum (insert x F) z" unfolding supremum_on_def proof (intro conjI ballI impI)
+        have "\<And>a. a \<in> F \<Longrightarrow> a \<sqsubseteq> y" using Sup_y unfolding supremum_on_def upper_bound_on_def by blast
+        hence "\<And>a. a \<in> insert x F \<Longrightarrow> a \<sqsubseteq> z" using 1 po_trans by auto
+        thus "insert x F \<^sub>s\<sqsubseteq> z" unfolding upper_bound_on_def by blast
+      next
+        fix a
+        assume "insert x F \<^sub>s\<sqsubseteq> a"
+        thus "z \<sqsubseteq> a" using upper_bound_on_leE z_mem by blast
+      qed
+    next
+      show "z \<in> insert x F" by (rule z_mem)
+    qed
+  next
+    case False
+    then obtain a b where a_mem: "a \<in> F" and b_mem: "b \<in> F" and no_directed: "\<And>c. c \<in> F \<Longrightarrow> \<not>(a \<sqsubseteq> c \<and> b \<sqsubseteq> c)" unfolding directed_on_def using insert.hyps(2) by blast
+    hence "supremum (insert x F) x" 
+oops
+
+section "定義の検証用"
 context partial_order
 begin
+
+abbreviation less :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubset>" 53)
+  where "a \<sqsubset> b \<equiv> a \<noteq> b \<and> a \<sqsubseteq> b"
 
 sublocale order: order "(\<sqsubseteq>)" "(\<sqsubset>)"
 proof standard
@@ -699,10 +911,34 @@ next
   assume "\<And>x. x \<in> A \<Longrightarrow> x \<sqsubseteq> z"
   thus "\<^bold>\<squnion> A \<sqsubseteq> z" by (simp add: least_Sup upper_bound_on_def)
 next
-  show "\<^bold>\<sqinter> {} = top" by (meson UNIV_I empty_iff Inf_greatest greatest_top lower_bound_on_def order.antisym top_on_def subsetI)
+  show "\<^bold>\<sqinter> {} = top"
+    by (metis UNIV_I emptyE empty_subsetI Inf_eq Inf_greatest ex_infimum le_Sup lower_bound_on_def top_def semilattice_inf.inf.absorb_iff1 semilattice_inf.inf.absorb_iff2)
 next
   show "\<^bold>\<squnion> {} = bot" unfolding bot_def by (rule refl)
 qed
-
 end
+
+definition total_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
+  where "total_on D f \<equiv> \<forall>x \<in> D. \<forall>y \<in> D. f x y \<or> f y x"
+
+abbreviation total :: "('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
+  where "total \<equiv> total_on UNIV"
+
+lemma (in partial_order)
+  assumes "omega_chain f"
+  shows "total_on {a. \<exists>n. a = f n} (\<sqsubseteq>)"
+unfolding total_on_def proof (intro ballI; elim CollectE exE)
+  fix x y n m
+  assume x_eq: "x = f n" and y_eq: "y = f m"
+  show "x \<sqsubseteq> y \<or> y \<sqsubseteq> x" proof (cases "n \<le> m")
+    case True
+    hence "x \<sqsubseteq> y" using assms unfolding omega_chain_on_def x_eq y_eq by blast
+    thus ?thesis by (rule disjI1)
+  next
+    case False
+    hence "m \<le> n" by simp
+    hence "y \<sqsubseteq> x" using assms unfolding omega_chain_on_def x_eq y_eq by blast
+    thus ?thesis by (rule disjI2)
+  qed
+qed
 end
