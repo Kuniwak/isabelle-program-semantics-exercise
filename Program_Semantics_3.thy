@@ -412,297 +412,123 @@ proof -
 qed
 end
 
-section "定義の検証用"
-abbreviation (in partial_order) less :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubset>" 53)
-  where "a \<sqsubset> b \<equiv> a \<noteq> b \<and> a \<sqsubseteq> b"
+subsubsection "3"
+text "有限の有向集合はその最大元を含むことを示せ。"
+definition (in partial_order) maximal :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
+  where "maximal X x \<equiv> x \<in> X \<and> (\<forall>y \<in> X. x \<sqsubseteq> y \<longrightarrow> x = y)"
 
-context partial_order
+lemma (in partial_order) maximalE:
+  assumes "maximal X x"
+  shows maximal_memE: "x \<in> X" and maximal_maximalE: "\<And>y. \<lbrakk> y \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> x = y"
+using assms unfolding maximal_def by blast+
+
+lemma (in partial_order) ex_maximal:
+  assumes "finite A"
+    and "A \<noteq> {}"
+  obtains m where "maximal A m"
+proof -
+  have "\<exists>m. maximal A m" using assms proof (induction rule: finite_psubset_induct)
+    case (psubset A)
+    assume "finite A"
+    assume "\<And>B. \<lbrakk>B \<subset> A; B \<noteq> {}\<rbrakk> \<Longrightarrow> \<exists>m. maximal B m"
+    assume "A \<noteq> {}"
+    obtain a where a_mem: "a \<in> A" using psubset.prems(1) by blast
+    let ?B = "{b \<in> A. a \<noteq> b \<and> a \<sqsubseteq> b}"
+    show ?case proof cases
+      assume True: "?B = {}"
+      hence "\<And>b. \<lbrakk> b \<in> A; a \<sqsubseteq> b \<rbrakk> \<Longrightarrow> a = b" by blast
+      then show ?thesis using a_mem unfolding maximal_def by blast
+    next
+      assume False: "?B \<noteq> {}"
+      have "a \<notin> ?B" by blast
+      hence 1: "?B \<subset> A" using a_mem by blast
+      obtain m
+        where m_mem: "m \<in> A"
+          and "a \<noteq> m"
+          and a_le_m: "a \<sqsubseteq> m"
+          and 2: "\<And>b. \<lbrakk> b \<in> A; a \<noteq> b; a \<sqsubseteq> b; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b"
+        using psubset.IH[OF 1 False] unfolding maximal_def by blast
+      have 3: "\<And>b. \<lbrakk> b \<in> A; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b" using 2 a_le_m po_antisym po_trans by blast
+      show ?thesis by (rule exI[where ?x=m]; auto simp add: maximal_def intro: m_mem 3)
+    qed
+  qed
+  thus "(\<And>m. maximal A m \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
+qed
+
+lemma (in partial_order) ex_maximal2:
+  assumes finite: "finite A"
+    and a_mem: "a \<in> A"
+  obtains m where "m \<in> A" and "a \<sqsubseteq> m" and "\<And>b. \<lbrakk> b \<in> A; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b"
+proof -
+  assume *: "\<And>m. \<lbrakk>m \<in> A; a \<sqsubseteq> m; \<And>b. \<lbrakk>b \<in> A; m \<sqsubseteq> b\<rbrakk> \<Longrightarrow> m = b\<rbrakk> \<Longrightarrow> thesis"
+  let ?B = "{b \<in> A. a \<sqsubseteq> b}"
+  have 1: "finite ?B" using finite by force
+  have 2: "?B \<noteq> {}" using a_mem po_refl by fastforce
+  obtain x where maximal_x: "maximal {b \<in> A. a \<sqsubseteq> b} x" using ex_maximal[of "{b \<in> A. a \<sqsubseteq> b}"] 1 2 by blast
+  show thesis proof (rule *)
+    show "x \<in> A" using maximal_x unfolding maximal_def by blast
+  next
+    show "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
+  next
+    show "\<And>b. \<lbrakk>b \<in> A; x \<sqsubseteq> b\<rbrakk> \<Longrightarrow> x = b" proof (rule maximal_maximalE)
+      show "maximal {b \<in> A. a \<sqsubseteq> b} x" using maximal_x .
+    next
+      fix b
+      assume 1: "b \<in> A" "x \<sqsubseteq> b"
+      have 2: "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
+      show "b \<in> {b \<in> A. a \<sqsubseteq> b}" using 1 2 po_trans by blast
+    next
+      fix b
+      assume "x \<sqsubseteq> b"
+      thus "x \<sqsubseteq> b" .
+    qed
+  qed
+qed
+
+lemma (in partial_order) unique_maximalE:
+  assumes finite: "finite X"
+    and maximal_x: "maximal X x"
+    and maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = x"
+  shows "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x"
+using assms proof (induct arbitrary: x rule: finite_psubset_induct)
+  case (psubset A)
+  show ?case by (metis ex_maximal2 maximal_def psubset.hyps(1) psubset.prems(1) psubset.prems(3))
+qed
+
+class directed = partial_order +
+  assumes directed: "directed (UNIV :: 'a set)"
+
+class finite_directed = finite + directed
 begin
 
-sublocale order: order "(\<sqsubseteq>)" "(\<sqsubset>)"
-proof standard
-  fix x y
-  show "x \<sqsubset> y = (x \<sqsubseteq> y \<and> \<not> y \<sqsubseteq> x)" using po_antisym by blast
-next
-  fix x
-  show "x \<sqsubseteq> x" by (rule po_refl)
-next
-  fix x y
-  show "\<lbrakk>x \<sqsubseteq> y; y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> x = y" by (rule po_antisym)
-next
-  fix x y z
-  show "\<lbrakk>x \<sqsubseteq> y; y \<sqsubseteq> z\<rbrakk> \<Longrightarrow> x \<sqsubseteq> z" by (rule po_trans)
+lemma
+  obtains x where "\<And>y. y \<sqsubseteq> x"
+proof -
+  have "(UNIV :: 'a set) \<noteq> {}" by simp
+  with ex_maximal finite[of "UNIV :: 'a set"] obtain m where maximal_m: "maximal UNIV m" by blast
+  have maximal_uniq: "\<And>y. maximal UNIV y \<Longrightarrow> y = m" proof -
+    fix y
+    assume maximal_y: "maximal UNIV y"
+    obtain z where y_le_z: "y \<sqsubseteq> z" and m_le_z: "m \<sqsubseteq> z" using directed unfolding directed_on_def by blast
+    have "y \<noteq> z \<Longrightarrow> \<not>y \<sqsubseteq> z" using maximal_y unfolding maximal_def by fastforce
+    hence y_eq_z: "y = z" using y_le_z by blast
+    hence m_le_y: "m \<sqsubseteq> y" using m_le_z by simp
+    have "y \<noteq> m \<Longrightarrow> \<not>m \<sqsubseteq> y" using maximal_m unfolding maximal_def by fastforce
+    thus "y = m" using m_le_y by blast
+  qed
+  have max_m: "\<And>y. y \<sqsubseteq> m" proof (rule unique_maximalE)
+    show "finite (UNIV :: 'a set)" using finite .
+  next
+    show "maximal UNIV m" by (rule maximal_m)
+  next
+    show "\<And>z. maximal UNIV z \<Longrightarrow> z = m" using maximal_uniq .
+  next
+    fix y :: 'a
+    show "y \<in> UNIV" by (rule UNIV_I)
+  qed
+  assume assms: "\<And>x. (\<And>y. y \<sqsubseteq> x) \<Longrightarrow> thesis"
+  show ?thesis using assms max_m by blast
 qed
 end
 
-context complete_lattice
-begin
-lemma Sup_singleton: "Sup {a} = a"
-proof -
-  show ?thesis proof (rule po_antisym)
-    show "\<^bold>\<squnion> {a} \<sqsubseteq> a" proof (rule least_Sup)
-      show "{a} \<^sub>s\<sqsubseteq> a" unfolding upper_bound_on_def using po_refl by simp
-    qed
-  next
-    show "a \<sqsubseteq> Sup {a}" proof (rule le_Sup)
-      show "a \<in> {a}" by simp
-    qed
-  qed
-qed
-
-definition sup :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infix "\<squnion>" 51)
-  where "sup a b \<equiv> Sup {a, b}"
-
-lemma sup_commute: "a \<squnion> b = b \<squnion> a"
-  unfolding sup_def insert_commute by simp
-
-lemma sup_absorb: "a \<squnion> a = a"
-  unfolding sup_def insert_absorb2 Sup_singleton by (rule refl)
-
-lemma sup1:
-  assumes "a \<sqsubseteq> b"
-  shows "a \<squnion> b = b"
-proof (rule po_antisym)
-  show "b \<sqsubseteq> sup a b" unfolding sup_def proof (rule le_Sup)
-    show "b \<in> {a, b}" by blast
-  qed
-next
-  show "sup a b \<sqsubseteq> b" unfolding sup_def proof (rule least_Sup)
-    fix c
-    show "{a, b} \<^sub>s\<sqsubseteq> b" unfolding upper_bound_on_def proof (intro conjI)
-      show "b \<in> UNIV" by (rule UNIV_I)
-    next
-      show "{a, b} \<subseteq> UNIV" by (rule subset_UNIV)
-    next
-      show "\<forall>x \<in> {a, b}. x \<sqsubseteq> b" proof (rule ballI)
-        fix x
-        assume "x \<in> {a, b}"
-        hence "x = a \<or> x = b" by simp
-        thus "x \<sqsubseteq> b" proof
-          assume 1: "x = a"
-          show "x \<sqsubseteq> b" unfolding 1 by (rule assms)
-        next
-          assume 2: "x = b"
-          show "x \<sqsubseteq> b" unfolding 2 by (rule po_refl)
-        qed
-      qed
-    qed
-  qed
-qed
-
-lemma sup2:
-  assumes "b \<sqsubseteq> a"
-  shows "a \<squnion> b = a"
-proof (subst sup_commute)
-  show "sup b a = a" using assms by (rule sup1)
-qed
-
-lemma le_sup1:
-  assumes "a \<sqsubseteq> b"
-  shows "a \<sqsubseteq> b \<squnion> c"
-using assms proof (rule po_trans)
-  show "b \<sqsubseteq> b \<squnion> c" unfolding sup_def proof (rule le_Sup)
-    show "b \<in> {b, c}" by blast
-  qed
-qed
-
-lemma le_sup2:
-  assumes "a \<sqsubseteq> b"
-  shows "a \<sqsubseteq> c \<squnion> b"
-proof (subst sup_commute)
-  show "a \<sqsubseteq> sup b c" using assms by (rule le_sup1)
-qed
-
-lemma sup_le:
-  assumes "b \<sqsubseteq> a"
-    and "c \<sqsubseteq> a"
-  shows "b \<squnion> c \<sqsubseteq> a"
-unfolding sup_def proof (rule least_Sup)
-  fix x
-  show "{b, c} \<^sub>s\<sqsubseteq> a" unfolding upper_bound_on_def using assms by blast
-qed
-
-lemma sup_assoc: "(a \<squnion> b) \<squnion> c = a \<squnion> (b \<squnion> c)"
-proof (rule po_antisym)
-  show "(a \<squnion> b) \<squnion> c \<sqsubseteq> a \<squnion> (b \<squnion> c)" by (metis le_sup2 po_refl sup_commute sup_le)
-next
-  show "a \<squnion> (b \<squnion> c) \<sqsubseteq> (a \<squnion> b) \<squnion> c " by (metis le_sup1 po_refl sup_commute sup_le)
-qed
-
-sublocale semilattice_sup: semilattice_sup "(\<squnion>)" "(\<sqsubseteq>)" "(\<sqsubset>)"
-proof standard
-  fix x y
-  show "x \<sqsubseteq> x \<squnion> y" using le_sup1 po_refl by presburger
-next
-  fix x y
-  show "y \<sqsubseteq> x \<squnion> y" using le_sup2 po_refl by presburger
-next
-  fix x y z
-  assume "y \<sqsubseteq> x" "z \<sqsubseteq> x"
-  thus "y \<squnion> z \<sqsubseteq> x" using sup_le by blast
-qed
-
-lemma Inf_le:
-  assumes "x \<in> X"
-  shows "\<^bold>\<sqinter> X \<sqsubseteq> x"
-proof -
-  obtain y where 1: "infimum y X" using ex_infimum .
-  have Inf_eq: "\<^bold>\<sqinter> X = y" using 1 by (rule Inf_eq)
-  have 2: "y \<sqsubseteq> x" using infimum_on_leE 1 assms .
-  show "\<^bold>\<sqinter> X \<sqsubseteq> x" unfolding Inf_eq by (rule 2)
-qed
-
-lemma Inf_greatest:
-  assumes "x \<sqsubseteq>\<^sub>s X"
-  shows "x \<sqsubseteq> \<^bold>\<sqinter> X"
-proof -
-  obtain y where 1: "infimum y X" using ex_infimum .
-  have Inf_eq: "\<^bold>\<sqinter> X = y" using 1 by (rule Inf_eq)
-  show "x \<sqsubseteq> \<^bold>\<sqinter> X" unfolding Inf_eq using 1 proof (rule infimum_on_greatestE)
-    show "x \<in> UNIV" by (rule UNIV_I)
-  next
-    show "x \<sqsubseteq>\<^sub>s X" using assms .
-  qed
-qed
-
-lemma Inf_singleton: "\<^bold>\<sqinter> {a} = a"
-proof (rule po_antisym)
-  show "\<^bold>\<sqinter> {a} \<sqsubseteq> a" proof (rule Inf_le)
-    show "a \<in> {a}" by blast
-  qed
-next
-  show "a \<sqsubseteq> \<^bold>\<sqinter> {a}" proof (rule Inf_greatest)
-    show "a \<sqsubseteq>\<^sub>s {a}" unfolding lower_bound_on_def proof (intro conjI ballI)
-      show "a \<in> UNIV" by (rule UNIV_I)
-    next
-      show "{a} \<subseteq> UNIV" by (rule subset_UNIV)
-    next
-      fix x
-      assume "x \<in> {a}"
-      hence 1: "x = a" by simp
-      show "a \<sqsubseteq> x" unfolding 1 by (rule po_refl)
-    qed
-  qed
-qed
-
-definition inf :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infix "\<sqinter>" 52)
-  where "inf a b \<equiv> Inf {a, b}"
-
-lemma inf_commute: "a \<sqinter> b = b \<sqinter> a"
-  unfolding inf_def insert_commute by simp
-
-lemma inf_absorb: "a \<sqinter> a = a"
-  unfolding inf_def insert_absorb2 Inf_singleton by (rule refl)
-
-lemma inf1:
-  assumes "a \<sqsubseteq> b"
-  shows "a \<sqinter> b = a"
-proof (rule po_antisym)
-  show "inf a b \<sqsubseteq> a" unfolding inf_def proof (rule Inf_le)
-    show "a \<in> {a, b}" by blast
-  qed
-next
-  show "a \<sqsubseteq> a \<sqinter> b" unfolding inf_def proof (rule Inf_greatest)
-    fix c
-    show "a \<sqsubseteq>\<^sub>s {a, b} " unfolding lower_bound_on_def proof (intro conjI)
-      show "a \<in> UNIV" by (rule UNIV_I)
-    next
-      show "{a, b} \<subseteq> UNIV" by (rule subset_UNIV)
-    next
-      show "\<forall>x \<in> {a, b}. a \<sqsubseteq> x" proof (rule ballI)
-        fix x
-        assume "x \<in> {a, b}"
-        hence "x = a \<or> x = b" by simp
-        thus "a \<sqsubseteq> x" proof
-          assume 1: "x = a"
-          show "a \<sqsubseteq> x" unfolding 1 by (rule po_refl)
-        next
-          assume 2: "x = b"
-          show "a \<sqsubseteq> x" unfolding 2 by (rule assms)
-        qed
-      qed
-    qed
-  qed
-qed
-
-lemma inf2:
-  assumes "b \<sqsubseteq> a"
-  shows "a \<sqinter> b = b"
-proof (subst inf_commute)
-  show "b \<sqinter> a = b" using assms by (rule inf1)
-qed
-
-lemma inf_le1:
-  assumes "b \<sqsubseteq> a"
-  shows "b \<sqinter> c \<sqsubseteq> a"
-proof (rule po_trans)
-  show "b \<sqinter> c \<sqsubseteq> b" unfolding inf_def proof (rule Inf_le)
-    show "b \<in> {b, c}" by blast
-  qed
-next
-  show "b \<sqsubseteq> a" using assms .
-qed
-
-lemma inf_le2:
-  assumes "b \<sqsubseteq> a"
-  shows "c \<sqinter> b \<sqsubseteq> a"
-proof (subst inf_commute)
-  show "b \<sqinter> c \<sqsubseteq> a" using assms by (rule inf_le1)
-qed
-
-lemma le_inf:
-  assumes "a \<sqsubseteq> b"
-    and "a \<sqsubseteq> c"
-  shows "a \<sqsubseteq> b \<sqinter> c"
-unfolding inf_def proof (rule Inf_greatest)
-  fix x
-  show "a \<sqsubseteq>\<^sub>s {b, c}" unfolding lower_bound_on_def using assms by blast
-qed
-
-lemma inf_assoc: "(a \<sqinter> b) \<sqinter> c = a \<sqinter> (b \<sqinter> c)"
-proof (rule po_antisym)
-  show "(a \<sqinter> b) \<sqinter> c \<sqsubseteq> a \<sqinter> (b \<sqinter> c)" by (metis inf_le2 po_refl inf_commute le_inf)
-next
-  show "a \<sqinter> (b \<sqinter> c) \<sqsubseteq> (a \<sqinter> b) \<sqinter> c " by (metis inf_le1 po_refl inf_commute le_inf)
-qed
-
-sublocale semilattice_inf: semilattice_inf "(\<sqinter>)" "(\<sqsubseteq>)" "(\<sqsubset>)"
-proof standard
-  fix x y
-  show "x \<sqinter> y \<sqsubseteq> x" using inf_le1 po_refl by presburger
-next
-  fix x y
-  show "x \<sqinter> y \<sqsubseteq> y" using inf_le2 po_refl by presburger
-next
-  fix x y z
-  assume "x \<sqsubseteq> y" "x \<sqsubseteq> z"
-  thus "x \<sqsubseteq> y \<sqinter> z" using le_inf by blast
-qed
-
-sublocale lattice inf "(\<sqsubseteq>)" "(\<sqsubset>)" sup by standard
-
-sublocale complete_lattice : Complete_Lattices.complete_lattice Inf Sup inf less_eq less sup bot top
-proof standard
-  fix x :: 'a and A
-  assume "x \<in> A"
-  thus "\<^bold>\<sqinter> A \<sqsubseteq> x" using Inf_le by presburger
-next
-  fix z :: 'a and A
-  assume "\<And>x. x \<in> A \<Longrightarrow> z \<sqsubseteq> x"
-  thus "z \<sqsubseteq> \<^bold>\<sqinter> A" by (simp add: Inf_greatest lower_bound_on_def)
-next
-  fix x :: 'a and A
-  assume "x \<in> A"
-  thus "x \<sqsubseteq> \<^bold>\<squnion> A" using le_Sup by presburger
-next
-  fix z :: 'a and A
-  assume "\<And>x. x \<in> A \<Longrightarrow> x \<sqsubseteq> z"
-  thus "\<^bold>\<squnion> A \<sqsubseteq> z" by (simp add: least_Sup upper_bound_on_def)
-next
-  show "\<^bold>\<sqinter> {} = top" by (meson UNIV_I empty_iff Inf_greatest greatest_top lower_bound_on_def order.antisym top_on_def subsetI)
-next
-  show "\<^bold>\<squnion> {} = bot" unfolding bot_def by (rule refl)
-qed
-
-end
 end
