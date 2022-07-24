@@ -417,12 +417,14 @@ text "有限の有向集合はその最大元を含むことを示せ。"
 definition (in partial_order) maximal :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
   where "maximal X x \<equiv> x \<in> X \<and> (\<forall>y \<in> X. x \<sqsubseteq> y \<longrightarrow> x = y)"
 
-lemma (in partial_order) maximalE:
+context partial_order
+begin
+lemma maximalE:
   assumes "maximal X x"
   shows maximal_memE: "x \<in> X" and maximal_maximalE: "\<And>y. \<lbrakk> y \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> x = y"
 using assms unfolding maximal_def by blast+
 
-lemma (in partial_order) ex_maximal:
+lemma ex_maximal:
   assumes "finite A"
     and "A \<noteq> {}"
   obtains m where "maximal A m"
@@ -455,80 +457,107 @@ proof -
   thus "(\<And>m. maximal A m \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
 qed
 
-lemma (in partial_order) ex_maximal2:
+lemma ex_maximal2:
   assumes finite: "finite A"
     and a_mem: "a \<in> A"
-  obtains m where "m \<in> A" and "a \<sqsubseteq> m" and "\<And>b. \<lbrakk> b \<in> A; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b"
+  obtains m where "a \<sqsubseteq> m" and "maximal A m"
 proof -
-  assume *: "\<And>m. \<lbrakk>m \<in> A; a \<sqsubseteq> m; \<And>b. \<lbrakk>b \<in> A; m \<sqsubseteq> b\<rbrakk> \<Longrightarrow> m = b\<rbrakk> \<Longrightarrow> thesis"
   let ?B = "{b \<in> A. a \<sqsubseteq> b}"
   have 1: "finite ?B" using finite by force
   have 2: "?B \<noteq> {}" using a_mem po_refl by fastforce
   obtain x where maximal_x: "maximal {b \<in> A. a \<sqsubseteq> b} x" using ex_maximal[of "{b \<in> A. a \<sqsubseteq> b}"] 1 2 by blast
-  show thesis proof (rule *)
-    show "x \<in> A" using maximal_x unfolding maximal_def by blast
-  next
+  show thesis proof rule
     show "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
   next
-    show "\<And>b. \<lbrakk>b \<in> A; x \<sqsubseteq> b\<rbrakk> \<Longrightarrow> x = b" proof (rule maximal_maximalE)
-      show "maximal {b \<in> A. a \<sqsubseteq> b} x" using maximal_x .
+    show "maximal A x" unfolding maximal_def proof (intro conjI ballI impI)
+      show "x \<in> A" using maximal_x unfolding maximal_def by blast
     next
-      fix b
-      assume 1: "b \<in> A" "x \<sqsubseteq> b"
-      have 2: "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
-      show "b \<in> {b \<in> A. a \<sqsubseteq> b}" using 1 2 po_trans by blast
-    next
-      fix b
-      assume "x \<sqsubseteq> b"
-      thus "x \<sqsubseteq> b" .
+      show "\<And>b. \<lbrakk>b \<in> A; x \<sqsubseteq> b\<rbrakk> \<Longrightarrow> x = b" proof (rule maximal_maximalE)
+        show "maximal {b \<in> A. a \<sqsubseteq> b} x" using maximal_x .
+      next
+        fix b
+        assume 1: "b \<in> A" "x \<sqsubseteq> b"
+        have 2: "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
+        show "b \<in> {b \<in> A. a \<sqsubseteq> b}" using 1 2 po_trans by blast
+      next
+        fix b
+        assume "x \<sqsubseteq> b"
+        thus "x \<sqsubseteq> b" .
+      qed
     qed
   qed
 qed
 
-lemma (in partial_order) unique_maximalE:
+lemma unique_maximalE:
   assumes finite: "finite X"
     and maximal_x: "maximal X x"
     and maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = x"
   shows "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x"
 using assms proof (induct arbitrary: x rule: finite_psubset_induct)
   case (psubset A)
-  show ?case by (metis ex_maximal2 maximal_def psubset.hyps(1) psubset.prems(1) psubset.prems(3))
+  show ?case by (metis ex_maximal2 psubset.hyps(1) psubset.prems(1) psubset.prems(3))
 qed
 
-class directed = partial_order +
-  assumes directed: "directed (UNIV :: 'a set)"
-
-class finite_directed = finite + directed
-begin
-
-lemma
-  obtains x where "\<And>y. y \<sqsubseteq> x"
+lemma ex_maximum:
+  assumes finite: "finite X"
+    and directed: "directed X"
+    and nempty: "X \<noteq> {}"
+  obtains x where "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x" and "x \<in> X"
 proof -
-  have "(UNIV :: 'a set) \<noteq> {}" by simp
-  with ex_maximal finite[of "UNIV :: 'a set"] obtain m where maximal_m: "maximal UNIV m" by blast
-  have maximal_uniq: "\<And>y. maximal UNIV y \<Longrightarrow> y = m" proof -
-    fix y
-    assume maximal_y: "maximal UNIV y"
-    obtain z where y_le_z: "y \<sqsubseteq> z" and m_le_z: "m \<sqsubseteq> z" using directed unfolding directed_on_def by blast
-    have "y \<noteq> z \<Longrightarrow> \<not>y \<sqsubseteq> z" using maximal_y unfolding maximal_def by fastforce
-    hence y_eq_z: "y = z" using y_le_z by blast
-    hence m_le_y: "m \<sqsubseteq> y" using m_le_z by simp
-    have "y \<noteq> m \<Longrightarrow> \<not>m \<sqsubseteq> y" using maximal_m unfolding maximal_def by fastforce
-    thus "y = m" using m_le_y by blast
-  qed
-  have max_m: "\<And>y. y \<sqsubseteq> m" proof (rule unique_maximalE)
-    show "finite (UNIV :: 'a set)" using finite .
+  obtain m where maximal_m: "maximal X m" using nempty ex_maximal finite by blast
+  have maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = m" by (metis directed directed_on_def maximal_def maximal_m)
+  have max_m: "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> m" proof (rule unique_maximalE)
+    show "finite X" using finite .
   next
-    show "maximal UNIV m" by (rule maximal_m)
+    show "maximal X m" by (rule maximal_m)
   next
-    show "\<And>z. maximal UNIV z \<Longrightarrow> z = m" using maximal_uniq .
+    show "\<And>z. maximal X z \<Longrightarrow> z = m" using maximal_uniq .
   next
     fix y :: 'a
-    show "y \<in> UNIV" by (rule UNIV_I)
+    assume "y \<in> X" thus "y \<in> X" .
   qed
-  assume assms: "\<And>x. (\<And>y. y \<sqsubseteq> x) \<Longrightarrow> thesis"
-  show ?thesis using assms max_m by blast
+  assume assms: "\<And>x. \<lbrakk>\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x; x \<in> X\<rbrakk> \<Longrightarrow> thesis"
+  show ?thesis using assms max_m using maximal_m maximal_memE by presburger
 qed
+end
+
+
+subsubsection "4"
+text "最小限を持つ有限の半順序集合は cpo であることを示せ。"
+
+class finite_partial_order = finite + partial_order_bot
+begin
+
+sublocale cpo "(\<sqsubseteq>)" "\<bottom>"
+proof standard
+  fix X
+  assume directed: "directed X"
+  hence nempty: "X \<noteq> {}" unfolding directed_on_def by blast
+  show "\<exists>x. supremum X x" using finite[of X] nempty directed proof (induct rule: finite_ne_induct)
+    case (singleton x)
+    show ?case proof
+      show "supremum {x} x" unfolding supremum_on_def upper_bound_on_def using po_refl by blast
+    qed
+  next
+    case (insert x F)
+    obtain max where max: "\<And>z. z \<in> insert x F \<Longrightarrow> z \<sqsubseteq> max" and max_mem: "max \<in> insert x F" using ex_maximum insert.prems(1) finite[of "insert x F"] by blast
+    obtain y where max_le_y: "max \<sqsubseteq> y" and x_le_y: "x \<sqsubseteq> y" and y_mem: "y \<in> insert x F" using insert.prems(1) max_mem unfolding directed_on_def by blast
+    show ?case proof
+      show "supremum (insert x F) y" unfolding supremum_on_def upper_bound_on_def proof auto
+        show "x \<sqsubseteq> y" using x_le_y .
+      next
+        fix x
+        assume "x \<in> F" thus "x \<sqsubseteq> y" using max max_le_y po_trans by blast
+      next
+        fix a
+        assume 1: "x \<sqsubseteq> a" "\<forall>x \<in> F. x \<sqsubseteq> a"
+        have y_eq_max: "y = max" using po_antisym max max_le_y y_mem by presburger
+        show "y \<sqsubseteq> a" unfolding y_eq_max using 1 max_mem by blast
+      qed
+    qed
+  qed
+qed
+
 end
 
 end
