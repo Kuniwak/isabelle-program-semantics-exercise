@@ -383,6 +383,42 @@ subsection "例 3.1.11"
 
 subsection "命題 3.1.12"
 
+subsection "命題 3.1.13"
+text "D を半順序集合、X を D の部分集合、d \<in> D とすると、次の2つの条件は同値である。"
+text "(1) d = \<squnion>X （X の上限が素材して d に等しい）"
+text "(2) \<forall>a \<in> D (d \<sqsubseteq> a \<Leftrightarrow> X \<sqsubseteq> a)"
+
+lemma
+  fixes "le" :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  assumes po: "partial_order_on D le"
+    and subset: "X \<subseteq> D"
+    and d_mem_D: "d \<in> D"
+  shows "(supremum_on D le X d) \<longleftrightarrow> (\<forall>a \<in> D. le d a \<longleftrightarrow> upper_bound_on D le X a)"
+proof auto
+  fix a
+  assume sup_d: "supremum_on D le X d"
+    and a_mem: "a \<in> D"
+    and d_le_a: "le d a"
+  have "upper_bound_on D le X d" using sup_d by (rule supremum_on_upper_bound_onE)
+  thus "upper_bound_on D le X a" unfolding upper_bound_on_def using a_mem proof auto
+    fix x
+    assume "\<forall>x \<in> X. le x d"
+      and x_mem_X: "x \<in> X"
+    hence x_le_d: "le x d" by blast
+    have x_mem_D:"x \<in> D" using x_mem_X subset by blast
+    show "le x a" using po_transE[OF po x_mem_D d_mem_D a_mem x_le_d d_le_a] .
+  qed
+next
+  fix a
+  assume sup_d: "supremum_on D le X d"
+    and a_mem: "a \<in> D"
+    and "upper_bound_on D le X a"
+  thus "le d a" using supremum_on_leastE[OF sup_d] by blast
+next
+  assume "\<forall>a\<in>D. le d a = upper_bound_on D le X a"
+  thus "supremum_on D le X d" by (metis d_mem_D po po_reflE supremum_on_def)
+qed
+
 
 subsection "練習問題 3.1"
 subsubsection "1"
@@ -606,12 +642,13 @@ definition pf_le :: "('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<R
 
 lemma
   fixes F :: "('a \<times> 'b) set set"
-  assumes "directed_on {R. partial_fun R} F (\<sqsubseteq>\<^sub>f)"
+  (* assumes "directed_on {R. partial_fun R} F (\<sqsubseteq>\<^sub>f)" *) \<comment>\<open>なくても成立\<dots>\<close>
   shows "top_on F (\<sqsubseteq>\<^sub>f) (\<Union>F)"
 unfolding top_on_def proof auto
   fix R :: "('a \<times> 'b) set"
   assume "R \<in> F"
-  thus "R \<sqsubseteq>\<^sub>f \<Union> F" by (simp add: Union_upper pf_le_def)
+  thus "R \<sqsubseteq>\<^sub>f \<Union> F" unfolding pf_le_def by (rule Union_upper)
 qed
+
 
 end
