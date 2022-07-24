@@ -385,7 +385,7 @@ subsection "命題 3.1.12"
 
 subsection "命題 3.1.13"
 text "D を半順序集合、X を D の部分集合、d \<in> D とすると、次の2つの条件は同値である。"
-text "(1) d = \<squnion>X （X の上限が素材して d に等しい）"
+text "(1) d = \<squnion>X （X の上限が存在して d に等しい）"
 text "(2) \<forall>a \<in> D (d \<sqsubseteq> a \<Leftrightarrow> X \<sqsubseteq> a)"
 
 lemma
