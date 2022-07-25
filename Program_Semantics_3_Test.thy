@@ -286,7 +286,7 @@ next
   assume "\<And>x. x \<in> A \<Longrightarrow> x \<sqsubseteq> z"
   thus "\<^bold>\<squnion> A \<sqsubseteq> z" by (simp add: least_Sup upper_bound_on_def)
 next
-  show "\<^bold>\<sqinter> {} = top" by (meson UNIV_I empty_iff Inf_greatest greatest_top lower_bound_on_def order.antisym top_on_def subsetI)
+  show "\<^bold>\<sqinter> {} = top" by (metis UNIV_I equals0D Inf_greatest greatest_top po_antisym lower_bound_on_def subset_UNIV top_on_def)
 next
   show "\<^bold>\<squnion> {} = bot" unfolding bot_def by (rule refl)
 qed
