@@ -5,8 +5,6 @@ begin
 \<comment> \<open>理解を確認するため組み込みの定義は使いません。\<close>
 hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on
 
-text "プログラム意味論（著：横内寛文、出版：共立出版株式会社）の演習問題の形式証明です。"
-
 section "第3章 領域理論の基礎"
 subsection "定義3.1.1"
 
@@ -167,15 +165,18 @@ lemma supremum_onE:
     and supremum_on_leastE: "\<And>b. \<lbrakk> b \<in> D; upper_bound_on D f X b \<rbrakk> \<Longrightarrow> f a b"
 using assms unfolding supremum_on_def by auto
 
+lemma supremum_on_memE:
+  assumes "supremum_on D f X a"
+  shows "a \<in> D" by (meson assms supremum_on_upper_bound_onE upper_bound_on_memE)
+
 lemma supremum_on_leE:
-  assumes "partial_order_on D f"
-    and "supremum_on D f X a"
+  assumes "supremum_on D f X a"
     and "x \<in> X"
   shows "f x a"
 proof (rule upper_bound_on_leE[where ?D=D and ?f=f and ?X=X])
-  show "upper_bound_on D f X a" using assms(2) by (rule supremum_on_upper_bound_onE)
+  show "upper_bound_on D f X a" using assms(1) by (rule supremum_on_upper_bound_onE)
 next
-  show "x \<in> X" using assms(3) .
+  show "x \<in> X" using assms(2) .
 qed
 
 lemma supremum_on_uniq:
@@ -388,7 +389,7 @@ text "D を半順序集合、X を D の部分集合、d \<in> D とすると、
 text "(1) d = \<squnion>X （X の上限が存在して d に等しい）"
 text "(2) \<forall>a \<in> D (d \<sqsubseteq> a \<Leftrightarrow> X \<sqsubseteq> a)"
 
-lemma
+lemma sup_on_iff:
   fixes "le" :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
   assumes po: "partial_order_on D le"
     and subset: "X \<subseteq> D"
@@ -419,236 +420,71 @@ next
   thus "supremum_on D le X d" by (metis d_mem_D po po_reflE supremum_on_def)
 qed
 
-
-subsection "練習問題 3.1"
-subsubsection "1"
-text "半順序集合 D の部分集合 X について、X の上限が存在すれば一意に決まることを示せ。"
-theorem (in partial_order) exer3_1_1:
-  fixes X :: "'a set"
-    and a :: 'a
-    and b :: 'a
-  assumes supremum_a: "supremum X a"
-    and supremum_b: "supremum X b"
-  shows "a = b"
-using assms by (rule supremum_uniq[symmetric])
-
-
-subsubsection "2"
-text "完備束 D において、任意の部分集合 X \<subseteq> D について X の下限が存在することを示せ。"
-
-context complete_lattice
-begin
-lemma ex_infimum:
-  fixes A :: "'a set"
-  obtains a where "infimum a A"
+lemma (in partial_order) sup_iff:
+  shows "((\<exists>d. supremum X d) \<and> d = \<^bold>\<squnion>X) \<longleftrightarrow> (\<forall>a. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a)"
 proof -
-  assume 1: "\<And>a. infimum a A \<Longrightarrow> thesis"
-  show "thesis" proof (rule 1)
-    show "infimum (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s A}) A" unfolding infimum_on_def proof (intro conjI allI impI)
-      show "lower_bound (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s A}) A" unfolding lower_bound_on_def proof (intro conjI)
-        show "\<^bold>\<squnion> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<in> UNIV" by (rule UNIV_I)
-      next
-        show "A \<subseteq> UNIV" by (rule subset_UNIV)
-      next
-        show "\<forall>x\<in>A. \<^bold>\<squnion> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<sqsubseteq> x" proof (rule ballI)
-          fix b
-          assume b_mem: "b \<in> A"
-          show "\<^bold>\<squnion> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<sqsubseteq> b" proof (rule least_Sup)
-            show " {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<^sub>s\<sqsubseteq> b" unfolding upper_bound_on_def proof (intro conjI)
-              show "b \<in> UNIV" by (rule UNIV_I)
-            next
-              show "{a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<subseteq> UNIV" by (rule subset_UNIV)
-            next
-              show "\<forall>x\<in>{a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)}. x \<sqsubseteq> b" proof (rule ballI)
-                fix x
-                assume "x \<in> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)}"
-                hence 1: "\<And>y. y \<in> A \<Longrightarrow> x \<sqsubseteq> y" by simp
-                show "x \<sqsubseteq> b" using 1 b_mem .
-              qed
-            qed
-          qed
-        qed
+  have 1: "(supremum X d) \<longleftrightarrow> (\<forall>a \<in> UNIV. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a)" using po subset_UNIV UNIV_I by (rule sup_on_iff)
+  show ?thesis proof
+    assume "(\<exists>d. supremum X d) \<and> d = \<^bold>\<squnion> X"
+    hence "supremum X d" using Sup_eq by blast
+    hence "\<forall>a \<in> UNIV. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a" using 1 by blast
+    thus " \<forall>a. (d \<sqsubseteq> a) = X \<^sub>s\<sqsubseteq> a" by blast
+  next
+    assume "\<forall>a. (d \<sqsubseteq> a) = X \<^sub>s\<sqsubseteq> a"
+    hence "supremum X d" using 1 by blast
+    thus "(\<exists>d. supremum X d) \<and> d = \<^bold>\<squnion> X" using Sup_eq by blast
+  qed
+qed
+
+subsection "命題 3.1.14"
+text "I を任意の集合、X_i (i \<in> I) を半順序集合 D の部分集合として、各 i \<in> I について a_i = \<squnion>X_i が存在したとする。"
+text "また、 X = \<Union>{X_i | i \<in> I} とおく。この時 a = \<squnion>{a_i | i \<in> I} が存在すれば、a = \<squnion>X が成り立つ。"
+text "逆に、b = \<squnion>X が存在すれば、b = \<squnion>{a_i | i \<in> I} が成り立つ。"
+
+lemma prop_3_1_14':
+  fixes I :: "'b set"
+    and x :: "'b \<Rightarrow> 'a set"
+    and a :: "'b \<Rightarrow> 'a"
+    and le :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  assumes po: "partial_order_on D le"
+    and subsetI: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> D"
+    and sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum_on D le (x i) (a i)"
+    and X_def: "X = \<Union>{x i|i. i \<in> I}"
+  shows sup_CollectE: "\<And>\<a>. supremum_on D le {a i|i. i \<in> I} \<a> \<Longrightarrow> supremum_on D le X \<a>"
+    and sup_CollectI: "\<And>\<b>. supremum_on D le X \<b> \<Longrightarrow> supremum_on D le {a i|i. i \<in> I} \<b>"
+proof -
+  fix \<a>
+  assume sup_a: "supremum_on D le {a i |i. i \<in> I} \<a>"
+  have "\<And>c. c \<in> D \<Longrightarrow> le \<a> c \<longleftrightarrow> upper_bound_on D le X c" proof -
+    fix c
+    assume c_mem: "c \<in> D"
+    have "le \<a> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof
+      assume a_le_c: "le \<a> c"
+      show "\<forall>i\<in>I. le (a i) c" proof auto
+        fix i
+        assume i_mem: "i \<in> I"
+        have a_i_le_a: "le (a i) \<a>" using supremum_on_leE[OF sup_a] i_mem by blast
+        show "le (a i) c" using supremum_on_memE[OF sup_a_iI[OF i_mem]] supremum_on_memE[OF sup_a] po_transE[OF po] c_mem a_i_le_a a_le_c by blast
       qed
     next
-      fix b
-      assume 1: "b \<sqsubseteq>\<^sub>s A"
-      show "b \<sqsubseteq> \<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s A}" proof (rule le_Sup)
-        show "b \<in> {a. a \<sqsubseteq>\<^sub>s A}" proof (rule CollectI)
-          show "b \<sqsubseteq>\<^sub>s A" using 1 .
-        qed
-      qed
+      assume "\<forall>i \<in> I. le (a i) c"
+      thus "le \<a> c" by (smt (verit, del_insts) c_mem mem_Collect_eq sup_a supremum_on_leastE supremum_on_upper_bound_onE upper_bound_on_def)
     qed
-  qed
-qed
-end
-
-subsubsection "3"
-text "有限の有向集合はその最大元を含むことを示せ。"
-definition (in partial_order) maximal :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
-  where "maximal X x \<equiv> x \<in> X \<and> (\<forall>y \<in> X. x \<sqsubseteq> y \<longrightarrow> x = y)"
-
-context partial_order
-begin
-lemma maximalE:
-  assumes "maximal X x"
-  shows maximal_memE: "x \<in> X" and maximal_maximalE: "\<And>y. \<lbrakk> y \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> x = y"
-using assms unfolding maximal_def by blast+
-
-lemma ex_maximal:
-  assumes "finite A"
-    and "A \<noteq> {}"
-  obtains m where "maximal A m"
-proof -
-  have "\<exists>m. maximal A m" using assms proof (induction rule: finite_psubset_induct)
-    case (psubset A)
-    assume "finite A"
-    assume "\<And>B. \<lbrakk>B \<subset> A; B \<noteq> {}\<rbrakk> \<Longrightarrow> \<exists>m. maximal B m"
-    assume "A \<noteq> {}"
-    obtain a where a_mem: "a \<in> A" using psubset.prems(1) by blast
-    let ?B = "{b \<in> A. a \<noteq> b \<and> a \<sqsubseteq> b}"
-    show ?case proof cases
-      assume True: "?B = {}"
-      hence "\<And>b. \<lbrakk> b \<in> A; a \<sqsubseteq> b \<rbrakk> \<Longrightarrow> a = b" by blast
-      then show ?thesis using a_mem unfolding maximal_def by blast
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_bound_on D le (x i) c)" by (metis c_mem po subsetI sup_a_iI sup_on_iff supremum_on_memE)
+    also have "... \<longleftrightarrow> upper_bound_on D le X c" proof
+      assume "\<forall>i\<in>I. upper_bound_on D le (x i) c"
+      thus "upper_bound_on D le X c" sorry
     next
-      assume False: "?B \<noteq> {}"
-      have "a \<notin> ?B" by blast
-      hence 1: "?B \<subset> A" using a_mem by blast
-      obtain m
-        where m_mem: "m \<in> A"
-          and "a \<noteq> m"
-          and a_le_m: "a \<sqsubseteq> m"
-          and 2: "\<And>b. \<lbrakk> b \<in> A; a \<noteq> b; a \<sqsubseteq> b; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b"
-        using psubset.IH[OF 1 False] unfolding maximal_def by blast
-      have 3: "\<And>b. \<lbrakk> b \<in> A; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b" using 2 a_le_m po_antisym po_trans by blast
-      show ?thesis by (rule exI[where ?x=m]; auto simp add: maximal_def intro: m_mem 3)
+      assume "upper_bound_on D le X c"
+      thus "\<forall>i\<in>I. upper_bound_on D le (x i) c" sorry
     qed
+    ultimately show "le \<a> c \<longleftrightarrow> upper_bound_on D le X c" by (rule trans)
   qed
-  thus "(\<And>m. maximal A m \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
-qed
-
-lemma ex_maximal2:
-  assumes finite: "finite A"
-    and a_mem: "a \<in> A"
-  obtains m where "a \<sqsubseteq> m" and "maximal A m"
-proof -
-  let ?B = "{b \<in> A. a \<sqsubseteq> b}"
-  have 1: "finite ?B" using finite by force
-  have 2: "?B \<noteq> {}" using a_mem po_refl by fastforce
-  obtain x where maximal_x: "maximal {b \<in> A. a \<sqsubseteq> b} x" using ex_maximal[of "{b \<in> A. a \<sqsubseteq> b}"] 1 2 by blast
-  show thesis proof rule
-    show "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
-  next
-    show "maximal A x" unfolding maximal_def proof (intro conjI ballI impI)
-      show "x \<in> A" using maximal_x unfolding maximal_def by blast
-    next
-      show "\<And>b. \<lbrakk>b \<in> A; x \<sqsubseteq> b\<rbrakk> \<Longrightarrow> x = b" proof (rule maximal_maximalE)
-        show "maximal {b \<in> A. a \<sqsubseteq> b} x" using maximal_x .
-      next
-        fix b
-        assume 1: "b \<in> A" "x \<sqsubseteq> b"
-        have 2: "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
-        show "b \<in> {b \<in> A. a \<sqsubseteq> b}" using 1 2 po_trans by blast
-      next
-        fix b
-        assume "x \<sqsubseteq> b"
-        thus "x \<sqsubseteq> b" .
-      qed
-    qed
-  qed
-qed
-
-lemma unique_maximalE:
-  assumes finite: "finite X"
-    and maximal_x: "maximal X x"
-    and maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = x"
-  shows "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x"
-using assms proof (induct arbitrary: x rule: finite_psubset_induct)
-  case (psubset A)
-  show ?case by (metis ex_maximal2 psubset.hyps(1) psubset.prems(1) psubset.prems(3))
-qed
-
-lemma ex_maximum:
-  assumes finite: "finite X"
-    and directed: "directed X"
-    and nempty: "X \<noteq> {}"
-  obtains x where "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x" and "x \<in> X"
-proof -
-  obtain m where maximal_m: "maximal X m" using nempty ex_maximal finite by blast
-  have maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = m" by (metis directed directed_on_def maximal_def maximal_m)
-  have max_m: "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> m" proof (rule unique_maximalE)
-    show "finite X" using finite .
-  next
-    show "maximal X m" by (rule maximal_m)
-  next
-    show "\<And>z. maximal X z \<Longrightarrow> z = m" using maximal_uniq .
-  next
-    fix y :: 'a
-    assume "y \<in> X" thus "y \<in> X" .
-  qed
-  assume assms: "\<And>x. \<lbrakk>\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x; x \<in> X\<rbrakk> \<Longrightarrow> thesis"
-  show ?thesis using assms max_m using maximal_m maximal_memE by presburger
-qed
-end
-
-
-subsubsection "4"
-text "最小限を持つ有限の半順序集合は cpo であることを示せ。"
-
-class finite_partial_order = finite + partial_order_bot
-begin
-
-sublocale cpo "(\<sqsubseteq>)" "\<bottom>"
-proof standard
-  show "cpo_on UNIV (\<sqsubseteq>)" using po least_bot unfolding cpo_on_def proof auto
-    fix X
-    assume directed: "directed X"
-    hence nempty: "X \<noteq> {}" unfolding directed_on_def by blast
-    show "\<exists>x. supremum X x" using finite[of X] nempty directed proof (induct rule: finite_ne_induct)
-      case (singleton x)
-      show ?case proof
-        show "supremum {x} x" unfolding supremum_on_def upper_bound_on_def using po_refl by blast
-      qed
-    next
-      case (insert x F)
-      obtain max where max: "\<And>z. z \<in> insert x F \<Longrightarrow> z \<sqsubseteq> max" and max_mem: "max \<in> insert x F" using ex_maximum insert.prems(1) finite[of "insert x F"] by blast
-      obtain y where max_le_y: "max \<sqsubseteq> y" and x_le_y: "x \<sqsubseteq> y" and y_mem: "y \<in> insert x F" using insert.prems(1) max_mem unfolding directed_on_def by blast
-      show ?case proof
-        show "supremum (insert x F) y" unfolding supremum_on_def upper_bound_on_def proof auto
-          show "x \<sqsubseteq> y" using x_le_y .
-        next
-          fix x
-          assume "x \<in> F" thus "x \<sqsubseteq> y" using max max_le_y po_trans by blast
-        next
-          fix a
-          assume 1: "x \<sqsubseteq> a" "\<forall>x \<in> F. x \<sqsubseteq> a"
-          have y_eq_max: "y = max" using po_antisym max max_le_y y_mem by presburger
-          show "y \<sqsubseteq> a" unfolding y_eq_max using 1 max_mem by blast
-        qed
-      qed
-    qed
-  qed
-qed
-end
-
-
-subsubsection "5"
-text "部分関数の集合 [X \<rightharpoonup> T] の有向部分集合 F の上限は \<Union>F であることを確かめよ。"
-definition partial_fun :: "('a \<times> 'b) set \<Rightarrow> bool"
-  where "partial_fun R \<equiv> single_valued R"
-
-definition pf_le :: "('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>f" 53)
-  where "R1 \<sqsubseteq>\<^sub>f R2 \<equiv> R1 \<subseteq> R2"
-
-lemma
-  fixes F :: "('a \<times> 'b) set set"
-  (* assumes "directed_on {R. partial_fun R} F (\<sqsubseteq>\<^sub>f)" *) \<comment>\<open>なくても成立\<dots>\<close>
-  shows "top_on F (\<sqsubseteq>\<^sub>f) (\<Union>F)"
-unfolding top_on_def proof auto
-  fix R :: "('a \<times> 'b) set"
-  assume "R \<in> F"
-  thus "R \<sqsubseteq>\<^sub>f \<Union> F" unfolding pf_le_def by (rule Union_upper)
-qed
-
-
+  thus "supremum_on D le X \<a>"
+    by (metis (no_types, lifting) sup_a po sup_on_iff supremum_on_upper_bound_onE upper_bound_on_memE upper_bound_on_subE)
+next
+  fix \<b>
+  assume "supremum_on D le X \<b>"
+  show "supremum_on D le {a i |i. i \<in> I} \<b>"
+  oops
 end
