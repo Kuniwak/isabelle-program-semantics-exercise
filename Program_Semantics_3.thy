@@ -293,9 +293,28 @@ qed
 
 subsection "定義 3.1.4"
 text "半順序集合 D において、すべての部分集合 X \<subseteq> D について上限 \<squnion>X \<in> D が存在するとき、D を完備束（complete_lattice）と呼ぶ。"
+definition complete_lattice_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
+  where "complete_lattice_on D le \<equiv> \<forall>X \<subseteq> D. \<exists>x. supremum_on D le X x"
+
+lemma complete_lattice_onE:
+  assumes "complete_lattice_on D le"
+    and "X \<subseteq> D"
+  obtains x where "supremum_on D le X x"
+using assms unfolding complete_lattice_on_def by blast
+
 class complete_lattice = partial_order +
-  assumes ex_supremum: "\<And>X. \<exists>x. supremum_on UNIV (\<sqsubseteq>) X x"
+  assumes complete_lattice: "complete_lattice_on UNIV (\<sqsubseteq>)"
 begin
+
+lemma ex_supremum:
+  obtains x where "supremum X x"
+proof (rule complete_lattice_onE[OF complete_lattice])
+  show "X \<subseteq> UNIV" by (rule subset_UNIV)
+next
+  fix x
+  assume "\<And>x. supremum X x \<Longrightarrow> thesis" "supremum X x"
+  thus thesis by blast
+qed
 
 lemma le_Sup:
   assumes "x \<in> X"
@@ -442,10 +461,6 @@ text "また、 X = \<Union>{X_i | i \<in> I} とおく。この時 a = \<squnio
 text "逆に、b = \<squnion>X が存在すれば、b = \<squnion>{a_i | i \<in> I} が成り立つ。"
 
 lemma prop_3_1_14':
-  fixes I :: "'b set"
-    and x :: "'b \<Rightarrow> 'a set"
-    and a :: "'b \<Rightarrow> 'a"
-    and le :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
   assumes po: "partial_order_on D le"
     and subsetI: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> D"
     and sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum_on D le (x i) (a i)"
@@ -458,6 +473,7 @@ proof -
   have "\<And>c. c \<in> D \<Longrightarrow> le \<a> c \<longleftrightarrow> upper_bound_on D le X c" proof -
     fix c
     assume c_mem: "c \<in> D"
+    have mem_X_iff: "\<And>y. (y \<in> X) \<longleftrightarrow> (\<exists>i \<in> I. y \<in> x i)" using X_def by blast
     have "le \<a> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof
       assume a_le_c: "le \<a> c"
       show "\<forall>i\<in>I. le (a i) c" proof auto
@@ -473,10 +489,10 @@ proof -
     also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_bound_on D le (x i) c)" by (metis c_mem po subsetI sup_a_iI sup_on_iff supremum_on_memE)
     also have "... \<longleftrightarrow> upper_bound_on D le X c" proof
       assume "\<forall>i\<in>I. upper_bound_on D le (x i) c"
-      thus "upper_bound_on D le X c" sorry
+      thus "upper_bound_on D le X c" by (metis mem_X_iff c_mem subset_eq upper_bound_on_def)
     next
       assume "upper_bound_on D le X c"
-      thus "\<forall>i\<in>I. upper_bound_on D le (x i) c" sorry
+      thus "\<forall>i\<in>I. upper_bound_on D le (x i) c" by (metis mem_X_iff subsetI upper_bound_on_def)
     qed
     ultimately show "le \<a> c \<longleftrightarrow> upper_bound_on D le X c" by (rule trans)
   qed
@@ -484,7 +500,28 @@ proof -
     by (metis (no_types, lifting) sup_a po sup_on_iff supremum_on_upper_bound_onE upper_bound_on_memE upper_bound_on_subE)
 next
   fix \<b>
-  assume "supremum_on D le X \<b>"
-  show "supremum_on D le {a i |i. i \<in> I} \<b>"
-  oops
+  assume sup_b: "supremum_on D le X \<b>"
+  have mem_X_iff: "\<And>y. (y \<in> X) \<longleftrightarrow> (\<exists>i \<in> I. y \<in> x i)" using X_def by blast
+  have 1: "\<And>c. c \<in> D \<Longrightarrow> le \<b> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof -
+    fix c
+    assume c_mem: "c \<in> D"
+    have "le \<b> c \<longleftrightarrow> upper_bound_on D le X c" by (metis sup_b c_mem po sup_on_iff supremum_on_upper_bound_onE upper_bound_on_def)
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_bound_on D le (x i) c)" by (metis c_mem subsetI mem_X_iff sup_b supremum_on_upper_bound_onE upper_bound_on_def)
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" by (metis c_mem po subsetI sup_a_iI sup_on_iff supremum_on_memE)
+    ultimately show "le \<b> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" by (rule trans)
+  qed
+  have 2: "supremum_on D le {a i |i. i \<in> I} \<b> = (\<forall>aa\<in>D. le \<b> aa = upper_bound_on D le {a i |i. i \<in> I} aa)"
+    by (metis (no_types, lifting) po sup_b sup_on_iff supremum_on_memE supremum_on_upper_bound_onE upper_bound_on_subE)
+  show "supremum_on D le {a i |i. i \<in> I} \<b>" unfolding 2 proof auto
+    fix c
+    assume "c \<in> D"
+      and "le \<b> c"
+    thus "upper_bound_on D le {a i |i. i \<in> I} c"  by (smt (verit, best) 1 mem_Collect_eq subset_iff sup_a_iI supremum_on_memE upper_bound_on_def)
+  next
+    fix c
+    assume "c \<in> D"
+      and "upper_bound_on D le {a i |i. i \<in> I} c"
+    thus "le \<b> c" using 1 upper_bound_on_leE by fastforce
+  qed
+qed
 end
