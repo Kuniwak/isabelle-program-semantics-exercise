@@ -23,30 +23,30 @@ text "完備束 D において、任意の部分集合 X \<subseteq> D につい
 context complete_lattice
 begin
 lemma ex_infimum:
-  fixes A :: "'a set"
-  obtains a where "infimum a A"
+  fixes X :: "'a set"
+  obtains a where "infimum a X"
 proof -
-  assume 1: "\<And>a. infimum a A \<Longrightarrow> thesis"
+  assume 1: "\<And>a. infimum a X \<Longrightarrow> thesis"
   show "thesis" proof (rule 1)
-    show "infimum (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s A}) A" unfolding infimum_on_def proof (intro conjI allI impI)
-      show "lower_bound (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s A}) A" unfolding lower_bound_on_def proof (intro conjI)
-        show "\<^bold>\<squnion> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<in> UNIV" by (rule UNIV_I)
+    show "infimum (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding infimum_on_def proof (intro conjI allI impI)
+      show "lower_bound (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding lower_bound_on_def proof (intro conjI)
+        show "\<^bold>\<squnion> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<in> UNIV" by (rule UNIV_I)
       next
-        show "A \<subseteq> UNIV" by (rule subset_UNIV)
+        show "X \<subseteq> UNIV" by (rule subset_UNIV)
       next
-        show "\<forall>x\<in>A. \<^bold>\<squnion> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<sqsubseteq> x" proof (rule ballI)
+        show "\<forall>x\<in>X. \<^bold>\<squnion> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<sqsubseteq> x" proof (rule ballI)
           fix b
-          assume b_mem: "b \<in> A"
-          show "\<^bold>\<squnion> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<sqsubseteq> b" proof (rule least_Sup)
-            show " {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<^sub>s\<sqsubseteq> b" unfolding upper_bound_on_def proof (intro conjI)
+          assume b_mem: "b \<in> X"
+          show "\<^bold>\<squnion> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<sqsubseteq> b" proof (rule least_Sup)
+            show " {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<^sub>s\<sqsubseteq> b" unfolding upper_bound_on_def proof (intro conjI)
               show "b \<in> UNIV" by (rule UNIV_I)
             next
-              show "{a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)} \<subseteq> UNIV" by (rule subset_UNIV)
+              show "{a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<subseteq> UNIV" by (rule subset_UNIV)
             next
-              show "\<forall>x\<in>{a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)}. x \<sqsubseteq> b" proof (rule ballI)
+              show "\<forall>x\<in>{a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)}. x \<sqsubseteq> b" proof (rule ballI)
                 fix x
-                assume "x \<in> {a \<in> UNIV. A \<subseteq> UNIV \<and> (\<forall>b \<in> A. a \<sqsubseteq> b)}"
-                hence 1: "\<And>y. y \<in> A \<Longrightarrow> x \<sqsubseteq> y" by simp
+                assume "x \<in> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)}"
+                hence 1: "\<And>y. y \<in> X \<Longrightarrow> x \<sqsubseteq> y" by simp
                 show "x \<sqsubseteq> b" using 1 b_mem .
               qed
             qed
@@ -55,10 +55,10 @@ proof -
       qed
     next
       fix b
-      assume 1: "b \<sqsubseteq>\<^sub>s A"
-      show "b \<sqsubseteq> \<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s A}" proof (rule le_Sup)
-        show "b \<in> {a. a \<sqsubseteq>\<^sub>s A}" proof (rule CollectI)
-          show "b \<sqsubseteq>\<^sub>s A" using 1 .
+      assume 1: "b \<sqsubseteq>\<^sub>s X"
+      show "b \<sqsubseteq> \<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}" proof (rule le_Sup)
+        show "b \<in> {a. a \<sqsubseteq>\<^sub>s X}" proof (rule CollectI)
+          show "b \<sqsubseteq>\<^sub>s X" using 1 .
         qed
       qed
     qed
