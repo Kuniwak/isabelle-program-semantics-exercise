@@ -217,7 +217,7 @@ qed
 
 lemma (in partial_order) Sup_eq:
   assumes "supremum X a"
-  shows "\<^bold>\<squnion> X = a"
+  shows "\<^bold>\<squnion>X = a"
 unfolding the_supremum_on_def using assms proof (rule the_equality)
   show "\<And>d. supremum X d \<Longrightarrow> d = a" by (rule supremum_uniq[OF assms])
 qed
@@ -465,8 +465,8 @@ lemma prop_3_1_14':
     and subsetI: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> D"
     and sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum_on D le (x i) (a i)"
     and X_def: "X = \<Union>{x i|i. i \<in> I}"
-  shows sup_CollectE: "\<And>\<a>. supremum_on D le {a i|i. i \<in> I} \<a> \<Longrightarrow> supremum_on D le X \<a>"
-    and sup_CollectI: "\<And>\<b>. supremum_on D le X \<b> \<Longrightarrow> supremum_on D le {a i|i. i \<in> I} \<b>"
+  shows sup_on_CollectE: "\<And>\<a>. supremum_on D le {a i|i. i \<in> I} \<a> \<Longrightarrow> supremum_on D le X \<a>"
+    and sup_on_CollectI: "\<And>\<b>. supremum_on D le X \<b> \<Longrightarrow> supremum_on D le {a i|i. i \<in> I} \<b>"
 proof -
   fix \<a>
   assume sup_a: "supremum_on D le {a i |i. i \<in> I} \<a>"
@@ -524,4 +524,42 @@ next
     thus "le \<b> c" using 1 upper_bound_on_leE by fastforce
   qed
 qed
+
+text "I を任意の集合、X_i (i \<in> I) を半順序集合 D の部分集合として、各 i \<in> I について a_i = \<squnion>X_i が存在したとする。"
+text "また、 X = \<Union>{X_i | i \<in> I} とおく。この時 a = \<squnion>{a_i | i \<in> I} が存在すれば、a = \<squnion>X が成り立つ。"
+text "逆に、b = \<squnion>X が存在すれば、b = \<squnion>{a_i | i \<in> I} が成り立つ。"
+
+lemma (in partial_order) prop_3_1_14:
+  assumes sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)"
+  shows sup_eq1: "supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> \<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})"
+    and sup_eq2: "supremum (\<Union>{x i|i. i \<in> I}) b \<Longrightarrow> b = \<^bold>\<squnion>{a i|i. i \<in> I}"
+proof -
+  assume sup_a: "supremum {a i |i. i \<in> I} \<a>"
+  have subset: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> UNIV" by blast
+  have "supremum (\<Union>{x i|i. i \<in> I}) \<a>" proof (rule sup_on_CollectE[OF po])
+    fix i
+    show "x i \<subseteq> UNIV" by (rule subset_UNIV)
+  next
+    show "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)" by (rule sup_a_iI)
+  next
+    show "\<Union>{x i|i. i \<in> I} = \<Union>{x i|i. i \<in> I}" by (rule refl)
+  next
+    show "supremum {a i |i. i \<in> I} \<a> " by (rule sup_a)
+  qed
+  thus "\<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})" using Sup_eq by blast
+next
+  assume sup_b: "supremum (\<Union>{x i|i. i \<in> I}) b"
+  have "supremum {a i |i. i \<in> I} b" proof (rule sup_on_CollectI[OF po])
+    fix i
+    show "x i \<subseteq> UNIV" by (rule subset_UNIV)
+  next
+    show "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)" by (rule sup_a_iI)
+  next
+    show "\<Union>{x i|i. i \<in> I} = \<Union>{x i|i. i \<in> I}" by (rule refl)
+  next
+    show "supremum (\<Union>{x i|i. i \<in> I}) b" by (rule sup_b)
+  qed
+  thus "b = \<^bold>\<squnion> {a i |i. i \<in> I}" using Sup_eq by blast
+qed
+
 end
