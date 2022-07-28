@@ -1,9 +1,9 @@
 theory Program_Semantics_3
-imports Main
+imports Main HOL.Real
 begin
 
 \<comment> \<open>理解を確認するため組み込みの定義は使いません。\<close>
-hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on
+hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on range
 
 section "第3章 領域理論の基礎"
 subsection "定義3.1.1"
@@ -92,7 +92,7 @@ end
 
 subsection "定義 3.1.2"
 text "半順序集合 D 上の最小元（least element あるいは bottom）とは、次の条件を満たす元 \<bottom> \<in> D のことである。"
-text "\<forall>a \<in> D (\<bottom> \<sqsubseteq> a)"
+text   "\<forall>a \<in> D (\<bottom> \<sqsubseteq> a)"
 
 definition bot_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> bool"
   where "bot_on D le bot \<equiv> \<forall>a \<in> D. le bot a"
@@ -119,7 +119,7 @@ lemma bot_least: "\<bottom> \<sqsubseteq> x"
 end
 
 text "最小元と対になる概念として、半順序集合 D の最大元（greatest element あるいは top）とは、次の条件を満たす元 \<top> \<in> D である。"
-text "\<forall>a \<in> D (a \<sqsubseteq> \<top>)"
+text   "\<forall>a \<in> D (a \<sqsubseteq> \<top>)"
 
 definition top_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> bool"
   where "top_on D f top \<equiv> \<forall>a \<in> D. f a top"
@@ -136,7 +136,7 @@ end
 
 subsection "定義 3.1.3"
 text "D を半順序集合、X を D の部分集合とする。元 d \<in> D について、"
-text "\<forall>x \<in> X (x \<sqsubseteq> d)"
+text   "\<forall>x \<in> X (x \<sqsubseteq> d)"
 text "のとき d は X の上界（upper bound）であるといい、X \<sqsubseteq> d と書く。"
 
 definition upper_bound_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> bool"
@@ -170,9 +170,9 @@ lemma (in partial_order) upper_boundE:
   shows "x \<sqsubseteq> d"
 using assms unfolding upper_bound_on_def by blast
 
-text "また、d が X の上界のうち最小の元であるとき、d を X の上限（supremum）あるいは
-最小上界（least upper bound）と呼ぶ。すなわち、X の上限は次の2つの条件を満たす元 d \<in> D のことである。"
-text "X \<sqsubseteq> d, \<forall>a \<in> D (X \<sqsubseteq> a ならば d \<sqsubseteq> a)"
+text "また、d が X の上界のうち最小の元であるとき、d を X の上限（supremum）あるいは"
+text "最小上界（least upper bound）と呼ぶ。すなわち、X の上限は次の2つの条件を満たす元 d \<in> D のことである。"
+text   "X \<sqsubseteq> d, \<forall>a \<in> D (X \<sqsubseteq> a ならば d \<sqsubseteq> a)"
 
 definition supremum_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> bool"
   where "supremum_on D le X d \<equiv> upper_bound_on D le X d \<and> (\<forall>a \<in> D. upper_bound_on D le X a \<longrightarrow> le d a)"
@@ -208,7 +208,7 @@ lemma (in partial_order) supremumE:
 using assms unfolding supremum_on_def by blast+
 
 text "同様に上界および上限と対になる概念として、下界および下限が定義できる。元 d \<in> D について、"
-text "\<forall>x \<in> X (d \<sqsubseteq> x)"
+text   "\<forall>x \<in> X (d \<sqsubseteq> x)"
 text "のとき、d は X の下界（lower bound）であるといい、d \<sqsubseteq> X と書く。"
 text "また、d が X の下界のうち最大の元のとき、d を Xの下限（infimum）あるいは最大下界（greatest lower bound）と呼ぶ。"
 
@@ -435,11 +435,19 @@ abbreviation (in partial_order) omega_chain :: "(nat \<Rightarrow> 'a) \<Rightar
 
 subsection "定義 3.1.6"
 text "半順序集合 D の空でない部分集合 X で、"
-text "\<forall>a \<in> X \<forall>b \<in> X \<exists>c \<in> X (a \<sqsubseteq> c かつ b \<sqsubseteq> c)"
+text   "\<forall>a \<in> X \<forall>b \<in> X \<exists>c \<in> X (a \<sqsubseteq> c かつ b \<sqsubseteq> c)"
 text "が成り立つとき、X は有向集合（directed set）であるという。"
 
 definition directed_on :: "'a set \<Rightarrow> 'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
   where "directed_on D X le \<equiv> partial_order_on D le \<and> X \<subseteq> D \<and> X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. le a c \<and> le b c)"
+
+lemma directed_onI:
+  assumes "partial_order_on D le"
+    and "X \<subseteq> D"
+    and "X \<noteq> {}"
+    and "\<And>a b. \<lbrakk> a \<in> X; b \<in> X \<rbrakk> \<Longrightarrow> \<exists>c \<in> X. le a c \<and> le b c"
+  shows "directed_on D X le"
+unfolding directed_on_def using assms by blast
 
 lemma directed_onE:
   assumes "directed_on D X le"
@@ -486,12 +494,12 @@ subsection "例 3.1.8"
 
 subsection "例 3.1.9"
 text "集合 S から T への部分関数の全体を [S \<rightharpoonup> T] と表す。前に説明したように部分関数間の半順序を"
-text "f \<sqsubseteq> g \<Leftrightarrow> \<forall>x \<in> S (f(x) が定義されていれば g(x) も定義され f(x) = g(x))"
+text   "f \<sqsubseteq> g \<Leftrightarrow> \<forall>x \<in> S (f(x) が定義されていれば g(x) も定義され f(x) = g(x))"
 text "のように定義すると、[S \<rightharpoonup> T] は cpo となる。"
 \<comment>\<open>後述の cpo_on_graph にて証明\<close>
 
 text "部分関数の半順序はもっと違った観点からも定義できる。f を S から T への部分関数として、直積"
-text "S \<times> T = {(a, b)|a \<in> S かつ b \<in> T}"
+text   "S \<times> T = {(a, b)|a \<in> S かつ b \<in> T}"
 text "の部分集合 {(x, f(x))|x \<in> S かつ f(x) が定義されている } を f のグラフと呼ぶ。"
 definition graph :: "('a \<times> 'b) set \<Rightarrow> bool"
   where "graph R \<equiv> single_valued R"
@@ -547,7 +555,7 @@ qed
 subsection "例 3.1.10"
 text "上の例で扱った部分関数は、未定義を表す特別な要素を導入して全関数とみなすこともできる。"
 text "一般に、集合 S に新しく要素 \<bottom> を付け加えた集合 S_\<bottom> は、"
-text "a \<sqsubseteq> b \<Leftrightarrow> a = \<bottom> あるいは a = b"
+text   "a \<sqsubseteq> b \<Leftrightarrow> a = \<bottom> あるいは a = b"
 definition less_eq_option :: "('a option) \<Rightarrow> ('a option) \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>o" 53)
   where "a \<sqsubseteq>\<^sub>o b \<equiv> a = None \<or> a = b"  
 
@@ -624,8 +632,8 @@ qed
 
 text "\<bottom> と未定義要素と考えると、S から T への部分関数は S から T_\<bottom> への全関数として表せる。"
 text "すなわち、f \<in> [S \<rightharpoonup> T] は次の全関数 f^: S \<rightarrow> T_\<bottom> で表せる。"
-text "f^(x) = { f(x) (f(x) が定義)"
-text "        { \<bottom>    (f(x) が未定義)"
+text   "f^(x) = { f(x) (f(x) が定義)"
+text   "        { \<bottom>    (f(x) が未定義)"
 definition less_eq_partial_fun :: "('a \<Rightarrow> 'b option) \<Rightarrow> ('a \<Rightarrow> 'b option) \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>f" 53)
   where "f \<sqsubseteq>\<^sub>f g \<equiv> \<forall>x y. f x = Some y \<longrightarrow> g x = Some y"
 
@@ -721,8 +729,146 @@ next
 qed
 
 subsection "例 3.1.11"
+text "実数 a, b \<in> \<real> について、"
+text   "[a, b] = {x \<in> \<real> | a \<le> x \<le> b}"
+text "のように閉区間を定義する。"
+definition range :: "real \<Rightarrow> real \<Rightarrow> real set"
+  where "range a b \<equiv> {c | c. a \<le> c \<and> c \<le> b}"
+
+text "閉区間の全部と \<real> 自身を合わせた集合"
+text   "I_\<real> = {[a, b] | a \<le> b} \<union> {\<real>}"
+definition I\<^sub>R :: "real set set"
+  where "I\<^sub>R \<equiv> {range a b | a b. a \<le> b} \<union> {UNIV}"
+
+text "は、"
+text   "X \<sqsubseteq> Y \<Leftrightarrow> Y \<subseteq> X (X, Y \<in> I_\<real>)"
+definition less_eq_range :: "real set \<Rightarrow> real set \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>r" 53)
+  where "X \<sqsubseteq>\<^sub>r Y \<equiv> Y \<subseteq> X"
+
+text "と定義した半順序に関して cpo をなす。"
+lemma directed_on_minusI:
+  assumes directed_on: "directed_on D X le"
+    and bot_on: "bot_on D le b"
+    and neq: "X \<noteq> {b}"
+  shows "directed_on D (X - {b}) le"
+proof (rule directed_onI)
+  show "partial_order_on D le" using directed_on by (rule directed_on_poE)
+next
+  show "X - {b} \<subseteq> D" using directed_on_subsetE[OF directed_on] by blast
+next
+  show "X - {b} \<noteq> {}" using neq directed_on_nemptyE[OF directed_on] by blast
+next
+  fix x y
+  assume "x \<in> X - {b}"
+    and "y \<in> X - {b}"
+  hence x_mem: "x \<in> X" and x_neq: "x \<noteq> b" and y_mem: "y \<in> X" and y_neq: "y \<noteq> b" by blast+
+  obtain z where x_le_z: "le x z" and y_le_z: "le y z" and z_mem: "z \<in> X" using directed_on_exE[OF directed_on x_mem y_mem] by blast
+  show "\<exists>c\<in>X - {b}. le x c \<and> le y c" proof
+    show "le x z \<and> le y z" using x_le_z y_le_z by (rule conjI)
+  next
+    have "z \<noteq> b" using x_neq y_neq bot_on unfolding bot_on_def
+      by (metis directed_on_subsetE[OF directed_on] in_mono po_antisymE[OF directed_on_poE[OF directed_on]] y_le_z y_mem z_mem)
+    thus "z \<in> X - {b}" using z_mem by blast
+  qed
+qed
+
+lemma bot_on_range: "bot_on I\<^sub>R (\<sqsubseteq>\<^sub>r) UNIV"
+proof (rule bot_onI)
+  fix d
+  show "UNIV \<sqsubseteq>\<^sub>r d" unfolding less_eq_range_def by (rule subset_UNIV)
+qed
+
+lemma cpo_on_range: "cpo_on I\<^sub>R (\<sqsubseteq>\<^sub>r)"
+proof (rule cpo_onI)
+  show "partial_order_on I\<^sub>R (\<sqsubseteq>\<^sub>r)" proof (rule partial_order_onI)
+    fix a
+    show "a \<sqsubseteq>\<^sub>r a" unfolding less_eq_range_def by (rule order.refl)
+  next
+    fix a b
+    assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
+      and b_le_a: "b \<sqsubseteq>\<^sub>r a"
+    show "a = b" using b_le_a a_le_b unfolding less_eq_range_def by (rule equalityI)
+  next
+    fix a b c
+    assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
+      and b_le_c: "b \<sqsubseteq>\<^sub>r c"
+    show "a \<sqsubseteq>\<^sub>r c" using b_le_c a_le_b unfolding less_eq_range_def by (rule order.trans)
+  qed
+next
+  show "bot_on I\<^sub>R (\<sqsubseteq>\<^sub>r) UNIV" by (rule bot_on_range)
+next
+  show "UNIV \<in> I\<^sub>R" unfolding I\<^sub>R_def by simp
+next
+  fix X
+  assume directed_on: "directed_on I\<^sub>R X (\<sqsubseteq>\<^sub>r)"
+  have In_X_mem: "\<Inter> X \<in> I\<^sub>R" proof -
+    have 1: "\<Inter> X = UNIV \<or> (\<exists>a b. \<Inter> X = range a b \<and> a \<le> b)" proof (cases "X = {UNIV}")
+      case X_eq: True
+      show ?thesis unfolding X_eq proof (rule disjI1)
+        show "\<Inter> {UNIV} = UNIV" by simp
+      qed
+    next
+      case X_neq: False
+      have ex_range: "\<And>X. \<lbrakk> directed_on I\<^sub>R X (\<sqsubseteq>\<^sub>r); X \<noteq> {UNIV} \<rbrakk> \<Longrightarrow> \<exists>a b. \<Inter> X = range a b \<and> a \<le> b"
+        sorry \<comment> \<open>次を仮定してもなお解けなかった: UNIV の singleton でなければ最大元と最小元が存在する\<close>
+      show ?thesis proof (rule disjI2; cases "UNIV \<in> X")
+        case UNIV_mem: True
+        let ?X = "X - {UNIV}"
+        have Int_X_eq: "\<Inter> X = \<Inter> ?X" by blast
+        have "\<exists>a b. \<Inter> ?X = range a b \<and> a \<le> b" proof (rule ex_range)
+          show "directed_on I\<^sub>R ?X (\<sqsubseteq>\<^sub>r)" using directed_on bot_on_range X_neq by (rule directed_on_minusI)
+        next
+          show "X - {UNIV} \<noteq> {UNIV}" by blast
+        qed
+        then obtain a b where Int_X'_eq: "\<Inter> ?X = range a b" and a_le_b: "a \<le> b" by blast
+        show "\<exists>a b. \<Inter> X = range a b \<and> a \<le> b" unfolding Int_X_eq proof (intro exI)
+          show " \<Inter> ?X = range a b \<and> a \<le> b " using Int_X'_eq a_le_b by (rule conjI)
+        qed
+      next
+        case UNIV_nmem: False
+        hence UNIV_neq: "X \<noteq> {UNIV}" by blast
+        have "\<exists>a b. \<Inter> X = range a b \<and> a \<le> b" using directed_on UNIV_neq by (rule ex_range)
+        then obtain a b where Int_X_eq: "\<Inter> X = range a b" and a_le_b: "a \<le> b" by blast
+        show "\<exists>a b. \<Inter> X = range a b \<and> a \<le> b" proof (intro exI)
+          show "\<Inter> X = range a b \<and> a \<le> b" using Int_X_eq a_le_b by (rule conjI)
+        qed
+      qed
+    qed
+    thus "\<Inter> X \<in> I\<^sub>R" unfolding I\<^sub>R_def by blast
+  qed
+  show "\<exists>x\<in>I\<^sub>R. supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X x" proof
+    show "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X (\<Inter>X)" proof (rule supremum_onI)
+      show "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X (\<Inter>X)" proof (rule upper_bound_onI)
+        have "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> \<exists>z \<in> X. z \<subseteq> x \<and> z \<subseteq> y" using directed_on_exE[OF directed_on] unfolding less_eq_range_def by blast
+        show "\<Inter>X \<in> I\<^sub>R" by (rule In_X_mem)
+      next
+        show "X \<subseteq> I\<^sub>R" unfolding I\<^sub>R_def by (metis I\<^sub>R_def directed_on_subsetE[OF directed_on])
+      next
+        fix x
+        assume x_mem: "x \<in> X"
+        show "x \<sqsubseteq>\<^sub>r \<Inter>X" unfolding less_eq_range_def using x_mem by blast
+      qed
+    next
+      fix a
+      assume upper_a: "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X a"
+      show "\<Inter>X \<sqsubseteq>\<^sub>r a" unfolding less_eq_range_def
+        by (meson Inter_greatest less_eq_range_def upper_a upper_bound_on_def)
+    qed
+  next
+    show "\<Inter>X \<in> I\<^sub>R" by (rule In_X_mem)
+  qed
+oops
+
+text "また、I_\<real> の部分集合 I*_\<real> を"
+text   "I*_\<real> = {[a, b] | a \<le> b で a と b は有理数 }"
+text "と定義すると、任意の [a, b] \<in> I_\<real> について、"
+text   "[a, b] = \<squnion>{[c, d] \<in> I*_\<real> | [c, d] \<sqsubseteq> [a, b]}"
+text "が成り立つ。すなわち、I_\<real> の各要素は I*_\<real> のある集合の上限で表せる。特に、a = b とおくと"
+text   "[a, a] = \<squnion>{[c, d] \<in> I*_\<real> | c \<le> a \<le> d}"
+text "となる。すなわち、各実数は有理数で区切られた区間のある集合の上限で表せる。"
 
 subsection "命題 3.1.12"
+\<comment> \<open>TODO\<close>
 
 subsection "命題 3.1.13"
 text "D を半順序集合、X を D の部分集合、d \<in> D とすると、次の2つの条件は同値である。"
