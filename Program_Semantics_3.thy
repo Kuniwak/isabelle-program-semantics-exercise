@@ -68,19 +68,19 @@ class partial_order =
 begin
 
 lemma po_refl: "a \<sqsubseteq> a"
-  using po unfolding partial_order_on_def refl_on_def by simp
+  using po_reflE[OF po] by simp
 
 lemma po_antisym:
   assumes "a \<sqsubseteq> b"
     and "b \<sqsubseteq> a"
   shows "a = b"
-  using assms po unfolding partial_order_on_def antisym_on_def by simp
+  using po_antisymE[OF po] assms by simp
 
 lemma po_trans:
   assumes "a \<sqsubseteq> b"
     and "b \<sqsubseteq> c"
   shows "a \<sqsubseteq> c"
-  using assms po unfolding partial_order_on_def trans_on_def by blast
+  using po_transE[OF po] assms by blast
 end
 
 subsection "定義 3.1.2"
@@ -90,10 +90,21 @@ text "\<forall>a \<in> D (\<bottom> \<sqsubseteq> a)"
 definition bot_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> bool"
   where "bot_on D f bot \<equiv> \<forall>a \<in> D. f bot a"
 
+lemma bot_onE:
+  assumes "bot_on D f bot"
+    and "d \<in> D"
+  shows "f bot d"
+using assms unfolding bot_on_def by blast
+
 class partial_order_bot = partial_order +
   fixes bot :: 'a ("\<bottom>")
-  assumes least_bot: "bot_on UNIV (\<sqsubseteq>) \<bottom>"
+  assumes bot_on: "bot_on UNIV (\<sqsubseteq>) \<bottom>"
+begin
 
+lemma bot_least: "\<bottom> \<sqsubseteq> x"
+  using bot_on unfolding bot_on_def by blast
+
+end
 
 text "最小元と対になる概念として、半順序集合 D の最大元（greatest element あるいは top）とは、次の条件を満たす元 \<top> \<in> D である。"
 text "\<forall>a \<in> D (a \<sqsubseteq> \<top>)"
@@ -103,8 +114,13 @@ definition top_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bo
 
 class partial_order_top = partial_order +
   fixes top :: 'a ("\<top>")
-  assumes greatest_top: "top_on UNIV (\<sqsubseteq>) \<top>"
+  assumes top_on: "top_on UNIV (\<sqsubseteq>) \<top>"
+begin
 
+lemma greatest_top: "x \<sqsubseteq> \<top>"
+  using top_on unfolding top_on_def by blast
+
+end
 
 subsection "定義 3.1.3"
 text "D を半順序集合、X を D の部分集合とする。元 d \<in> D について、"
@@ -112,20 +128,72 @@ text "\<forall>x \<in> X (x \<sqsubseteq> d)"
 text "のとき d は X の上界（upper bound）であるといい、X \<sqsubseteq> d と書く。"
 
 definition upper_bound_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> bool"
-  where "upper_bound_on D f X d \<equiv> d \<in> D \<and> X \<subseteq> D \<and> (\<forall>x \<in> X. f x d)"
+  where "upper_bound_on D le X d \<equiv> d \<in> D \<and> X \<subseteq> D \<and> (\<forall>x \<in> X. le x d)"
+
+lemma upper_bound_onI:
+  assumes "d \<in> D"
+    and "X \<subseteq> D"
+    and "\<And>x. x \<in> X \<Longrightarrow> le x d"
+  shows "upper_bound_on D le X d"
+unfolding upper_bound_on_def using assms by blast
+
+lemma upper_bound_onE:
+  assumes "upper_bound_on D le X d"
+  shows upper_bound_on_memE: "d \<in> D"
+    and upper_bound_on_subsetE: "X \<subseteq> D"
+    and upper_bound_on_leE: "\<And>x. x \<in> X \<Longrightarrow> le x d"
+using assms unfolding upper_bound_on_def by blast+
 
 abbreviation (in partial_order) upper_bound :: "'a set \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<^sub>s\<sqsubseteq>" 51) \<comment> \<open>同じ文字の演算子があるので重複定義になることを避けた\<close>
   where "upper_bound \<equiv> upper_bound_on UNIV (\<sqsubseteq>)"
+
+lemma (in partial_order) upper_boundI:
+  assumes "\<And>x. x \<in> X \<Longrightarrow> x \<sqsubseteq> d"
+  shows "X \<^sub>s\<sqsubseteq> d"
+unfolding upper_bound_on_def using assms by blast
+
+lemma (in partial_order) upper_boundE:
+  assumes "X \<^sub>s\<sqsubseteq> d"
+    and "x \<in> X"
+  shows "x \<sqsubseteq> d"
+using assms unfolding upper_bound_on_def by blast
 
 text "また、d が X の上界のうち最小の元であるとき、d を X の上限（supremum）あるいは
 最小上界（least upper bound）と呼ぶ。すなわち、X の上限は次の2つの条件を満たす元 d \<in> D のことである。"
 text "X \<sqsubseteq> d, \<forall>a \<in> D (X \<sqsubseteq> a ならば d \<sqsubseteq> a)"
 
 definition supremum_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> bool"
-  where "supremum_on D f X d \<equiv> upper_bound_on D f X d \<and> (\<forall>a \<in> D. upper_bound_on D f X a \<longrightarrow> f d a)"
+  where "supremum_on D le X d \<equiv> upper_bound_on D le X d \<and> (\<forall>a \<in> D. upper_bound_on D le X a \<longrightarrow> le d a)"
+
+lemma supremum_onI:
+  assumes "upper_bound_on D le X d"
+    and "\<And>a. \<lbrakk> a \<in> D; upper_bound_on D le X a \<rbrakk> \<Longrightarrow> le d a"
+  shows "supremum_on D le X d"
+using assms unfolding supremum_on_def by blast
+
+lemma supremum_onE:
+  assumes "supremum_on D le X d"
+  shows supremum_on_upper_bound_onE: "upper_bound_on D le X d"
+    and supremum_on_leastE: "\<And>a. upper_bound_on D le X a \<Longrightarrow> le d a"
+    and supremum_on_memE: "d \<in> D"
+    and supremum_on_subsetE: "X \<subseteq> D"
+    and supremum_on_leE: "\<And>x. x \<in> X \<Longrightarrow> le x d"
+using assms unfolding supremum_on_def upper_bound_on_def by blast+
 
 abbreviation (in partial_order) supremum :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
   where "supremum \<equiv> supremum_on UNIV (\<sqsubseteq>)"
+
+lemma (in partial_order) supremumI:
+  assumes "X \<^sub>s\<sqsubseteq> d"
+    and "\<And>a. X \<^sub>s\<sqsubseteq> a \<Longrightarrow> d \<sqsubseteq> a"
+  shows "supremum X d"
+unfolding supremum_on_def using assms by blast
+
+lemma (in partial_order) supremumE:
+  assumes "supremum X d"
+  shows supremum_upper_boundE: "X \<^sub>s\<sqsubseteq> d"
+    and supremum_leastE: "\<And>a. X \<^sub>s\<sqsubseteq> a \<Longrightarrow> d \<sqsubseteq> a"
+using assms unfolding supremum_on_def by blast+
 
 text "同様に上界および上限と対になる概念として、下界および下限が定義できる。元 d \<in> D について、"
 text "\<forall>x \<in> X (d \<sqsubseteq> x)"
@@ -133,16 +201,68 @@ text "のとき、d は X の下界（lower bound）であるといい、d \<sqs
 text "また、d が X の下界のうち最大の元のとき、d を Xの下限（infimum）あるいは最大下界（greatest lower bound）と呼ぶ。"
 
 definition lower_bound_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> 'a set \<Rightarrow> bool"
-  where "lower_bound_on D f d X \<equiv> d \<in> D \<and> X \<subseteq> D \<and> (\<forall>x \<in> X. f d x)"
+  where "lower_bound_on D le d X \<equiv> d \<in> D \<and> X \<subseteq> D \<and> (\<forall>x \<in> X. le d x)"
+
+lemma lower_bound_onI:
+  assumes "d \<in> D"
+    and "X \<subseteq> D"
+    and "\<And>x. x \<in> X \<Longrightarrow> le d x"
+  shows "lower_bound_on D le d X"
+unfolding lower_bound_on_def using assms by blast
+
+lemma lower_bound_onE:
+  assumes "lower_bound_on D le d X"
+  shows lower_bound_on_memE: "d \<in> D"
+    and lower_bound_on_subsetE: "X \<subseteq> D"
+    and lower_bound_on_leE: "\<And>x. x \<in> X \<Longrightarrow> le d x"
+using assms unfolding lower_bound_on_def by blast+
 
 abbreviation (in partial_order) lower_bound :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>s" 51) \<comment> \<open>同じ文字の演算子があるので重複定義になることを避けた\<close>
   where "lower_bound \<equiv> lower_bound_on UNIV (\<sqsubseteq>)"
 
+lemma (in partial_order) lower_boundI:
+  assumes "\<And>x. x \<in> X \<Longrightarrow> d \<sqsubseteq> x"
+  shows "d \<sqsubseteq>\<^sub>s X"
+unfolding lower_bound_on_def using assms by blast
+
+lemma (in partial_order) lower_boundE:
+  assumes "d \<sqsubseteq>\<^sub>s X"
+    and "x \<in> X"
+  shows "d \<sqsubseteq> x"
+using assms unfolding lower_bound_on_def by blast
+
 definition infimum_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> 'a set \<Rightarrow> bool"
-  where "infimum_on D f d X \<equiv> lower_bound_on D f d X \<and> (\<forall>a. lower_bound_on D f a X \<longrightarrow> f a d)"
+  where "infimum_on D le d X \<equiv> lower_bound_on D le d X \<and> (\<forall>a. lower_bound_on D le a X \<longrightarrow> le a d)"
+
+lemma infimum_onI:
+  assumes "lower_bound_on D le d X"
+    and "\<And>a. lower_bound_on D le a X \<Longrightarrow> le a d"
+  shows "infimum_on D le d X"
+unfolding infimum_on_def using assms by blast
+
+lemma infimum_onE:
+  assumes "infimum_on D le d X"
+  shows infimum_on_lower_bound_onE: "lower_bound_on D le d X"
+    and infimum_on_greatestE: "\<And>a. lower_bound_on D le a X \<Longrightarrow> le a d"
+    and infimum_on_memE: "d \<in> D"
+    and infimum_on_subsetE: "X \<subseteq> D"
+    and infimum_on_leE: "\<And>x. x \<in> X \<Longrightarrow> le d x"
+using assms unfolding infimum_on_def lower_bound_on_def by blast+
 
 abbreviation (in partial_order) infimum :: "'a \<Rightarrow> 'a set \<Rightarrow> bool"
   where "infimum \<equiv> infimum_on UNIV (\<sqsubseteq>)"
+
+lemma (in partial_order) infimumI:
+  assumes "d \<sqsubseteq>\<^sub>s X"
+    and "\<And>a. a \<sqsubseteq>\<^sub>s X \<Longrightarrow> a \<sqsubseteq> d"
+  shows "infimum d X"
+unfolding infimum_on_def using assms by blast
+
+lemma (in partial_order) infimumE:
+  assumes "infimum d X"
+  shows infimum_lower_boundE: "d \<sqsubseteq>\<^sub>s X"
+    and infimum_greatestE: "\<And>a. a \<sqsubseteq>\<^sub>s X \<Longrightarrow> a \<sqsubseteq> d"
+using assms unfolding infimum_on_def by blast+
 
 
 text "半順序集合 D の部分集合 X について、常に X の上限が存在するとは限らないが、存在するとすれば唯一である。その元を \<squnion>X で表す。"
@@ -152,52 +272,22 @@ definition the_supremum_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Right
 abbreviation (in partial_order) Sup :: "'a set \<Rightarrow> 'a" ("\<^bold>\<squnion> _" [52] 52)
   where "Sup \<equiv> the_supremum_on UNIV (\<sqsubseteq>)"
 
-lemma upper_bound_onE:
-  assumes "upper_bound_on D f X a"
-  shows upper_bound_on_leE: "\<And>x. x \<in> X \<Longrightarrow> f x a"
-    and upper_bound_on_memE: "a \<in> D"
-    and upper_bound_on_subE: "X \<subseteq> D"
-using assms unfolding upper_bound_on_def by auto
-
-lemma supremum_onE:
-  assumes "supremum_on D f X a"
-  shows supremum_on_upper_bound_onE: "upper_bound_on D f X a"
-    and supremum_on_leastE: "\<And>b. \<lbrakk> b \<in> D; upper_bound_on D f X b \<rbrakk> \<Longrightarrow> f a b"
-using assms unfolding supremum_on_def by auto
-
-lemma supremum_on_memE:
-  assumes "supremum_on D f X a"
-  shows "a \<in> D" by (meson assms supremum_on_upper_bound_onE upper_bound_on_memE)
-
-lemma supremum_on_leE:
-  assumes "supremum_on D f X a"
-    and "x \<in> X"
-  shows "f x a"
-proof (rule upper_bound_on_leE[where ?D=D and ?f=f and ?X=X])
-  show "upper_bound_on D f X a" using assms(1) by (rule supremum_on_upper_bound_onE)
-next
-  show "x \<in> X" using assms(2) .
-qed
-
 lemma supremum_on_uniq:
   fixes a b :: 'a
-  assumes po: "partial_order_on D f"
-    and sup_a: "supremum_on D f X a"
-    and sup_b: "supremum_on D f X b"
-    and a_mem: "a \<in> D"
-    and b_mem: "b \<in> D"
+  assumes po: "partial_order_on D le"
+    and sup_a: "supremum_on D le X a"
+    and sup_b: "supremum_on D le X b"
   shows "b = a"
-using po b_mem a_mem proof (rule po_antisymE)
-  show "f a b" using sup_a proof (rule supremum_on_leastE)
-    show "b \<in> D" by (rule b_mem)
+proof -
+  have a_mem: "a \<in> D" and b_mem: "b \<in> D" using supremum_on_memE sup_a sup_b by fastforce+
+  show ?thesis using po b_mem a_mem proof (rule po_antisymE)
+    show "le a b" using sup_a proof (rule supremum_on_leastE)
+      show "upper_bound_on D le X b" using sup_b by (rule supremum_on_upper_bound_onE)
+    qed
   next
-    show "upper_bound_on D f X b" using sup_b by (rule supremum_on_upper_bound_onE)
-  qed
-next
-  show "f b a" using sup_b proof (rule supremum_on_leastE)
-    show "a \<in> D" by (rule a_mem)
-  next
-    show "upper_bound_on D f X a" using sup_a by (rule supremum_on_upper_bound_onE)
+    show "le b a" using sup_b proof (rule supremum_on_leastE)
+      show "upper_bound_on D le X a" using sup_a by (rule supremum_on_upper_bound_onE)
+    qed
   qed
 qed
 
@@ -205,15 +295,7 @@ lemma (in partial_order) supremum_uniq:
   assumes sup_a: "supremum X a"
     and sup_b: "supremum X b"
   shows "b = a"
-proof (rule supremum_on_uniq[where ?D=UNIV and ?f="(\<sqsubseteq>)" and ?X=X])
-  show "partial_order (\<sqsubseteq>)" by (rule po)
-next
-  show "supremum X a" by (rule sup_a)
-next
-  show "supremum X b" by (rule sup_b)
-next
-  show "a \<in> UNIV" and "b \<in> UNIV" by (rule UNIV_I)+
-qed
+using po sup_a sup_b by (rule supremum_on_uniq)
 
 lemma (in partial_order) Sup_eq:
   assumes "supremum X a"
@@ -230,48 +312,22 @@ definition the_infimum_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Righta
 abbreviation (in partial_order) Inf :: "'a set \<Rightarrow> 'a" ("\<^bold>\<sqinter> _" [52] 52)
   where "Inf \<equiv> the_infimum_on UNIV (\<sqsubseteq>)"
 
-lemma lower_bound_onE:
-  assumes "lower_bound_on D f a X"
-  shows lower_bound_on_leE: "\<And>x. x \<in> X \<Longrightarrow> f a x"
-    and lower_bound_on_memE: "a \<in> D"
-    and lower_bound_on_subE: "X \<subseteq> D"
-using assms unfolding lower_bound_on_def by auto
-
-lemma infimum_onE:
-  assumes "infimum_on D f a X"
-  shows infimum_on_lower_bound_onE: "lower_bound_on D f a X"
-    and infimum_on_greatestE: "\<And>b. \<lbrakk> b \<in> D; lower_bound_on D f b X \<rbrakk> \<Longrightarrow> f b a"
-using assms unfolding infimum_on_def by auto
-
-lemma infimum_on_leE:
-  assumes "infimum_on D f a X"
-    and "x \<in> X"
-  shows "f a x"
-proof (rule lower_bound_on_leE[where ?D=D and ?f=f and ?X=X])
-  show "lower_bound_on D f a X" using assms(1) by (rule infimum_on_lower_bound_onE)
-next
-  show "x \<in> X" using assms(2) .
-qed
-
 lemma infimum_on_uniq:
   fixes a b :: 'a
-  assumes po: "partial_order_on D f"
-    and inf_a: "infimum_on D f a X"
-    and inf_b: "infimum_on D f b X"
-    and a_mem: "a \<in> D"
-    and b_mem: "b \<in> D"
+  assumes po: "partial_order_on D le"
+    and inf_a: "infimum_on D le a X"
+    and inf_b: "infimum_on D le b X"
   shows "b = a"
-using po b_mem a_mem proof (rule po_antisymE)
-  show "f b a" using inf_a proof (rule infimum_on_greatestE)
-    show "b \<in> D" by (rule b_mem)
+proof -
+  have a_mem: "a \<in> D" and b_mem: "b \<in> D" using infimum_on_memE inf_a inf_b by fastforce+
+  show ?thesis using po b_mem a_mem proof (rule po_antisymE)
+    show "le b a" using inf_a proof (rule infimum_on_greatestE)
+      show "lower_bound_on D le b X" using inf_b by (rule infimum_on_lower_bound_onE)
+    qed
   next
-    show "lower_bound_on D f b X" using inf_b by (rule infimum_on_lower_bound_onE)
-  qed
-next
-  show "f a b" using inf_b proof (rule infimum_on_greatestE)
-    show "a \<in> D" by (rule a_mem)
-  next
-    show "lower_bound_on D f a X" using inf_a by (rule infimum_on_lower_bound_onE)
+    show "le a b" using inf_b proof (rule infimum_on_greatestE)
+      show "lower_bound_on D le a X" using inf_a by (rule infimum_on_lower_bound_onE)
+    qed
   qed
 qed
 
@@ -279,13 +335,11 @@ lemma (in partial_order) infimum_uniq:
   assumes inf_a: "infimum a X"
     and inf_b: "infimum b X"
   shows "b = a"
-using po inf_a inf_b proof (rule infimum_on_uniq[where ?D=UNIV and ?f="(\<sqsubseteq>)" and ?X=X])
-  show "a \<in> UNIV" and "b \<in> UNIV" by (rule UNIV_I)+
-qed
+using po inf_a inf_b by (rule infimum_on_uniq)
 
 lemma (in partial_order) Inf_eq:
   assumes "infimum a X"
-  shows "\<^bold>\<sqinter> X = a"
+  shows "\<^bold>\<sqinter>X = a"
 unfolding the_infimum_on_def using assms proof (rule the_equality)
   show "\<And>d. infimum d X \<Longrightarrow> d = a" using infimum_uniq[OF assms] .
 qed
@@ -322,9 +376,9 @@ lemma le_Sup:
   using Sup_eq assms ex_supremum supremum_on_upper_bound_onE upper_bound_on_leE by metis
 
 lemma least_Sup:
-  assumes "upper_bound X b"
+  assumes "X \<^sub>s\<sqsubseteq> b"
   shows "\<^bold>\<squnion> X \<sqsubseteq> b"
-  using Sup_eq assms ex_supremum supremum_on_leastE upper_bound_on_memE by metis
+  using Sup_eq assms ex_supremum supremum_on_leastE by metis
 
 
 text "完備束の定義で X = \<emptyset> とすると、\<squnion>X は D の最小元になり、X = D とすると \<squnion>X は D の最大限になる。"
@@ -408,6 +462,47 @@ text "D を半順序集合、X を D の部分集合、d \<in> D とすると、
 text "(1) d = \<squnion>X （X の上限が存在して d に等しい）"
 text "(2) \<forall>a \<in> D (d \<sqsubseteq> a \<Leftrightarrow> X \<sqsubseteq> a)"
 
+lemma supremum_onI2:
+  assumes po: "partial_order_on D le"
+    and subset: "X \<subseteq> D"
+    and d_mem_D: "d \<in> D"
+    and le_iff_upper: "\<And>a. a \<in> D \<Longrightarrow> le d a \<longleftrightarrow> upper_bound_on D le X a"
+  shows "supremum_on D le X d"
+proof (rule supremum_onI)
+  have d_le_d_iff: "le d d = True" using po_reflE[OF po d_mem_D] by blast
+  show "upper_bound_on D le X d" using le_iff_upper[OF d_mem_D] unfolding d_le_d_iff by blast
+next
+  fix a
+  assume a_mem: "a \<in> D"
+    and upper_a: "upper_bound_on D le X a"
+  have "le d a \<longleftrightarrow> upper_bound_on D le X a" by (rule le_iff_upper[OF a_mem])
+  thus "le d a" using upper_a by blast
+qed
+
+lemma upper_bound_onI2:
+  assumes po: "partial_order_on D le"
+    and sup_d: "supremum_on D le X d"
+    and c_mem: "c \<in> D"
+    and d_le_c: "le d c"
+  shows "upper_bound_on D le X c"
+using c_mem proof (rule upper_bound_onI)
+  show "X \<subseteq> D" using sup_d by (rule supremum_on_subsetE)
+next
+  fix x
+  assume x_mem: "x \<in> X"
+  show "le x c" using po proof (rule po_transE)
+    show "x \<in> D" using x_mem supremum_on_subsetE[OF sup_d] by blast
+  next
+    show "d \<in> D" using sup_d by (rule supremum_on_memE)
+  next
+    show "c \<in> D" by (rule c_mem)
+  next
+    show "le x d" using sup_d x_mem by (rule supremum_on_leE)
+  next
+    show "le d c" by (rule d_le_c)
+  qed
+qed
+
 lemma sup_on_iff:
   fixes "le" :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
   assumes po: "partial_order_on D le"
@@ -419,24 +514,16 @@ proof auto
   assume sup_d: "supremum_on D le X d"
     and a_mem: "a \<in> D"
     and d_le_a: "le d a"
-  have "upper_bound_on D le X d" using sup_d by (rule supremum_on_upper_bound_onE)
-  thus "upper_bound_on D le X a" unfolding upper_bound_on_def using a_mem proof auto
-    fix x
-    assume "\<forall>x \<in> X. le x d"
-      and x_mem_X: "x \<in> X"
-    hence x_le_d: "le x d" by blast
-    have x_mem_D:"x \<in> D" using x_mem_X subset by blast
-    show "le x a" using po_transE[OF po x_mem_D d_mem_D a_mem x_le_d d_le_a] .
-  qed
+  show "upper_bound_on D le X a" using po sup_d a_mem d_le_a by (rule upper_bound_onI2)
 next
   fix a
   assume sup_d: "supremum_on D le X d"
-    and a_mem: "a \<in> D"
     and "upper_bound_on D le X a"
   thus "le d a" using supremum_on_leastE[OF sup_d] by blast
 next
-  assume "\<forall>a\<in>D. le d a = upper_bound_on D le X a"
-  thus "supremum_on D le X d" by (metis d_mem_D po po_reflE supremum_on_def)
+  assume "\<forall>a\<in>D. le d a \<longleftrightarrow> upper_bound_on D le X a"
+  hence "\<And>a. a \<in> D \<Longrightarrow> le d a \<longleftrightarrow> upper_bound_on D le X a" by blast
+  thus "supremum_on D le X d" by (rule supremum_onI2[OF po subset d_mem_D])
 qed
 
 lemma (in partial_order) sup_iff:
@@ -460,7 +547,7 @@ text "I を任意の集合、X_i (i \<in> I) を半順序集合 D の部分集�
 text "また、 X = \<Union>{X_i | i \<in> I} とおく。この時 a = \<squnion>{a_i | i \<in> I} が存在すれば、a = \<squnion>X が成り立つ。"
 text "逆に、b = \<squnion>X が存在すれば、b = \<squnion>{a_i | i \<in> I} が成り立つ。"
 
-lemma prop_3_1_14':
+lemma
   assumes po: "partial_order_on D le"
     and subsetI: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> D"
     and sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum_on D le (x i) (a i)"
@@ -470,7 +557,8 @@ lemma prop_3_1_14':
 proof -
   fix \<a>
   assume sup_a: "supremum_on D le {a i |i. i \<in> I} \<a>"
-  have "\<And>c. c \<in> D \<Longrightarrow> le \<a> c \<longleftrightarrow> upper_bound_on D le X c" proof -
+  have subset: "X \<subseteq> D" unfolding X_def using subsetI by blast
+  have a_le_c_iff: "\<And>c. c \<in> D \<Longrightarrow> le \<a> c \<longleftrightarrow> upper_bound_on D le X c" proof -
     fix c
     assume c_mem: "c \<in> D"
     have mem_X_iff: "\<And>y. (y \<in> X) \<longleftrightarrow> (\<exists>i \<in> I. y \<in> x i)" using X_def by blast
@@ -480,52 +568,133 @@ proof -
         fix i
         assume i_mem: "i \<in> I"
         have a_i_le_a: "le (a i) \<a>" using supremum_on_leE[OF sup_a] i_mem by blast
-        show "le (a i) c" using supremum_on_memE[OF sup_a_iI[OF i_mem]] supremum_on_memE[OF sup_a] po_transE[OF po] c_mem a_i_le_a a_le_c by blast
+        show "le (a i) c"
+          using po supremum_on_memE[OF sup_a_iI[OF i_mem]] supremum_on_memE[OF sup_a] c_mem a_i_le_a a_le_c by (rule po_transE)
       qed
     next
-      assume "\<forall>i \<in> I. le (a i) c"
-      thus "le \<a> c" by (smt (verit, del_insts) c_mem mem_Collect_eq sup_a supremum_on_leastE supremum_on_upper_bound_onE upper_bound_on_def)
+      assume a_i_le_c: "\<forall>i \<in> I. le (a i) c"
+      show "le \<a> c" using sup_a proof (rule supremum_on_leastE)
+        show "upper_bound_on D le {a i |i. i \<in> I} c" using c_mem supremum_on_subsetE[OF sup_a] proof (rule upper_bound_onI)
+          fix x
+          assume "x \<in> {a i|i. i \<in> I}"
+          thus "le x c" using a_i_le_c by blast
+        qed
+      qed
     qed
-    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_bound_on D le (x i) c)" by (metis c_mem po subsetI sup_a_iI sup_on_iff supremum_on_memE)
-    also have "... \<longleftrightarrow> upper_bound_on D le X c" proof
-      assume "\<forall>i\<in>I. upper_bound_on D le (x i) c"
-      thus "upper_bound_on D le X c" by (metis mem_X_iff c_mem subset_eq upper_bound_on_def)
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_bound_on D le (x i) c)" proof auto
+      fix i
+      assume a_i_le_c: "\<forall>i\<in>I. le (a i) c"
+        and i_mem: "i \<in> I"
+      have sup_a_i: "supremum_on D le (x i) (a i)" by (rule sup_a_iI[OF i_mem])
+      show "upper_bound_on D le (x i) c" using po sup_a_i c_mem proof (rule upper_bound_onI2)
+        show "le (a i) c" using a_i_le_c i_mem by blast
+      qed
     next
-      assume "upper_bound_on D le X c"
-      thus "\<forall>i\<in>I. upper_bound_on D le (x i) c" by (metis mem_X_iff subsetI upper_bound_on_def)
+      fix i
+      assume upper_c: "\<forall>i\<in>I. upper_bound_on D le (x i) c"
+        and i_mem: "i \<in> I"
+      show "le (a i) c" using sup_a_iI[OF i_mem] proof (rule supremum_on_leastE)
+        show "upper_bound_on D le (x i) c" using upper_c i_mem by blast
+      qed
+    qed                                                                                         
+    also have "... \<longleftrightarrow> upper_bound_on D le X c" proof auto
+      assume upper_c: "\<forall>i\<in>I. upper_bound_on D le (x i) c"
+      show "upper_bound_on D le X c" using c_mem subset proof (rule upper_bound_onI)
+        fix \<chi>
+        assume x_mem: "\<chi> \<in> X"
+        then obtain i where i_mem: "i \<in> I" and x_mem: "\<chi> \<in> x i" using X_def by blast
+        have "upper_bound_on D le (x i) c" using upper_c i_mem by blast
+        thus "le \<chi> c" using x_mem by (rule upper_bound_on_leE)
+      qed
+    next
+      fix i
+      assume upper_c: "upper_bound_on D le X c"
+        and i_mem: "i \<in> I"
+      show "upper_bound_on D le (x i) c" using c_mem subsetI[OF i_mem] proof (rule upper_bound_onI)
+        fix \<chi>
+        assume x_mem: "\<chi> \<in> x i"    
+        show "le \<chi> c" using upper_c proof (rule upper_bound_on_leE)
+          show "\<chi> \<in> X" unfolding X_def using i_mem x_mem by blast
+        qed
+      qed
     qed
     ultimately show "le \<a> c \<longleftrightarrow> upper_bound_on D le X c" by (rule trans)
   qed
-  thus "supremum_on D le X \<a>"
-    by (metis (no_types, lifting) sup_a po sup_on_iff supremum_on_upper_bound_onE upper_bound_on_memE upper_bound_on_subE)
+  have sup_on_iff: "supremum_on D le X \<a> \<longleftrightarrow> (\<forall>a \<in> D. le \<a> a \<longleftrightarrow> upper_bound_on D le X a)"
+    using po subset supremum_on_memE[OF sup_a] by (rule sup_on_iff)
+  show "supremum_on D le X \<a>" unfolding sup_on_iff using a_le_c_iff by blast
 next
   fix \<b>
   assume sup_b: "supremum_on D le X \<b>"
-  have mem_X_iff: "\<And>y. (y \<in> X) \<longleftrightarrow> (\<exists>i \<in> I. y \<in> x i)" using X_def by blast
-  have 1: "\<And>c. c \<in> D \<Longrightarrow> le \<b> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof -
+  have X_subset: "X \<subseteq> D" unfolding X_def using subsetI by blast
+  have a_i_subset: "{a i | i. i \<in> I} \<subseteq> D" using sup_a_iI supremum_on_memE by fastforce
+  have b_le_c_iff: "\<And>c. c \<in> D \<Longrightarrow> le \<b> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof -
     fix c
     assume c_mem: "c \<in> D"
-    have "le \<b> c \<longleftrightarrow> upper_bound_on D le X c" by (metis sup_b c_mem po sup_on_iff supremum_on_upper_bound_onE upper_bound_on_def)
-    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_bound_on D le (x i) c)" by (metis c_mem subsetI mem_X_iff sup_b supremum_on_upper_bound_onE upper_bound_on_def)
-    also have "... \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" by (metis c_mem po subsetI sup_a_iI sup_on_iff supremum_on_memE)
+    have "le \<b> c \<longleftrightarrow> upper_bound_on D le X c" proof
+      assume b_le_c: "le \<b> c"
+      show "upper_bound_on D le X c" using po sup_b c_mem b_le_c by (rule upper_bound_onI2)
+    next
+      assume upper_c: "upper_bound_on D le X c"
+      show "le \<b> c" using sup_b upper_c by (rule supremum_on_leastE)
+    qed
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_bound_on D le (x i) c)" proof auto
+      fix i
+      assume upper_c: "upper_bound_on D le X c"
+        and i_mem: "i \<in> I"
+      show "upper_bound_on D le (x i) c" using c_mem subsetI[OF i_mem] proof (rule upper_bound_onI)
+        fix \<chi>
+        assume x_mem: "\<chi> \<in> x i"
+        show "le \<chi> c" using upper_c proof (rule upper_bound_on_leE)
+          show "\<chi> \<in> X" unfolding X_def using x_mem i_mem by blast
+        qed
+      qed
+    next
+      assume upper_c: "\<forall>i\<in>I. upper_bound_on D le (x i) c"
+      show "upper_bound_on D le X c" using c_mem X_subset proof (rule upper_bound_onI)
+        fix \<chi>
+        assume "\<chi> \<in> X"
+        then obtain i where i_mem: "i \<in> I" and x_mem: "\<chi> \<in> x i" unfolding X_def by blast
+        have upper_c: "upper_bound_on D le (x i) c" using upper_c i_mem by blast
+        show "le \<chi> c" using upper_c x_mem by (rule upper_bound_on_leE)
+      qed
+    qed
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof auto
+      fix i
+      assume upper_c: "\<forall>i\<in>I. upper_bound_on D le (x i) c"
+        and i_mem: "i \<in> I"
+      hence upper_c: "upper_bound_on D le (x i) c" by blast
+      show "le (a i) c" using sup_a_iI[OF i_mem] upper_c by (rule supremum_on_leastE)
+    next
+      fix i
+      assume a_i_le_c: "\<forall>i\<in>I. le (a i) c"
+        and i_mem: "i \<in> I"
+      hence a_i_le_c: "le (a i) c" by blast
+      show "upper_bound_on D le (x i) c" using po sup_a_iI[OF i_mem] c_mem a_i_le_c by (rule upper_bound_onI2)
+    qed
     ultimately show "le \<b> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" by (rule trans)
   qed
-  have 2: "supremum_on D le {a i |i. i \<in> I} \<b> = (\<forall>aa\<in>D. le \<b> aa = upper_bound_on D le {a i |i. i \<in> I} aa)"
-    by (metis (no_types, lifting) po sup_b sup_on_iff supremum_on_memE supremum_on_upper_bound_onE upper_bound_on_subE)
-  show "supremum_on D le {a i |i. i \<in> I} \<b>" unfolding 2 proof auto
-    fix c
-    assume "c \<in> D"
-      and "le \<b> c"
-    thus "upper_bound_on D le {a i |i. i \<in> I} c"  by (smt (verit, best) 1 mem_Collect_eq subset_iff sup_a_iI supremum_on_memE upper_bound_on_def)
+  have sup_on_iff: "supremum_on D le {a i |i. i \<in> I} \<b> \<longleftrightarrow> (\<forall>\<a> \<in> D. le \<b> \<a> = upper_bound_on D le {a i |i. i \<in> I} \<a>)"
+    using po a_i_subset supremum_on_memE[OF sup_b] by (rule sup_on_iff)
+  show "supremum_on D le {a i |i. i \<in> I} \<b>" unfolding sup_on_iff proof auto
+    fix \<a>
+    assume a_mem: "\<a> \<in> D"
+      and b_le_c: "le \<b> \<a>"
+    hence a_i_le_a: "\<And>i. i \<in> I \<Longrightarrow> le (a i) \<a>" using b_le_c_iff[OF a_mem] by blast
+    show "upper_bound_on D le {a i |i. i \<in> I} \<a>" using a_mem a_i_subset proof (rule upper_bound_onI)
+      fix a2
+      assume "a2 \<in> {a i | i. i \<in> I}"
+      thus "le a2 \<a>" using a_i_le_a by blast
+    qed
   next
     fix c
-    assume "c \<in> D"
-      and "upper_bound_on D le {a i |i. i \<in> I} c"
-    thus "le \<b> c" using 1 upper_bound_on_leE by fastforce
+    assume c_mem: "c \<in> D"
+      and upper_c: "upper_bound_on D le {a i |i. i \<in> I} c"
+    show "le \<b> c" using b_le_c_iff[OF c_mem] upper_bound_on_leE[OF upper_c] by fastforce
   qed
 qed
 
-lemma (in partial_order) prop_3_1_14:
+lemma (in partial_order)
   assumes sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)"
   shows sup_eq1: "supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> \<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})"
     and sup_eq2: "supremum (\<Union>{x i|i. i \<in> I}) b \<Longrightarrow> b = \<^bold>\<squnion>{a i|i. i \<in> I}"
