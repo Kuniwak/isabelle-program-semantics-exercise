@@ -7,10 +7,7 @@ subsection "練習問題 3.1"
 subsubsection "1"
 text "半順序集合 D の部分集合 X について、X の上限が存在すれば一意に決まることを示せ。"
 
-theorem (in partial_order) exer3_1_1:
-  fixes X :: "'a set"
-    and a :: 'a
-    and b :: 'a
+theorem (in partial_order)
   assumes supremum_a: "supremum X a"
     and supremum_b: "supremum X b"
   shows "a = b"
@@ -22,34 +19,19 @@ text "完備束 D において、任意の部分集合 X \<subseteq> D につい
 
 context complete_lattice
 begin
-lemma ex_infimum:
-  fixes X :: "'a set"
+theorem ex_infimum:
   obtains a where "infimum a X"
 proof -
-  assume 1: "\<And>a. infimum a X \<Longrightarrow> thesis"
-  show "thesis" proof (rule 1)
-    show "infimum (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding infimum_on_def proof (intro conjI allI impI)
-      show "lower_bound (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding lower_bound_on_def proof (intro conjI)
-        show "\<^bold>\<squnion> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<in> UNIV" by (rule UNIV_I)
-      next
-        show "X \<subseteq> UNIV" by (rule subset_UNIV)
-      next
-        show "\<forall>x\<in>X. \<^bold>\<squnion> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<sqsubseteq> x" proof (rule ballI)
-          fix b
-          assume b_mem: "b \<in> X"
-          show "\<^bold>\<squnion> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<sqsubseteq> b" proof (rule least_Sup)
-            show " {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<^sub>s\<sqsubseteq> b" unfolding upper_bound_on_def proof (intro conjI)
-              show "b \<in> UNIV" by (rule UNIV_I)
-            next
-              show "{a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)} \<subseteq> UNIV" by (rule subset_UNIV)
-            next
-              show "\<forall>x\<in>{a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)}. x \<sqsubseteq> b" proof (rule ballI)
-                fix x
-                assume "x \<in> {a \<in> UNIV. X \<subseteq> UNIV \<and> (\<forall>b \<in> X. a \<sqsubseteq> b)}"
-                hence 1: "\<And>y. y \<in> X \<Longrightarrow> x \<sqsubseteq> y" by simp
-                show "x \<sqsubseteq> b" using 1 b_mem .
-              qed
-            qed
+  show thesis proof
+    show "infimum (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding infimum_on_def proof auto
+      show "lower_bound (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding lower_bound_on_def proof auto
+        fix b
+        assume b_mem: "b \<in> X"
+        show "\<^bold>\<squnion> {a. \<forall>b \<in> X. a \<sqsubseteq> b} \<sqsubseteq> b" proof (rule least_Sup)
+          show "{a. \<forall>b \<in> X. a \<sqsubseteq> b} \<^sub>s\<sqsubseteq> b" proof (rule upper_bound_onI; auto)
+            fix x
+            assume "\<forall>b \<in> X. x \<sqsubseteq> b"
+            thus "x \<sqsubseteq> b" using b_mem by blast
           qed
         qed
       qed
@@ -119,8 +101,8 @@ proof -
   let ?B = "{b \<in> A. a \<sqsubseteq> b}"
   have 1: "finite ?B" using finite by force
   have 2: "?B \<noteq> {}" using a_mem po_refl by fastforce
-  obtain x where maximal_x: "maximal {b \<in> A. a \<sqsubseteq> b} x" using ex_maximal[of "{b \<in> A. a \<sqsubseteq> b}"] 1 2 by blast
-  show thesis proof rule
+  obtain x where maximal_x: "maximal {b \<in> A. a \<sqsubseteq> b} x" using ex_maximal[of "{b \<in> A. a \<sqsubseteq> b}"] 1 2 .
+  show thesis proof
     show "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
   next
     show "maximal A x" unfolding maximal_def proof (intro conjI ballI impI)
@@ -159,19 +141,12 @@ lemma ex_maximum:
   obtains x where "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x" and "x \<in> X"
 proof -
   obtain m where maximal_m: "maximal X m" using nempty ex_maximal finite by blast
-  have maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = m" by (metis directed directed_on_def maximal_def maximal_m)
-  have max_m: "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> m" proof (rule unique_maximalE)
-    show "finite X" using finite .
+  show thesis proof
+    have maximal_uniq: "\<And>z. maximal X z \<Longrightarrow> z = m" by (metis directed directed_on_def maximal_def maximal_m)
+    show "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> m" using finite maximal_m maximal_uniq by (rule unique_maximalE)
   next
-    show "maximal X m" by (rule maximal_m)
-  next
-    show "\<And>z. maximal X z \<Longrightarrow> z = m" using maximal_uniq .
-  next
-    fix y :: 'a
-    assume "y \<in> X" thus "y \<in> X" .
+    show "m \<in> X" using maximal_m by (rule maximal_memE)
   qed
-  assume assms: "\<And>x. \<lbrakk>\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x; x \<in> X\<rbrakk> \<Longrightarrow> thesis"
-  show ?thesis using assms max_m using maximal_m maximal_memE by presburger
 qed
 end
 
@@ -184,14 +159,16 @@ begin
 
 sublocale cpo "(\<sqsubseteq>)" "\<bottom>"
 proof standard
-  show "cpo_on UNIV (\<sqsubseteq>)" using po least_bot unfolding cpo_on_def proof auto
+  show "cpo_on UNIV (\<sqsubseteq>)" using po bot_on UNIV_I proof (rule cpo_onI)
     fix X
     assume directed: "directed X"
     hence nempty: "X \<noteq> {}" unfolding directed_on_def by blast
-    show "\<exists>x. supremum X x" using finite[of X] nempty directed proof (induct rule: finite_ne_induct)
+    show "\<exists>x \<in> UNIV. supremum X x" using finite[of X] nempty directed proof (induct rule: finite_ne_induct)
       case (singleton x)
       show ?case proof
         show "supremum {x} x" unfolding supremum_on_def upper_bound_on_def using po_refl by blast
+      next
+        show "x \<in> UNIV" by (rule UNIV_I)
       qed
     next
       case (insert x F)
@@ -209,6 +186,8 @@ proof standard
           have y_eq_max: "y = max" using po_antisym max max_le_y y_mem by presburger
           show "y \<sqsubseteq> a" unfolding y_eq_max using 1 max_mem by blast
         qed
+      next
+        show "y \<in> UNIV" by (rule UNIV_I)
       qed
     qed
   qed
@@ -218,19 +197,13 @@ end
 
 subsubsection "5"
 text "部分関数の集合 [X \<rightharpoonup> T] の有向部分集合 F の上限は \<Union>F であることを確かめよ。"
-definition partial_fun :: "('a \<times> 'b) set \<Rightarrow> bool"
-  where "partial_fun R \<equiv> single_valued R"
-
-definition pf_le :: "('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>f" 53)
-  where "R1 \<sqsubseteq>\<^sub>f R2 \<equiv> R1 \<subseteq> R2"
-
 lemma
   fixes F :: "('a \<times> 'b) set set"
   (* assumes "directed_on {R. partial_fun R} F (\<sqsubseteq>\<^sub>f)" *) \<comment>\<open>なくても成立\<dots>（ただし \<Union>F は partial_fun とは限らなくなる）\<close>
-  shows "top_on F (\<sqsubseteq>\<^sub>f) (\<Union>F)"
+  shows "top_on F (\<sqsubseteq>\<^sub>g) (\<Union>F)"
 unfolding top_on_def proof auto
   fix R :: "('a \<times> 'b) set"
   assume "R \<in> F"
-  thus "R \<sqsubseteq>\<^sub>f \<Union> F" unfolding pf_le_def by (rule Union_upper)
+  thus "R \<sqsubseteq>\<^sub>g \<Union> F" unfolding less_eq_graph_def by (rule Union_upper)
 qed
 end
