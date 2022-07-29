@@ -206,4 +206,49 @@ unfolding top_on_def proof auto
   assume "R \<in> F"
   thus "R \<sqsubseteq>\<^sub>g \<Union> F" unfolding less_eq_graph_def by (rule Union_upper)
 qed
+
+
+subsection "6"
+text "実数上の区間 [a, b] \<in> I_\<real> について、"
+text   "[a, b] = \<squnion>{[c, d] \<in> I*_\<real> | [c, d] \<sqsubseteq> [a, b]}"
+text "を示せ。"
+lemma upper_bound_on_rangeI:
+  assumes range_mem: "range a b \<in> I\<^sub>R"
+  shows "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)"
+using range_mem proof (rule upper_bound_onI)
+  show "{x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} \<subseteq> I\<^sub>R" proof auto
+    fix x
+    assume x_mem: "x \<in> I\<^sub>R\<^sub>s"
+      and x_le_range: "x \<sqsubseteq>\<^sub>r range a b"
+    obtain c d where x_eq: "x = range c d" and c_le_d: "c \<le> d"
+      by (smt (verit, best) I\<^sub>R\<^sub>s_def Ratreal_def mem_Collect_eq real_less_eq_code x_mem)
+    show "x \<in> I\<^sub>R" unfolding I\<^sub>R_def x_eq using c_le_d by blast
+  qed
+next
+  fix x
+  assume "x \<in> {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b}"
+  hence x_mem: "x \<in> I\<^sub>R\<^sub>s" and x_le_range: "x \<sqsubseteq>\<^sub>r range a b" by blast+
+  show "x \<sqsubseteq>\<^sub>r range a b" by (rule x_le_range)
+qed
+
+lemma supremum_on_range:
+  assumes range_mem: "range a b \<in> I\<^sub>R"
+  shows "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)"
+using upper_bound_on_rangeI[OF range_mem] proof (rule supremum_onI)
+  fix i
+  assume i_mem: "i \<in> I\<^sub>R"
+    and upper_i: "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} i"
+  show "range a b \<sqsubseteq>\<^sub>r i" unfolding less_eq_range_def range_def proof auto
+    fix x
+    assume x_mem: "x \<in> i"
+    show "a \<le> x" sorry
+  next
+    fix x
+    assume x_mem: "x \<in> i"
+    show "x \<le> b" sorry
+  qed
+qed
+
+
+
 end

@@ -679,8 +679,8 @@ next
 next
   fix X :: "('a \<Rightarrow> 'b option) set"
   assume directed_on: "directed_on UNIV X (\<sqsubseteq>\<^sub>f)"
+  let ?m = "\<lambda>x. if (\<exists>f \<in> X. \<exists>y. f x = Some y) then Some (THE y. \<exists>f \<in> X. f x = Some y) else None"
   show "\<exists>x\<in>UNIV. supremum_on UNIV (\<sqsubseteq>\<^sub>f) X x" proof
-    let ?m = "\<lambda>x. if (\<exists>f \<in> X. \<exists>y. f x = Some y) then Some (THE y. \<exists>f \<in> X. f x = Some y) else None"
     show "supremum_on UNIV (\<sqsubseteq>\<^sub>f) X ?m" proof (rule supremum_onI)
       show "upper_bound_on UNIV (\<sqsubseteq>\<^sub>f) X ?m" using UNIV_I subset_UNIV proof (rule upper_bound_onI)
         fix f1
@@ -724,7 +724,7 @@ next
       qed
     qed
   next
-    show "(\<lambda>x. if \<exists>f\<in>X. \<exists>y. f x = Some y then Some (THE y. \<exists>f\<in>X. f x = Some y) else None) \<in> UNIV" by (rule UNIV_I)
+    show "?m \<in> UNIV" by (rule UNIV_I)
   qed
 qed
 
@@ -778,22 +778,25 @@ proof (rule bot_onI)
   show "UNIV \<sqsubseteq>\<^sub>r d" unfolding less_eq_range_def by (rule subset_UNIV)
 qed
 
+lemma po_on_range: "partial_order_on I\<^sub>R (\<sqsubseteq>\<^sub>r)"
+proof (rule partial_order_onI)
+  fix a
+  show "a \<sqsubseteq>\<^sub>r a" unfolding less_eq_range_def by (rule order.refl)
+next
+  fix a b
+  assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
+    and b_le_a: "b \<sqsubseteq>\<^sub>r a"
+  show "a = b" using b_le_a a_le_b unfolding less_eq_range_def by (rule equalityI)
+next
+  fix a b c
+  assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
+    and b_le_c: "b \<sqsubseteq>\<^sub>r c"
+  show "a \<sqsubseteq>\<^sub>r c" using b_le_c a_le_b unfolding less_eq_range_def by (rule order.trans)
+qed
+
 lemma cpo_on_range: "cpo_on I\<^sub>R (\<sqsubseteq>\<^sub>r)"
 proof (rule cpo_onI)
-  show "partial_order_on I\<^sub>R (\<sqsubseteq>\<^sub>r)" proof (rule partial_order_onI)
-    fix a
-    show "a \<sqsubseteq>\<^sub>r a" unfolding less_eq_range_def by (rule order.refl)
-  next
-    fix a b
-    assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
-      and b_le_a: "b \<sqsubseteq>\<^sub>r a"
-    show "a = b" using b_le_a a_le_b unfolding less_eq_range_def by (rule equalityI)
-  next
-    fix a b c
-    assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
-      and b_le_c: "b \<sqsubseteq>\<^sub>r c"
-    show "a \<sqsubseteq>\<^sub>r c" using b_le_c a_le_b unfolding less_eq_range_def by (rule order.trans)
-  qed
+  show "partial_order_on I\<^sub>R (\<sqsubseteq>\<^sub>r)" by (rule po_on_range)
 next
   show "bot_on I\<^sub>R (\<sqsubseteq>\<^sub>r) UNIV" by (rule bot_on_range)
 next
@@ -861,11 +864,34 @@ oops
 
 text "また、I_\<real> の部分集合 I*_\<real> を"
 text   "I*_\<real> = {[a, b] | a \<le> b で a と b は有理数 }"
-text "と定義すると、任意の [a, b] \<in> I_\<real> について、"
+text "と定義すると、"
+definition I\<^sub>R\<^sub>s :: "real set set"
+  where "I\<^sub>R\<^sub>s \<equiv> {range (real_of_rat a) (real_of_rat b) | a b :: rat. a \<le> b}"
+
+lemma I\<^sub>R\<^sub>s_subset_I\<^sub>R: "I\<^sub>R\<^sub>s \<subseteq> I\<^sub>R" unfolding I\<^sub>R\<^sub>s_def I\<^sub>R_def proof
+  fix x
+  assume "x \<in> {range (real_of_rat a) (real_of_rat b) |a b. a \<le> b}"
+  then obtain a b where x_eq: "x = range (real_of_rat a) (real_of_rat b)" and a_le_b: "a \<le> b" by blast
+  show "x \<in> {range a b |a b. a \<le> b} \<union> {UNIV}" proof
+    show "x \<in> {range a b |a b. a \<le> b} " proof
+      show "\<exists>a b. x = range a b \<and> a \<le> b" proof (intro exI conjI)
+        show "x = range (real_of_rat a) (real_of_rat b)" by (rule x_eq)
+      next
+        show "real_of_rat a \<le> real_of_rat b" using a_le_b by (simp add: of_rat_less_eq)
+      qed
+    qed
+  qed
+qed
+
+text "任意の [a, b] \<in> I_\<real> について、"
 text   "[a, b] = \<squnion>{[c, d] \<in> I*_\<real> | [c, d] \<sqsubseteq> [a, b]}"
-text "が成り立つ。すなわち、I_\<real> の各要素は I*_\<real> のある集合の上限で表せる。特に、a = b とおくと"
+text "が成り立つ。"
+\<comment> \<open>練習問題3.1 6 で証明。\<close>
+
+text "すなわち、I_\<real> の各要素は I*_\<real> のある集合の上限で表せる。特に、a = b とおくと"
 text   "[a, a] = \<squnion>{[c, d] \<in> I*_\<real> | c \<le> a \<le> d}"
 text "となる。すなわち、各実数は有理数で区切られた区間のある集合の上限で表せる。"
+
 
 subsection "命題 3.1.12"
 \<comment> \<open>TODO\<close>
@@ -965,8 +991,8 @@ lemma
     and subsetI: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> D"
     and sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum_on D le (x i) (a i)"
     and X_def: "X = \<Union>{x i|i. i \<in> I}"
-  shows sup_on_CollectE: "\<And>\<a>. supremum_on D le {a i|i. i \<in> I} \<a> \<Longrightarrow> supremum_on D le X \<a>"
-    and sup_on_CollectI: "\<And>\<b>. supremum_on D le X \<b> \<Longrightarrow> supremum_on D le {a i|i. i \<in> I} \<b>"
+  shows supremum_on_CollectE: "\<And>\<a>. supremum_on D le {a i|i. i \<in> I} \<a> \<Longrightarrow> supremum_on D le X \<a>"
+    and supremum_on_CollectI: "\<And>\<b>. supremum_on D le X \<b> \<Longrightarrow> supremum_on D le {a i|i. i \<in> I} \<b>"
 proof -
   fix \<a>
   assume sup_a: "supremum_on D le {a i |i. i \<in> I} \<a>"
@@ -1109,12 +1135,12 @@ qed
 
 lemma (in partial_order)
   assumes sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)"
-  shows sup_eq1: "supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> \<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})"
-    and sup_eq2: "supremum (\<Union>{x i|i. i \<in> I}) b \<Longrightarrow> b = \<^bold>\<squnion>{a i|i. i \<in> I}"
+  shows supremum_eq1: "supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> \<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})"
+    and supremum_eq2: "supremum (\<Union>{x i|i. i \<in> I}) b \<Longrightarrow> b = \<^bold>\<squnion>{a i|i. i \<in> I}"
 proof -
   assume sup_a: "supremum {a i |i. i \<in> I} \<a>"
   have subset: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> UNIV" by blast
-  have "supremum (\<Union>{x i|i. i \<in> I}) \<a>" proof (rule sup_on_CollectE[OF po])
+  have "supremum (\<Union>{x i|i. i \<in> I}) \<a>" proof (rule supremum_on_CollectE[OF po])
     fix i
     show "x i \<subseteq> UNIV" by (rule subset_UNIV)
   next
@@ -1127,7 +1153,7 @@ proof -
   thus "\<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})" using Sup_eq by blast
 next
   assume sup_b: "supremum (\<Union>{x i|i. i \<in> I}) b"
-  have "supremum {a i |i. i \<in> I} b" proof (rule sup_on_CollectI[OF po])
+  have "supremum {a i |i. i \<in> I} b" proof (rule supremum_on_CollectI[OF po])
     fix i
     show "x i \<subseteq> UNIV" by (rule subset_UNIV)
   next
