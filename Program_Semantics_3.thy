@@ -376,6 +376,11 @@ text "半順序集合 D において、すべての部分集合 X \<subseteq> D 
 definition complete_lattice_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
   where "complete_lattice_on D le \<equiv> \<forall>X \<subseteq> D. \<exists>x. supremum_on D le X x"
 
+lemma complete_lattice_onI:
+  assumes "\<And>X. X \<subseteq> D \<Longrightarrow> \<exists>x. supremum_on D le X x"
+  shows "complete_lattice_on D le"
+unfolding complete_lattice_on_def using assms by blast
+
 lemma complete_lattice_onE:
   assumes "complete_lattice_on D le"
     and "X \<subseteq> D"
@@ -383,12 +388,12 @@ lemma complete_lattice_onE:
 using assms unfolding complete_lattice_on_def by blast
 
 class complete_lattice = partial_order +
-  assumes complete_lattice: "complete_lattice_on UNIV (\<sqsubseteq>)"
+  assumes complete_lattice_on: "complete_lattice_on UNIV (\<sqsubseteq>)"
 begin
 
 lemma ex_supremum:
   obtains x where "supremum X x"
-proof (rule complete_lattice_onE[OF complete_lattice])
+proof (rule complete_lattice_onE[OF complete_lattice_on])
   show "X \<subseteq> UNIV" by (rule subset_UNIV)
 next
   fix x

@@ -17,36 +17,54 @@ using assms by (rule supremum_uniq[symmetric])
 subsubsection "2"
 text "完備束 D において、任意の部分集合 X \<subseteq> D について X の下限が存在することを示せ。"
 
-context complete_lattice
-begin
-theorem ex_infimum:
-  obtains a where "infimum a X"
+theorem ex_infimum_on_complete_lattice:
+  assumes complete_lattice_on: "complete_lattice_on D le"
+    and subset: "X \<subseteq> D"
+  obtains x where "infimum_on D le x X"
 proof -
+  have lower_subset: "{a. lower_bound_on D le a X} \<subseteq> D" unfolding lower_bound_on_def by blast
+  obtain m where sup_m: "supremum_on D le {a. lower_bound_on D le a X} m" using complete_lattice_on lower_subset by (rule complete_lattice_onE)
   show thesis proof
-    show "infimum (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding infimum_on_def proof auto
-      show "lower_bound (\<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}) X" unfolding lower_bound_on_def proof auto
-        fix b
-        assume b_mem: "b \<in> X"
-        show "\<^bold>\<squnion> {a. \<forall>b \<in> X. a \<sqsubseteq> b} \<sqsubseteq> b" proof (rule least_Sup)
-          show "{a. \<forall>b \<in> X. a \<sqsubseteq> b} \<^sub>s\<sqsubseteq> b" proof (rule upper_bound_onI; auto)
-            fix x
-            assume "\<forall>b \<in> X. x \<sqsubseteq> b"
-            thus "x \<sqsubseteq> b" using b_mem by blast
+    show "infimum_on D le m X" proof (rule infimum_onI)
+      show "lower_bound_on D le m X" proof (rule lower_bound_onI)
+        show "m \<in> D" using sup_m by (rule supremum_on_memE)
+      next
+        show "X \<subseteq> D" by (rule subset)
+      next
+        fix x
+        assume x_mem_X: "x \<in> X"
+        show "le m x" using sup_m proof (rule supremum_on_leastE)
+          show "upper_bound_on D le {a. lower_bound_on D le a X} x" proof (rule upper_bound_onI)
+            show "x \<in> D" using x_mem_X subset by blast
+          next
+            show "{a. lower_bound_on D le a X} \<subseteq> D" by (rule lower_subset)
+          next
+            fix y
+            assume "y \<in> {a. lower_bound_on D le a X}"
+            hence lower_y: "lower_bound_on D le y X" by blast
+            show "le y x" using lower_y x_mem_X by (rule lower_bound_on_leE)
           qed
         qed
       qed
     next
-      fix b
-      assume 1: "b \<sqsubseteq>\<^sub>s X"
-      show "b \<sqsubseteq> \<^bold>\<squnion> {a. a \<sqsubseteq>\<^sub>s X}" proof (rule le_Sup)
-        show "b \<in> {a. a \<sqsubseteq>\<^sub>s X}" proof (rule CollectI)
-          show "b \<sqsubseteq>\<^sub>s X" using 1 .
-        qed
+      fix a
+      assume lower_a: "lower_bound_on D le a X"
+      show "le a m" using sup_m proof (rule supremum_on_leE)
+        show "a \<in> {a. lower_bound_on D le a X}" using lower_a by (rule CollectI)
       qed
     qed
   qed
 qed
+
+context complete_lattice
+begin
+
+theorem ex_infimum:
+  obtains a where "infimum a X"
+using complete_lattice_on subset_UNIV by (rule ex_infimum_on_complete_lattice)
+
 end
+
 
 subsubsection "3"
 text "有限の有向集合はその最大元を含むことを示せ。"
@@ -170,57 +188,47 @@ using assms proof (induct arbitrary: x rule: finite_psubset_induct)
     by (metis ex_maximal_on2 maximal_on_subsetE psubset.hyps(1) psubset.prems)
 qed
 
-lemma ex_maximum_on:
+definition maximum_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> bool"
+  where "maximum_on D le X x \<equiv> x \<in> X \<and> upper_bound_on D le X x"
+
+lemma maximum_onE:
+  assumes "maximum_on D le X x"
+  shows maximum_on_memE: "x \<in> X"
+    and maximum_on_upperE: "upper_bound_on D le X x"
+using assms unfolding maximum_on_def by blast+
+
+lemma maximum_on_iff:
+  "maximum_on D le X x \<longleftrightarrow> (X \<subseteq> D \<and> x \<in> X \<and> (\<forall>y. y \<in> X \<longrightarrow> le y x))"
+unfolding maximum_on_def upper_bound_on_def by blast
+
+theorem ex_maximum_on:
   assumes finite: "finite X"
     and directed: "directed_on D le X"
-    and nempty: "X \<noteq> {}"
-  obtains x where "\<And>y. y \<in> X \<Longrightarrow> le y x" and "x \<in> X"
+  obtains x where "maximum_on D le X x"
 proof -
-  obtain m where maximal_m: "maximal_on D le X m" using nempty ex_maximal_on directed_on_poE[OF directed] directed_on_subsetE[OF directed] finite by blast
+  obtain m where maximal_m: "maximal_on D le X m" using directed_on_nemptyE[OF directed] ex_maximal_on directed_on_poE[OF directed] directed_on_subsetE[OF directed] finite by blast
   show thesis proof
     have maximal_uniq: "\<And>z. maximal_on D le X z \<Longrightarrow> z = m" by (metis directed directed_on_def maximal_on_def maximal_on_def maximal_m)
-    show "\<And>y. y \<in> X \<Longrightarrow> le y m" using finite directed_on_poE[OF directed] maximal_m maximal_uniq by (rule unique_maximal_onE)
-  next
-    show "m \<in> X" using maximal_m by (rule maximal_on_memE)
+    show "maximum_on D le X m" unfolding maximum_on_iff using directed_on_subsetE[OF directed] proof auto
+      show "\<And>y. y \<in> X \<Longrightarrow> le y m" using finite directed_on_poE[OF directed] maximal_m maximal_uniq by (rule unique_maximal_onE)
+    next
+      show "m \<in> X" using maximal_m by (rule maximal_on_memE)
+    qed
   qed
 qed
 
 abbreviation (in partial_order) maximal :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
   where "maximal \<equiv> maximal_on UNIV (\<sqsubseteq>)"
 
-context partial_order
-begin
-lemma maximalE:
-  assumes "maximal X x"
-  shows maximal_memE: "x \<in> X" and maximal_eqE: "\<And>y. \<lbrakk> y \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> x = y"
-using assms unfolding maximal_on_def by blast+
+abbreviation (in partial_order) maximum :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
+  where "maximum \<equiv> maximum_on UNIV (\<sqsubseteq>)"
 
-lemma ex_maximal:
-  assumes "finite A"
-    and "A \<noteq> {}"
-  obtains m where "maximal A m"
-using assms subset_UNIV po by (rule ex_maximal_on)
-
-lemma ex_maximal2:
-  assumes finite: "finite A"
-    and a_mem: "a \<in> A"
-  obtains m where "a \<sqsubseteq> m" and "maximal A m"
-using finite po a_mem subset_UNIV by (rule ex_maximal_on2)
-
-lemma unique_maximalE:
-  assumes finite: "finite X"
-    and maximal_x: "maximal X x"
-    and maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = x"
-  shows "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x"
-using finite po maximal_x maximal_uniq by (rule unique_maximal_onE)
-
-lemma ex_maximum:
+theorem (in partial_order) ex_maximum:
   assumes finite: "finite X"
     and directed: "directed X"
-    and nempty: "X \<noteq> {}"
-  obtains x where "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x" and "x \<in> X"
-using finite directed nempty by (rule ex_maximum_on; blast)
-end
+  obtains x where "maximum X x"
+using finite directed by (rule ex_maximum_on)
+
 
 subsubsection "4"
 text "最小限を持つ有限の半順序集合は cpo であることを示せ。"
@@ -251,9 +259,8 @@ using po bot_on proof (rule cpo_onI)
       and step: "directed_on D le F \<Longrightarrow> \<exists>a\<in>D. supremum_on D le F a"
       and directed_on: "directed_on D le (insert x F)"
     have finite_insert: "finite (insert x F)" using finite by blast
-    have insert_nempty: "insert x F \<noteq> {}" by blast
-    obtain max where max: "\<And>z. z \<in> insert x F \<Longrightarrow> le z max" and max_mem: "max \<in> insert x F" using finite_insert directed_on insert_nempty by (rule ex_maximum_on; blast)
-    obtain y where max_le_y: "le max y" and x_le_y: "le x y" and y_mem_insert: "y \<in> insert x F" using directed_on_exE[OF directed_on max_mem] by blast
+    obtain max where maximum_max: "maximum_on D le (insert x F) max" using finite_insert directed_on by (rule ex_maximum_on)
+    obtain y where max_le_y: "le max y" and x_le_y: "le x y" and y_mem_insert: "y \<in> insert x F" using directed_on_exE[OF directed_on maximum_on_memE[OF maximum_max]] by blast
     have y_mem: "y \<in> D" using directed_on_subsetE[OF directed_on] y_mem_insert by blast
     show ?case proof (rule bexI)
       show "supremum_on D le (insert x F) y" proof (rule supremum_onI)
@@ -264,9 +271,9 @@ using po bot_on proof (rule cpo_onI)
         next
           fix z
           assume z_mem_insert: "z \<in> insert x F"
-          have z_le_max: "le z max" using z_mem_insert by (rule max)
+          have z_le_max: "le z max" using z_mem_insert by (rule upper_bound_on_leE[OF maximum_on_upperE[OF maximum_max]])
           have z_mem_D: "z \<in> D" using directed_on_subsetE[OF directed_on] z_mem_insert by blast
-          have max_mem_D: "max \<in> D" using directed_on_subsetE[OF directed_on] max_mem by blast
+          have max_mem_D: "max \<in> D" using directed_on_subsetE[OF directed_on] maximum_on_memE[OF maximum_max] by blast
           show "le z y" using po z_mem_D max_mem_D y_mem z_le_max max_le_y by (rule po_transE)
         qed
       next
@@ -351,10 +358,12 @@ qed
 lemma supremum_on_range:
   assumes range_mem: "range a b \<in> I\<^sub>R"
   shows "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)"
+proof (rule supremum_onI)
+  show "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)" using range_mem by (rule upper_bound_on_rangeI)
+next
 oops
 \<comment> \<open>上界であることは示せたが、これが上界の中で最小であることを示すのが難しい。\<close>
 \<comment> \<open>命題3.1.13 または 3.1.14 を利用するとうまく解けるのかもしれないが、命題3.1.13では結局最小であることを示すことに帰着するので別ルートにはならなかった。\<close>
 \<comment> \<open>一方、命題 3.1.14 を利用する場合には紐付けの I を決定する必要があるがこれが思いつかなかった。\<close>
-
 
 end
