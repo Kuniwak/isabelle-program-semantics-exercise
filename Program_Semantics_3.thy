@@ -484,12 +484,11 @@ text "次の2つの条件を満たす半順序集合 D を完備半順序集合�
 text "(1) D は最小元をもつ。"
 text "(2) D は任意の有向部分集合 X について、X の上限 \<squnion> X \<in> D が存在する。"
 definition cpo_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
-  where "cpo_on D le \<equiv> partial_order_on D le \<and> (\<exists>a \<in> D. bot_on D le a) \<and> (\<forall>X. directed_on D le X \<longrightarrow> (\<exists>x \<in> D. supremum_on D le X x))"
+  where "cpo_on D le \<equiv> partial_order_on D le \<and> (\<exists>a. bot_on D le a) \<and> (\<forall>X. directed_on D le X \<longrightarrow> (\<exists>x \<in> D. supremum_on D le X x))"
 
 lemma cpo_onI:
   assumes "partial_order_on D le"
     and "bot_on D le a"
-    and "a \<in> D"
     and "\<And>X. directed_on D le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
   shows "cpo_on D le"
 unfolding cpo_on_def using assms by blast
@@ -497,7 +496,7 @@ unfolding cpo_on_def using assms by blast
 lemma cpo_onE:
   assumes "cpo_on D le"
   shows cpo_on_poE: "partial_order_on D le"
-    and cpo_on_bot_onE: "\<exists>a \<in> D. bot_on D le a"
+    and cpo_on_bot_onE: "\<exists>a. bot_on D le a"
     and "\<And>X. directed_on D le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
 using assms unfolding cpo_on_def by blast+
 
@@ -596,8 +595,6 @@ proof (rule cpo_onI)
   show "partial_order_on {R. graph R} ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool)" by (rule po_on_graph)
 next
   show "bot_on {R. graph R} ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool) {}" by (rule bot_on_graph)
-next                                                            
-  show "{} \<in> {R. graph R}" unfolding graph_def single_valued_def by blast
 next
   fix X :: "('a \<times> 'b) set set"
   assume directed_on_X: "directed_on {R. graph R} (\<sqsubseteq>\<^sub>g) X"
@@ -635,8 +632,6 @@ next
     fix d :: "'a option"
     show "None \<sqsubseteq>\<^sub>o d" unfolding less_eq_option_def by simp
   qed
-next
-  show "None \<in> UNIV" by (rule UNIV_I)
 next
   fix X :: "'a option set"
   assume directed_on: "directed_on UNIV (\<sqsubseteq>\<^sub>o) X"
@@ -730,8 +725,6 @@ next
     fix d :: "'a \<Rightarrow> 'b option"
     show "Map.empty \<sqsubseteq>\<^sub>f d" unfolding less_eq_partial_fun_def by blast
   qed
-next
-  show "(\<lambda>_. None) \<in> UNIV" by (rule UNIV_I)
 next
   fix X :: "('a \<Rightarrow> 'b option) set"
   assume directed_on: "directed_on UNIV (\<sqsubseteq>\<^sub>f) X"
@@ -857,8 +850,6 @@ proof (rule cpo_onI)
   show "partial_order_on I\<^sub>R (\<sqsubseteq>\<^sub>r)" by (rule po_on_range)
 next
   show "bot_on I\<^sub>R (\<sqsubseteq>\<^sub>r) UNIV" by (rule bot_on_range)
-next
-  show "UNIV \<in> I\<^sub>R" unfolding I\<^sub>R_def by simp
 next
   fix X
   assume directed_on: "directed_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X"

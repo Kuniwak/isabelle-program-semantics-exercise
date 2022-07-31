@@ -224,47 +224,70 @@ end
 
 subsubsection "4"
 text "最小限を持つ有限の半順序集合は cpo であることを示せ。"
+lemma cpo_on_finite_bot:
+  assumes finite: "finite D"
+    and bot_on: "bot_on D le b"
+    and po: "partial_order_on D le"
+  shows "cpo_on D le"
+using po bot_on proof (rule cpo_onI)
+  fix X
+  assume directed_on: "directed_on D le X"
+  hence nempty: "X \<noteq> {}" unfolding directed_on_def by blast
+  have finite: "finite X" using finite directed_on_subsetE[OF directed_on] using rev_finite_subset by blast
+  show "\<exists>x\<in>D. supremum_on D le X x" using finite nempty directed_on proof (induct rule: finite_ne_induct)
+    case (singleton x)
+    assume directed_on: "directed_on D le {x}"
+    have x_mem: "x \<in> D" using directed_on_subsetE[OF directed_on] by blast 
+    show ?case proof
+      show "supremum_on D le {x} x" unfolding supremum_on_def upper_bound_on_def using po_reflE[OF po x_mem] x_mem by blast
+    next
+      show "x \<in> D" by (rule x_mem)
+    qed
+  next
+    case (insert x F)
+    assume finite: "finite F"
+      and nempty: "F \<noteq> {}"
+      and nmem: "x \<notin> F"
+      and step: "directed_on D le F \<Longrightarrow> \<exists>a\<in>D. supremum_on D le F a"
+      and directed_on: "directed_on D le (insert x F)"
+    have finite_insert: "finite (insert x F)" using finite by blast
+    have insert_nempty: "insert x F \<noteq> {}" by blast
+    obtain max where max: "\<And>z. z \<in> insert x F \<Longrightarrow> le z max" and max_mem: "max \<in> insert x F" using finite_insert directed_on insert_nempty by (rule ex_maximum_on; blast)
+    obtain y where max_le_y: "le max y" and x_le_y: "le x y" and y_mem_insert: "y \<in> insert x F" using directed_on_exE[OF directed_on max_mem] by blast
+    have y_mem: "y \<in> D" using directed_on_subsetE[OF directed_on] y_mem_insert by blast
+    show ?case proof (rule bexI)
+      show "supremum_on D le (insert x F) y" proof (rule supremum_onI)
+        show "upper_bound_on D le (insert x F) y" proof (rule upper_bound_onI)
+          show "y \<in> D" by (rule y_mem)
+        next
+          show "insert x F \<subseteq> D" using directed_on by (rule directed_on_subsetE)
+        next
+          fix z
+          assume z_mem_insert: "z \<in> insert x F"
+          have z_le_max: "le z max" using z_mem_insert by (rule max)
+          have z_mem_D: "z \<in> D" using directed_on_subsetE[OF directed_on] z_mem_insert by blast
+          have max_mem_D: "max \<in> D" using directed_on_subsetE[OF directed_on] max_mem by blast
+          show "le z y" using po z_mem_D max_mem_D y_mem z_le_max max_le_y by (rule po_transE)
+        qed
+      next
+        fix a
+        assume upper_a: "upper_bound_on D le (insert x F) a"
+        show "le y a" using upper_a y_mem_insert by (rule upper_bound_on_leE)
+      qed
+    next
+      show "y \<in> D" by (rule y_mem)
+    qed
+  qed
+qed
 
 class finite_partial_order = finite + partial_order_bot
 begin
 
 sublocale cpo "(\<sqsubseteq>)" "\<bottom>"
 proof standard
-  show "cpo_on UNIV (\<sqsubseteq>)" using po bot_on UNIV_I proof (rule cpo_onI)
-    fix X
-    assume directed: "directed X"
-    hence nempty: "X \<noteq> {}" unfolding directed_on_def by blast
-    show "\<exists>x \<in> UNIV. supremum X x" using finite[of X] nempty directed proof (induct rule: finite_ne_induct)
-      case (singleton x)
-      show ?case proof
-        show "supremum {x} x" unfolding supremum_on_def upper_bound_on_def using po_refl by blast
-      next
-        show "x \<in> UNIV" by (rule UNIV_I)
-      qed
-    next
-      case (insert x F)
-      obtain max where max: "\<And>z. z \<in> insert x F \<Longrightarrow> z \<sqsubseteq> max" and max_mem: "max \<in> insert x F" using ex_maximum insert.prems(1) finite[of "insert x F"] by blast
-      obtain y where max_le_y: "max \<sqsubseteq> y" and x_le_y: "x \<sqsubseteq> y" and y_mem: "y \<in> insert x F" using insert.prems(1) max_mem unfolding directed_on_def by blast
-      show ?case proof
-        show "supremum (insert x F) y" unfolding supremum_on_def upper_bound_on_def proof auto
-          show "x \<sqsubseteq> y" using x_le_y .
-        next
-          fix x
-          assume "x \<in> F" thus "x \<sqsubseteq> y" using max max_le_y po_trans by blast
-        next
-          fix a
-          assume 1: "x \<sqsubseteq> a" "\<forall>x \<in> F. x \<sqsubseteq> a"
-          have y_eq_max: "y = max" using po_antisym max max_le_y y_mem by presburger
-          show "y \<sqsubseteq> a" unfolding y_eq_max using 1 max_mem by blast
-        qed
-      next
-        show "y \<in> UNIV" by (rule UNIV_I)
-      qed
-    qed
-  qed
+  show "cpo_on UNIV (\<sqsubseteq>)" using finite bot_on po by (rule cpo_on_finite_bot)
 qed
 end
-
 
 subsubsection "5"
 text "部分関数の集合 [X \<rightharpoonup> T] の有向部分集合 F の上限は \<Union>F であることを確かめよ。"
@@ -284,7 +307,7 @@ next
   thus "x \<sqsubseteq>\<^sub>g \<Union> F" unfolding less_eq_graph_def by blast
 qed
 
-lemma
+lemma supremum_on_graphI:
   assumes directed_on: "directed_on {F. graph F} (\<sqsubseteq>\<^sub>g) F"
   shows "supremum_on {F. graph F} (\<sqsubseteq>\<^sub>g) F (\<Union>F)"
 proof (rule supremum_onI)
