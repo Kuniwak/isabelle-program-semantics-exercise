@@ -50,106 +50,177 @@ end
 
 subsubsection "3"
 text "有限の有向集合はその最大元を含むことを示せ。"
-definition (in partial_order) maximal :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
-  where "maximal X x \<equiv> x \<in> X \<and> (\<forall>y \<in> X. x \<sqsubseteq> y \<longrightarrow> x = y)"
+definition maximal_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> bool"
+  where "maximal_on D le X x \<equiv> X \<subseteq> D \<and> x \<in> X \<and> (\<forall>y \<in> X. le x y \<longrightarrow> x = y)"
+
+lemma maximal_onI:
+  assumes "X \<subseteq> D"
+    and "x \<in> X"
+    and "\<And>y. \<lbrakk> y \<in> X; le x y \<rbrakk> \<Longrightarrow> x = y"
+  shows "maximal_on D le X x"
+unfolding maximal_on_def using assms by blast
+
+lemma maximal_onE:
+  assumes "maximal_on D le X x"
+  shows maximal_on_subsetE: "X \<subseteq> D"
+    and maximal_on_memE: "x \<in> X"
+    and maximal_on_eqE: "\<And>y. \<lbrakk> y \<in> X; le x y \<rbrakk> \<Longrightarrow> x = y"
+  using assms unfolding maximal_on_def by blast+
+
+lemma ex_maximal_on:
+  assumes finite: "finite A"
+    and nempty: "A \<noteq> {}"
+    and subset: "A \<subseteq> D"
+    and po: "partial_order_on D le"
+  obtains m where "maximal_on D le A m"
+proof -
+  have "\<exists>m \<in> D. maximal_on D le A m" using finite nempty subset proof (induction rule: finite_psubset_induct)
+    case (psubset A)
+    assume "finite A"
+    assume "\<And>B. \<lbrakk>B \<subset> A; B \<noteq> {}; B \<subseteq> D\<rbrakk> \<Longrightarrow> \<exists>m \<in> D. maximal_on D le B m"
+    assume "A \<noteq> {}"
+    assume subset: "A \<subseteq> D"
+    obtain a where a_mem_A: "a \<in> A" using psubset.prems(1) by blast
+    let ?B = "{b \<in> A. a \<noteq> b \<and> le a b}"
+    show ?case proof cases
+      assume True: "?B = {}"
+      hence "\<And>b. \<lbrakk> b \<in> A; le a b \<rbrakk> \<Longrightarrow> a = b" by blast
+      then show ?thesis unfolding maximal_on_def using a_mem_A subset by blast
+    next
+      assume False: "?B \<noteq> {}"
+      have "a \<notin> ?B" by blast
+      hence 1: "?B \<subset> A" using a_mem_A by blast
+      have B_subset: "?B \<subseteq> D" using subset by blast
+      obtain m
+        where m_mem_A: "m \<in> A"
+          and neq: "a \<noteq> m"
+          and a_le_m: "le a m"
+          and 2: "\<And>b. \<lbrakk> b \<in> A; a \<noteq> b; le a b; le m b \<rbrakk> \<Longrightarrow> m = b"
+        using psubset.IH[OF 1 False B_subset] unfolding maximal_on_def by blast
+      have m_mem_D: "m \<in> D" using subset m_mem_A by blast
+      have maximal_m: "\<And>b. \<lbrakk> b \<in> A; le m b \<rbrakk> \<Longrightarrow> m = b" using po m_mem_D proof (rule po_antisymE)
+        show "\<And>b. b \<in> A \<Longrightarrow> b \<in> D" using subset by blast
+      next
+        show "\<And>b. le m b \<Longrightarrow> le m b" by blast
+      next
+        fix b
+        assume b_mem_A: "b \<in> A"
+          and m_le_b: "le m b"
+        have b_mem_D: "b \<in> D" using b_mem_A subset by blast
+        have a_mem_D: "a \<in> D" using a_mem_A subset by blast
+        show "le b m" by (metis 2 a_le_m a_mem_D b_mem_A b_mem_D m_le_b m_mem_D po_transE[OF po])
+      qed
+      show ?thesis proof (rule bexI[where ?x=m])
+        show "maximal_on D le A m" using subset m_mem_A maximal_m by (rule maximal_onI)
+      next
+        show "m \<in> D" by (rule m_mem_D)
+      qed
+    qed
+  qed
+  thus "(\<And>m. maximal_on D le A m \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
+qed
+
+lemma ex_maximal_on2:
+  assumes finite: "finite A"
+    and po: "partial_order_on D le"
+    and a_mem_A: "a \<in> A"
+    and subset: "A \<subseteq> D"
+  obtains m where "le a m" and "maximal_on D le A m"
+proof -
+  let ?B = "{b \<in> A. le a b}"
+  have "finite ?B" using finite by force
+  moreover have "?B \<noteq> {}" using a_mem_A po_reflE[OF po] subset by fastforce
+  moreover have "?B \<subseteq> D" using subset by blast
+  ultimately obtain x where maximal_x: "maximal_on D le ?B x" using po by (rule ex_maximal_on)
+  have a_mem_D: "a \<in> D" using a_mem_A subset by blast
+  have a_le_x: "le a x" using maximal_on_memE[OF maximal_x] by blast
+  show thesis using a_le_x proof
+    show "maximal_on D le A x" unfolding maximal_on_def using subset proof (intro conjI ballI impI)
+      show "x \<in> A" using maximal_on_memE[OF maximal_x] by blast
+    next
+      show "\<And>b. \<lbrakk>A \<subseteq> D; b \<in> A; le x b\<rbrakk> \<Longrightarrow> x = b" proof (rule maximal_on_eqE)
+        show "maximal_on D le ?B x" by (rule maximal_x)
+      next
+        fix b
+        assume b_mem_A: "b \<in> A" and x_le_b: "le x b"
+        have x_mem_D: "x \<in> D" using maximal_on_memE[OF maximal_x] subset by blast
+        have b_mem_D: "b \<in> D" using subset b_mem_A by blast
+        have a_le_b: "le a b" using po a_mem_D x_mem_D b_mem_D a_le_x x_le_b by (rule po_transE)
+        show "b \<in> {b \<in> A. le a b}" using b_mem_A a_le_b by (intro CollectI conjI)
+      next
+        fix b
+        assume "le x b"
+        thus "le x b" .
+      qed
+    next
+      show "A \<subseteq> D" by (rule subset)
+    qed
+  qed
+qed
+
+lemma unique_maximal_onE:
+  assumes finite: "finite X"
+    and po: "partial_order_on D le"
+    and maximal_x: "maximal_on D le X x"
+    and maximal_uniq: "\<And>y. maximal_on D le X y \<Longrightarrow> y = x"
+  shows "\<And>y. y \<in> X \<Longrightarrow> le y x"
+using assms proof (induct arbitrary: x rule: finite_psubset_induct)
+  case (psubset A)
+  show ?case
+    by (metis ex_maximal_on2 maximal_on_subsetE psubset.hyps(1) psubset.prems)
+qed
+
+lemma ex_maximum_on:
+  assumes finite: "finite X"
+    and directed: "directed_on D le X"
+    and nempty: "X \<noteq> {}"
+  obtains x where "\<And>y. y \<in> X \<Longrightarrow> le y x" and "x \<in> X"
+proof -
+  obtain m where maximal_m: "maximal_on D le X m" using nempty ex_maximal_on directed_on_poE[OF directed] directed_on_subsetE[OF directed] finite by blast
+  show thesis proof
+    have maximal_uniq: "\<And>z. maximal_on D le X z \<Longrightarrow> z = m" by (metis directed directed_on_def maximal_on_def maximal_on_def maximal_m)
+    show "\<And>y. y \<in> X \<Longrightarrow> le y m" using finite directed_on_poE[OF directed] maximal_m maximal_uniq by (rule unique_maximal_onE)
+  next
+    show "m \<in> X" using maximal_m by (rule maximal_on_memE)
+  qed
+qed
+
+abbreviation (in partial_order) maximal :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
+  where "maximal \<equiv> maximal_on UNIV (\<sqsubseteq>)"
 
 context partial_order
 begin
 lemma maximalE:
   assumes "maximal X x"
-  shows maximal_memE: "x \<in> X" and maximal_maximalE: "\<And>y. \<lbrakk> y \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> x = y"
-using assms unfolding maximal_def by blast+
+  shows maximal_memE: "x \<in> X" and maximal_eqE: "\<And>y. \<lbrakk> y \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> x = y"
+using assms unfolding maximal_on_def by blast+
 
 lemma ex_maximal:
   assumes "finite A"
     and "A \<noteq> {}"
   obtains m where "maximal A m"
-proof -
-  have "\<exists>m. maximal A m" using assms proof (induction rule: finite_psubset_induct)
-    case (psubset A)
-    assume "finite A"
-    assume "\<And>B. \<lbrakk>B \<subset> A; B \<noteq> {}\<rbrakk> \<Longrightarrow> \<exists>m. maximal B m"
-    assume "A \<noteq> {}"
-    obtain a where a_mem: "a \<in> A" using psubset.prems(1) by blast
-    let ?B = "{b \<in> A. a \<noteq> b \<and> a \<sqsubseteq> b}"
-    show ?case proof cases
-      assume True: "?B = {}"
-      hence "\<And>b. \<lbrakk> b \<in> A; a \<sqsubseteq> b \<rbrakk> \<Longrightarrow> a = b" by blast
-      then show ?thesis using a_mem unfolding maximal_def by blast
-    next
-      assume False: "?B \<noteq> {}"
-      have "a \<notin> ?B" by blast
-      hence 1: "?B \<subset> A" using a_mem by blast
-      obtain m
-        where m_mem: "m \<in> A"
-          and "a \<noteq> m"
-          and a_le_m: "a \<sqsubseteq> m"
-          and 2: "\<And>b. \<lbrakk> b \<in> A; a \<noteq> b; a \<sqsubseteq> b; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b"
-        using psubset.IH[OF 1 False] unfolding maximal_def by blast
-      have 3: "\<And>b. \<lbrakk> b \<in> A; m \<sqsubseteq> b \<rbrakk> \<Longrightarrow> m = b" using 2 a_le_m po_antisym po_trans by blast
-      show ?thesis by (rule exI[where ?x=m]; auto simp add: maximal_def intro: m_mem 3)
-    qed
-  qed
-  thus "(\<And>m. maximal A m \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
-qed
+using assms subset_UNIV po by (rule ex_maximal_on)
 
 lemma ex_maximal2:
   assumes finite: "finite A"
     and a_mem: "a \<in> A"
   obtains m where "a \<sqsubseteq> m" and "maximal A m"
-proof -
-  let ?B = "{b \<in> A. a \<sqsubseteq> b}"
-  have 1: "finite ?B" using finite by force
-  have 2: "?B \<noteq> {}" using a_mem po_refl by fastforce
-  obtain x where maximal_x: "maximal {b \<in> A. a \<sqsubseteq> b} x" using ex_maximal[of "{b \<in> A. a \<sqsubseteq> b}"] 1 2 .
-  show thesis proof
-    show "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
-  next
-    show "maximal A x" unfolding maximal_def proof (intro conjI ballI impI)
-      show "x \<in> A" using maximal_x unfolding maximal_def by blast
-    next
-      show "\<And>b. \<lbrakk>b \<in> A; x \<sqsubseteq> b\<rbrakk> \<Longrightarrow> x = b" proof (rule maximal_maximalE)
-        show "maximal {b \<in> A. a \<sqsubseteq> b} x" using maximal_x .
-      next
-        fix b
-        assume 1: "b \<in> A" "x \<sqsubseteq> b"
-        have 2: "a \<sqsubseteq> x" using maximal_x unfolding maximal_def by blast
-        show "b \<in> {b \<in> A. a \<sqsubseteq> b}" using 1 2 po_trans by blast
-      next
-        fix b
-        assume "x \<sqsubseteq> b"
-        thus "x \<sqsubseteq> b" .
-      qed
-    qed
-  qed
-qed
+using finite po a_mem subset_UNIV by (rule ex_maximal_on2)
 
 lemma unique_maximalE:
   assumes finite: "finite X"
     and maximal_x: "maximal X x"
     and maximal_uniq: "\<And>y. maximal X y \<Longrightarrow> y = x"
   shows "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x"
-using assms proof (induct arbitrary: x rule: finite_psubset_induct)
-  case (psubset A)
-  show ?case by (metis ex_maximal2 psubset.hyps(1) psubset.prems(1) psubset.prems(3))
-qed
+using finite po maximal_x maximal_uniq by (rule unique_maximal_onE)
 
 lemma ex_maximum:
   assumes finite: "finite X"
     and directed: "directed X"
     and nempty: "X \<noteq> {}"
   obtains x where "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> x" and "x \<in> X"
-proof -
-  obtain m where maximal_m: "maximal X m" using nempty ex_maximal finite by blast
-  show thesis proof
-    have maximal_uniq: "\<And>z. maximal X z \<Longrightarrow> z = m" by (metis directed directed_on_def maximal_def maximal_m)
-    show "\<And>y. y \<in> X \<Longrightarrow> y \<sqsubseteq> m" using finite maximal_m maximal_uniq by (rule unique_maximalE)
-  next
-    show "m \<in> X" using maximal_m by (rule maximal_memE)
-  qed
-qed
+using finite directed nempty by (rule ex_maximum_on; blast)
 end
-
 
 subsubsection "4"
 text "最小限を持つ有限の半順序集合は cpo であることを示せ。"
@@ -197,16 +268,39 @@ end
 
 subsubsection "5"
 text "部分関数の集合 [X \<rightharpoonup> T] の有向部分集合 F の上限は \<Union>F であることを確かめよ。"
-lemma
-  fixes F :: "('a \<times> 'b) set set"
-  (* assumes "directed_on {R. partial_fun R} F (\<sqsubseteq>\<^sub>f)" *) \<comment>\<open>なくても成立\<dots>（ただし \<Union>F は partial_fun とは限らなくなる）\<close>
-  shows "top_on F (\<sqsubseteq>\<^sub>g) (\<Union>F)"
-unfolding top_on_def proof auto
-  fix R :: "('a \<times> 'b) set"
-  assume "R \<in> F"
-  thus "R \<sqsubseteq>\<^sub>g \<Union> F" unfolding less_eq_graph_def by (rule Union_upper)
+lemma upper_bound_on_graphI:
+  assumes directed_on: "directed_on {R. graph R} (\<sqsubseteq>\<^sub>g) F"
+  shows "upper_bound_on {R. graph R} (\<sqsubseteq>\<^sub>g) F (\<Union>F)"
+proof (rule upper_bound_onI)
+  show "\<Union> F \<in> {F. graph F}" proof (rule CollectI)
+    have "\<And>x. x \<in> F \<Longrightarrow> graph x" using directed_on_subsetE[OF directed_on] by blast
+    show "graph (\<Union> F)" using directed_on by (rule graph_UnI)
+  qed                                                    
+next
+  show "F \<subseteq> {F. graph F}" using directed_on by (rule directed_on_subsetE)
+next
+  fix x
+  assume "x \<in> F"
+  thus "x \<sqsubseteq>\<^sub>g \<Union> F" unfolding less_eq_graph_def by blast
 qed
 
+lemma
+  assumes directed_on: "directed_on {F. graph F} (\<sqsubseteq>\<^sub>g) F"
+  shows "supremum_on {F. graph F} (\<sqsubseteq>\<^sub>g) F (\<Union>F)"
+proof (rule supremum_onI)
+  show "upper_bound_on {F. graph F} (\<sqsubseteq>\<^sub>g) F (\<Union> F)" using directed_on by (rule upper_bound_on_graphI)
+next
+  fix a
+  assume a_mem: "a \<in> {F. graph F}"
+    and upper_a: "upper_bound_on {F. graph F} (\<sqsubseteq>\<^sub>g) F a"
+  have graph_a: "graph a" using a_mem by blast
+  show "\<Union> F \<sqsubseteq>\<^sub>g a" unfolding less_eq_graph_def proof (rule Sup_least)
+    fix x
+    assume x_mem: "x \<in> F"
+    have "x \<sqsubseteq>\<^sub>g a" using upper_a x_mem by (rule upper_bound_on_leE)
+    thus "x \<subseteq> a" unfolding less_eq_graph_def .
+  qed
+qed
 
 subsection "6"
 text "実数上の区間 [a, b] \<in> I_\<real> について、"
@@ -234,21 +328,10 @@ qed
 lemma supremum_on_range:
   assumes range_mem: "range a b \<in> I\<^sub>R"
   shows "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)"
-using upper_bound_on_rangeI[OF range_mem] proof (rule supremum_onI)
-  fix i
-  assume i_mem: "i \<in> I\<^sub>R"
-    and upper_i: "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} i"
-  show "range a b \<sqsubseteq>\<^sub>r i" unfolding less_eq_range_def range_def proof auto
-    fix x
-    assume x_mem: "x \<in> i"
-    show "a \<le> x" sorry
-  next
-    fix x
-    assume x_mem: "x \<in> i"
-    show "x \<le> b" sorry
-  qed
-qed
-
+oops
+\<comment> \<open>上界であることは示せたが、これが上界の中で最小であることを示すのが難しい。\<close>
+\<comment> \<open>命題3.1.13 または 3.1.14 を利用するとうまく解けるのかもしれないが、命題3.1.13では結局最小であることを示すことに帰着するので別ルートにはならなかった。\<close>
+\<comment> \<open>一方、命題 3.1.14 を利用する場合には紐付けの I を決定する必要があるがこれが思いつかなかった。\<close>
 
 
 end

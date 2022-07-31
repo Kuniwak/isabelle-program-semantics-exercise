@@ -95,18 +95,20 @@ text "半順序集合 D 上の最小元（least element あるいは bottom）�
 text   "\<forall>a \<in> D (\<bottom> \<sqsubseteq> a)"
 
 definition bot_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> bool"
-  where "bot_on D le bot \<equiv> \<forall>a \<in> D. le bot a"
+  where "bot_on D le bot \<equiv> bot \<in> D \<and> (\<forall>a \<in> D. le bot a)"
 
 lemma bot_onI:
-  assumes "\<And>d. d \<in> D \<Longrightarrow> le bot d"
+  assumes "bot \<in> D"
+    and "\<And>d. d \<in> D \<Longrightarrow> le bot d"
   shows "bot_on D le bot"
 unfolding bot_on_def using assms by blast
 
 lemma bot_onE:
   assumes "bot_on D le bot"
     and "d \<in> D"
-  shows "le bot d"
-using assms unfolding bot_on_def by blast
+  shows bot_on_leE: "le bot d"
+    and bot_on_memE: "bot \<in> D"
+using assms unfolding bot_on_def by blast+
 
 class partial_order_bot = partial_order +
   fixes bot :: 'a ("\<bottom>")
@@ -122,7 +124,19 @@ text "最小元と対になる概念として、半順序集合 D の最大元�
 text   "\<forall>a \<in> D (a \<sqsubseteq> \<top>)"
 
 definition top_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a \<Rightarrow> bool"
-  where "top_on D f top \<equiv> \<forall>a \<in> D. f a top"
+  where "top_on D le top \<equiv> top \<in> D \<and> (\<forall>a \<in> D. le a top)"
+
+lemma top_onI:
+  assumes "top \<in> D"
+    and "\<And>a. a \<in> D \<Longrightarrow> le a top"
+  shows "top_on D le top"
+  unfolding top_on_def using assms by blast
+
+lemma top_onE:
+  assumes "top_on D le top"
+  shows top_on_leE: "\<And>a. a \<in> D \<Longrightarrow> le a top"
+    and top_on_memE: "top \<in> D"
+  using assms unfolding top_on_def by blast+
 
 class partial_order_top = partial_order +
   fixes top :: 'a ("\<top>")
@@ -400,7 +414,9 @@ definition bot :: 'a
 
 sublocale partial_order_bot "(\<sqsubseteq>)" bot
 proof standard
-  show "bot_on UNIV (\<sqsubseteq>) bot" unfolding bot_on_def bot_def proof (rule ballI)
+  show "bot_on UNIV (\<sqsubseteq>) bot" unfolding bot_on_def bot_def proof (intro conjI ballI)
+    show "\<^bold>\<squnion>{} \<in> UNIV" by (rule UNIV_I)
+  next
     fix a
     show "\<^bold>\<squnion> {} \<sqsubseteq> a" proof (rule least_Sup)
       show "{} \<^sub>s\<sqsubseteq> a " unfolding upper_bound_on_def by simp
@@ -413,7 +429,9 @@ definition top
 
 sublocale partial_order_top "(\<sqsubseteq>)" top
 proof standard
-  show "top_on UNIV (\<sqsubseteq>) top" unfolding top_on_def top_def proof (rule ballI)
+  show "top_on UNIV (\<sqsubseteq>) top" unfolding top_on_def top_def proof (intro conjI ballI)
+    show "\<^bold>\<squnion> UNIV \<in> UNIV" by (rule UNIV_I)
+  next
     fix a
     show "a \<sqsubseteq> \<^bold>\<squnion> UNIV" proof (rule le_Sup)
       show "a \<in> UNIV" by (rule UNIV_I)
@@ -438,19 +456,19 @@ text "半順序集合 D の空でない部分集合 X で、"
 text   "\<forall>a \<in> X \<forall>b \<in> X \<exists>c \<in> X (a \<sqsubseteq> c かつ b \<sqsubseteq> c)"
 text "が成り立つとき、X は有向集合（directed set）であるという。"
 
-definition directed_on :: "'a set \<Rightarrow> 'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
-  where "directed_on D X le \<equiv> partial_order_on D le \<and> X \<subseteq> D \<and> X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. le a c \<and> le b c)"
+definition directed_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> bool"
+  where "directed_on D le X \<equiv> partial_order_on D le \<and> X \<subseteq> D \<and> X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. le a c \<and> le b c)"
 
 lemma directed_onI:
   assumes "partial_order_on D le"
     and "X \<subseteq> D"
     and "X \<noteq> {}"
     and "\<And>a b. \<lbrakk> a \<in> X; b \<in> X \<rbrakk> \<Longrightarrow> \<exists>c \<in> X. le a c \<and> le b c"
-  shows "directed_on D X le"
+  shows "directed_on D le X"
 unfolding directed_on_def using assms by blast
 
 lemma directed_onE:
-  assumes "directed_on D X le"
+  assumes "directed_on D le X"
   shows directed_on_poE: "partial_order_on D le"
     and directed_on_subsetE: "X \<subseteq> D"
     and directed_on_nemptyE: "X \<noteq> {}"
@@ -458,7 +476,7 @@ lemma directed_onE:
 using assms unfolding directed_on_def by blast+
 
 abbreviation (in partial_order) directed :: "'a set \<Rightarrow> bool"
-  where "directed X \<equiv> directed_on UNIV X (\<sqsubseteq>)"
+  where "directed \<equiv> directed_on UNIV (\<sqsubseteq>)"
 
 
 subsection "定義 3.1.7"
@@ -466,13 +484,13 @@ text "次の2つの条件を満たす半順序集合 D を完備半順序集合�
 text "(1) D は最小元をもつ。"
 text "(2) D は任意の有向部分集合 X について、X の上限 \<squnion> X \<in> D が存在する。"
 definition cpo_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
-  where "cpo_on D le \<equiv> partial_order_on D le \<and> (\<exists>a \<in> D. bot_on D le a) \<and> (\<forall>X. directed_on D X le \<longrightarrow> (\<exists>x \<in> D. supremum_on D le X x))"
+  where "cpo_on D le \<equiv> partial_order_on D le \<and> (\<exists>a \<in> D. bot_on D le a) \<and> (\<forall>X. directed_on D le X \<longrightarrow> (\<exists>x \<in> D. supremum_on D le X x))"
 
 lemma cpo_onI:
   assumes "partial_order_on D le"
     and "bot_on D le a"
     and "a \<in> D"
-    and "\<And>X. directed_on D X le \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
+    and "\<And>X. directed_on D le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
   shows "cpo_on D le"
 unfolding cpo_on_def using assms by blast
 
@@ -480,7 +498,7 @@ lemma cpo_onE:
   assumes "cpo_on D le"
   shows cpo_on_poE: "partial_order_on D le"
     and cpo_on_bot_onE: "\<exists>a \<in> D. bot_on D le a"
-    and "\<And>X. directed_on D X le \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
+    and "\<And>X. directed_on D le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
 using assms unfolding cpo_on_def by blast+
 
 class cpo = partial_order_bot +
@@ -509,47 +527,85 @@ definition less_eq_graph :: "('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b)
   where "R1 \<sqsubseteq>\<^sub>g R2 \<equiv> R1 \<subseteq> R2"
 
 text "この半順序における [S \<rightharpoonup> T] の最小元は空集合を \<emptyset> \<in> S \<times> T、すなわち、いたるところ未定義の部分関数である。"
-lemma bot_on_graph: "bot_on (UNIV :: ('a \<times> 'b) set set) (\<sqsubseteq>\<^sub>g) {}"
-  unfolding bot_on_def less_eq_graph_def by blast
+lemma bot_on_graph: "bot_on {R. graph R} (\<sqsubseteq>\<^sub>g) {}"
+  unfolding bot_on_def less_eq_graph_def graph_def single_valued_def by blast
 
-text "また F を [S \<rightharpoonup> T] の有向雨部分集合とすると、F の上限は \<Union>F である。"
+lemma po_on_graph: "partial_order_on {R. graph R} ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool)" proof (rule partial_order_onI)
+  fix R :: "('a \<times> 'b) set"
+  show "R \<sqsubseteq>\<^sub>g R" unfolding less_eq_graph_def by (rule order.refl)
+next
+  fix R1 R2 :: "('a \<times> 'b) set"
+  assume "R1 \<sqsubseteq>\<^sub>g R2" "R2 \<sqsubseteq>\<^sub>g R1"
+  thus "R1 = R2" unfolding less_eq_graph_def by (rule order.antisym)
+next
+  fix R1 R2 R3 :: "('a \<times> 'b) set"
+  assume "R1 \<sqsubseteq>\<^sub>g R2" "R2 \<sqsubseteq>\<^sub>g R3"
+  thus "R1 \<sqsubseteq>\<^sub>g R3" unfolding less_eq_graph_def by (rule order.trans)
+qed
+
+text "また F を [S \<rightharpoonup> T] の有向部分集合とすると、F の上限は \<Union>F である。"
+lemma graph_UnI:
+  assumes directed_on: "directed_on {R. graph R} (\<sqsubseteq>\<^sub>g) F"
+  shows "graph (\<Union>F)"
+using directed_on proof (rule contrapos_pp)
+  assume "\<not> graph (\<Union> F)"
+  then obtain a b c where mem1_Un: "(a, b) \<in> \<Union>F" and mem2_Un: "(a, c) \<in> \<Union>F" and neq: "b \<noteq> c" unfolding graph_def single_valued_def by blast
+  obtain R1 R2 where mem1_R1: "(a, b) \<in> R1" and R1_mem: "R1 \<in> F" and mem2_R2: "(a, c) \<in> R2" and R2_mem: "R2 \<in> F" using mem1_Un mem2_Un by blast
+  show "\<not> directed_on {R. graph R} (\<sqsubseteq>\<^sub>g) F" unfolding directed_on_def de_Morgan_conj ball_simps bex_simps proof (intro disjI2 bexI)
+    show "\<forall>x\<in>F. \<not> R1 \<sqsubseteq>\<^sub>g x \<or> \<not> R2 \<sqsubseteq>\<^sub>g x" unfolding less_eq_graph_def proof (intro ballI)
+      fix x
+      assume "x \<in> F"
+      hence graph_x: "graph x" using directed_on_subsetE[OF directed_on] by blast
+      show "\<not> R1 \<subseteq> x \<or> \<not> R2 \<subseteq> x " by (meson graph_def graph_x in_mono mem1_R1 mem2_R2 neq single_valued_def)
+    qed
+  next
+    show "R1 \<in> F" by (rule R1_mem)
+  next
+    show "R2 \<in> F" by (rule R2_mem)
+  qed
+qed
+
+
+text "また F を [S \<rightharpoonup> T] の有向部分集合とすると、F の上限は \<Union>F である。"
 lemma supremum_on_graph:
   fixes F :: "('a \<times> 'b) set set"
-  (* assumes "directed_on UNIV F (\<sqsubseteq>\<^sub>g)" *) \<comment> \<open>なくても解ける\<close>
-  shows "supremum_on UNIV (\<sqsubseteq>\<^sub>g) F (\<Union>F)"
+  assumes directed_on: "directed_on {R. graph R} (\<sqsubseteq>\<^sub>g) F"
+  shows "supremum_on {R. graph R} (\<sqsubseteq>\<^sub>g) F (\<Union>F)"
 proof (rule supremum_onI)
-  show "upper_bound_on UNIV (\<sqsubseteq>\<^sub>g) F (\<Union>F)" using UNIV_I subset_UNIV proof (rule upper_bound_onI)
+  show "upper_bound_on {R. graph R} (\<sqsubseteq>\<^sub>g) F (\<Union>F)" proof (rule upper_bound_onI)
+    show "\<Union> F \<in> {R. graph R}" using graph_UnI[OF directed_on] by blast
+  next
+    show "F \<subseteq> {R. graph R}" using graph_UnI[OF directed_on] unfolding graph_def using single_valued_subset[where ?s="\<Union> F"] by blast
+  next
     fix x
     assume x_mem: "x \<in> F"
     show "x \<sqsubseteq>\<^sub>g \<Union>F" unfolding less_eq_graph_def using x_mem by blast
   qed
 next
   fix a
-  assume upper_a: "upper_bound_on UNIV (\<sqsubseteq>\<^sub>g) F a"
-  show "\<Union>F \<sqsubseteq>\<^sub>g a" by (meson Union_least less_eq_graph_def upper_a upper_bound_on_leE)
+  assume upper_a: "upper_bound_on {R. graph R} (\<sqsubseteq>\<^sub>g) F a"
+  show "\<Union>F \<sqsubseteq>\<^sub>g a" unfolding less_eq_graph_def proof (rule Sup_least)
+    fix x
+    assume x_mem: "x \<in> F"
+    show "x \<subseteq> a" using upper_bound_on_leE[OF upper_a x_mem] unfolding less_eq_graph_def .
+  qed
 qed
 
-lemma cpo_on_graph: "cpo_on (UNIV :: ('a \<times> 'b) set set) (\<sqsubseteq>\<^sub>g)"
+lemma cpo_on_graph: "cpo_on {R. graph R} (\<sqsubseteq>\<^sub>g)"
 proof (rule cpo_onI)
-  show "partial_order ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool)" proof (rule partial_order_onI)
-    fix R :: "('a \<times> 'b) set"
-    show "R \<sqsubseteq>\<^sub>g R" unfolding less_eq_graph_def by (rule order.refl)
-  next
-    fix R1 R2 :: "('a \<times> 'b) set"
-    assume "R1 \<sqsubseteq>\<^sub>g R2" "R2 \<sqsubseteq>\<^sub>g R1"
-    thus "R1 = R2" unfolding less_eq_graph_def by (rule order.antisym)
-  next
-    fix R1 R2 R3 :: "('a \<times> 'b) set"
-    assume "R1 \<sqsubseteq>\<^sub>g R2" "R2 \<sqsubseteq>\<^sub>g R3"
-    thus "R1 \<sqsubseteq>\<^sub>g R3" unfolding less_eq_graph_def by (rule order.trans)
-  qed
+  show "partial_order_on {R. graph R} ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool)" by (rule po_on_graph)
 next
-  show "bot_on UNIV ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool) {}" by (rule bot_on_graph)
-next
-  show "{} \<in> UNIV" by (rule UNIV_I)
+  show "bot_on {R. graph R} ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool) {}" by (rule bot_on_graph)
+next                                                            
+  show "{} \<in> {R. graph R}" unfolding graph_def single_valued_def by blast
 next
   fix X :: "('a \<times> 'b) set set"
-  show "\<exists>x\<in>UNIV. supremum_on UNIV (\<sqsubseteq>\<^sub>g) X x" using supremum_on_graph by blast
+  assume directed_on_X: "directed_on {R. graph R} (\<sqsubseteq>\<^sub>g) X"
+  show "\<exists>x\<in>{R. graph R}. supremum_on {R. graph R} (\<sqsubseteq>\<^sub>g) X x" using supremum_on_graph[OF directed_on_X] proof
+    show "\<Union> X \<in> {R. graph R}" proof
+      show "graph (\<Union> X)" using directed_on_X by (rule graph_UnI)
+    qed
+  qed
 qed
 
 subsection "例 3.1.10"
@@ -575,7 +631,7 @@ proof (rule cpo_onI)
     thus "a \<sqsubseteq>\<^sub>o c" unfolding less_eq_option_def by blast
   qed
 next
-  show "bot_on UNIV ((\<sqsubseteq>\<^sub>o) :: ('a option) \<Rightarrow> ('a option) \<Rightarrow> bool) None" proof (rule bot_onI)
+  show "bot_on UNIV ((\<sqsubseteq>\<^sub>o) :: ('a option) \<Rightarrow> ('a option) \<Rightarrow> bool) None" using UNIV_I proof (rule bot_onI)
     fix d :: "'a option"
     show "None \<sqsubseteq>\<^sub>o d" unfolding less_eq_option_def by simp
   qed
@@ -583,7 +639,7 @@ next
   show "None \<in> UNIV" by (rule UNIV_I)
 next
   fix X :: "'a option set"
-  assume directed_on: "directed_on UNIV X (\<sqsubseteq>\<^sub>o)"
+  assume directed_on: "directed_on UNIV (\<sqsubseteq>\<^sub>o) X"
   have "(\<exists>x. X = {x}) \<or> (\<exists>x. X = {None, Some x})" proof -
     obtain x1 where x1_mem: "x1 \<in> X" using directed_on_nemptyE[OF directed_on] by blast
     show "(\<exists>x. X = {x}) \<or> (\<exists>x. X = {None, Some x})" proof (cases "X = {x1}")
@@ -670,7 +726,7 @@ proof (rule cpo_onI)
     thus "a \<sqsubseteq>\<^sub>f c" unfolding less_eq_partial_fun_def by auto
   qed
 next
-  show "bot_on UNIV ((\<sqsubseteq>\<^sub>f) :: ('a \<Rightarrow> 'b option) \<Rightarrow> ('a \<Rightarrow> 'b option) \<Rightarrow> bool) (\<lambda>_. None)" proof (rule bot_onI)
+  show "bot_on UNIV ((\<sqsubseteq>\<^sub>f) :: ('a \<Rightarrow> 'b option) \<Rightarrow> ('a \<Rightarrow> 'b option) \<Rightarrow> bool) (\<lambda>_. None)" using UNIV_I proof (rule bot_onI)
     fix d :: "'a \<Rightarrow> 'b option"
     show "Map.empty \<sqsubseteq>\<^sub>f d" unfolding less_eq_partial_fun_def by blast
   qed
@@ -678,7 +734,7 @@ next
   show "(\<lambda>_. None) \<in> UNIV" by (rule UNIV_I)
 next
   fix X :: "('a \<Rightarrow> 'b option) set"
-  assume directed_on: "directed_on UNIV X (\<sqsubseteq>\<^sub>f)"
+  assume directed_on: "directed_on UNIV (\<sqsubseteq>\<^sub>f) X"
   let ?m = "\<lambda>x. if (\<exists>f \<in> X. \<exists>y. f x = Some y) then Some (THE y. \<exists>f \<in> X. f x = Some y) else None"
   show "\<exists>x\<in>UNIV. supremum_on UNIV (\<sqsubseteq>\<^sub>f) X x" proof
     show "supremum_on UNIV (\<sqsubseteq>\<^sub>f) X ?m" proof (rule supremum_onI)
@@ -747,10 +803,10 @@ definition less_eq_range :: "real set \<Rightarrow> real set \<Rightarrow> bool"
 
 text "と定義した半順序に関して cpo をなす。"
 lemma directed_on_minusI:
-  assumes directed_on: "directed_on D X le"
+  assumes directed_on: "directed_on D le X"
     and bot_on: "bot_on D le b"
     and neq: "X \<noteq> {b}"
-  shows "directed_on D (X - {b}) le"
+  shows "directed_on D le (X - {b})"
 proof (rule directed_onI)
   show "partial_order_on D le" using directed_on by (rule directed_on_poE)
 next
@@ -767,7 +823,7 @@ next
     show "le x z \<and> le y z" using x_le_z y_le_z by (rule conjI)
   next
     have "z \<noteq> b" using x_neq y_neq bot_on unfolding bot_on_def
-      by (metis directed_on_subsetE[OF directed_on] in_mono po_antisymE[OF directed_on_poE[OF directed_on]] y_le_z y_mem z_mem)
+      by (metis directed_on_subsetE[OF directed_on] in_mono po_antisymE[OF directed_on_poE[OF directed_on]] y_le_z y_mem)
     thus "z \<in> X - {b}" using z_mem by blast
   qed
 qed
@@ -776,6 +832,8 @@ lemma bot_on_range: "bot_on I\<^sub>R (\<sqsubseteq>\<^sub>r) UNIV"
 proof (rule bot_onI)
   fix d
   show "UNIV \<sqsubseteq>\<^sub>r d" unfolding less_eq_range_def by (rule subset_UNIV)
+next
+  show "UNIV \<in> I\<^sub>R" unfolding I\<^sub>R_def by blast
 qed
 
 lemma po_on_range: "partial_order_on I\<^sub>R (\<sqsubseteq>\<^sub>r)"
@@ -803,7 +861,7 @@ next
   show "UNIV \<in> I\<^sub>R" unfolding I\<^sub>R_def by simp
 next
   fix X
-  assume directed_on: "directed_on I\<^sub>R X (\<sqsubseteq>\<^sub>r)"
+  assume directed_on: "directed_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X"
   have In_X_mem: "\<Inter> X \<in> I\<^sub>R" proof -
     have 1: "\<Inter> X = UNIV \<or> (\<exists>a b. \<Inter> X = range a b \<and> a \<le> b)" proof (cases "X = {UNIV}")
       case X_eq: True
@@ -812,14 +870,14 @@ next
       qed
     next
       case X_neq: False
-      have ex_range: "\<And>X. \<lbrakk> directed_on I\<^sub>R X (\<sqsubseteq>\<^sub>r); X \<noteq> {UNIV} \<rbrakk> \<Longrightarrow> \<exists>a b. \<Inter> X = range a b \<and> a \<le> b"
+      have ex_range: "\<And>X. \<lbrakk> directed_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X; X \<noteq> {UNIV} \<rbrakk> \<Longrightarrow> \<exists>a b. \<Inter> X = range a b \<and> a \<le> b"
         sorry \<comment> \<open>次を仮定してもなお解けなかった: UNIV の singleton でなければ最大元と最小元が存在する\<close>
       show ?thesis proof (rule disjI2; cases "UNIV \<in> X")
         case UNIV_mem: True
         let ?X = "X - {UNIV}"
         have Int_X_eq: "\<Inter> X = \<Inter> ?X" by blast
         have "\<exists>a b. \<Inter> ?X = range a b \<and> a \<le> b" proof (rule ex_range)
-          show "directed_on I\<^sub>R ?X (\<sqsubseteq>\<^sub>r)" using directed_on bot_on_range X_neq by (rule directed_on_minusI)
+          show "directed_on I\<^sub>R (\<sqsubseteq>\<^sub>r) ?X" using directed_on bot_on_range X_neq by (rule directed_on_minusI)
         next
           show "X - {UNIV} \<noteq> {UNIV}" by blast
         qed
