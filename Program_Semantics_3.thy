@@ -193,7 +193,7 @@ definition supremum_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarro
 
 lemma supremum_onI:
   assumes "upper_bound_on D le X d"
-    and "\<And>a. \<lbrakk> a \<in> D; upper_bound_on D le X a \<rbrakk> \<Longrightarrow> le d a"
+    and "\<And>a. upper_bound_on D le X a \<Longrightarrow> le d a"
   shows "supremum_on D le X d"
 using assms unfolding supremum_on_def by blast
 
@@ -966,9 +966,8 @@ proof (rule supremum_onI)
   show "upper_bound_on D le X d" using le_iff_upper[OF d_mem_D] unfolding d_le_d_iff by blast
 next
   fix a
-  assume a_mem: "a \<in> D"
-    and upper_a: "upper_bound_on D le X a"
-  have "le d a \<longleftrightarrow> upper_bound_on D le X a" by (rule le_iff_upper[OF a_mem])
+  assume upper_a: "upper_bound_on D le X a"
+  have "le d a \<longleftrightarrow> upper_bound_on D le X a" by (rule le_iff_upper[OF upper_bound_on_memE[OF upper_a]])
   thus "le d a" using upper_a by blast
 qed
 
