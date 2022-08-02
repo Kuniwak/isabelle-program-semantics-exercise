@@ -321,8 +321,8 @@ proof (rule supremum_onI)
   show "upper_bound_on {F. graph F} (\<sqsubseteq>\<^sub>g) F (\<Union> F)" using directed_on by (rule upper_bound_on_graphI)
 next
   fix a
-  assume a_mem: "a \<in> {F. graph F}"
-    and upper_a: "upper_bound_on {F. graph F} (\<sqsubseteq>\<^sub>g) F a"
+  assume upper_a: "upper_bound_on {F. graph F} (\<sqsubseteq>\<^sub>g) F a"
+  have a_mem: "a \<in> {F. graph F}" using upper_a by (rule upper_bound_on_memE)
   have graph_a: "graph a" using a_mem by blast
   show "\<Union> F \<sqsubseteq>\<^sub>g a" unfolding less_eq_graph_def proof (rule Sup_least)
     fix x
@@ -355,15 +355,210 @@ next
   show "x \<sqsubseteq>\<^sub>r range a b" by (rule x_le_range)
 qed
 
+\<comment> \<open>上界であることは示せたが、これが上界の中で最小であることを示すのが難しい。\<close>
+\<comment> \<open>命題3.1.13 または 3.1.14 を利用するとうまく解けるのかもしれないが、命題3.1.13では結局最小であることを示すことに帰着するので別ルートにはならなかった。\<close>
+\<comment> \<open>一方、命題 3.1.14 を利用する場合には紐付けの I を決定する必要があるがこれが思いつかなかった。\<close>
+\<comment> \<open>証明していることは実数の完備化という有名なやり方に見えるので、文献漁ってみるのがいいかもしれない。\<close>
 lemma supremum_on_range:
   assumes range_mem: "range a b \<in> I\<^sub>R"
   shows "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)"
 proof (rule supremum_onI)
   show "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)" using range_mem by (rule upper_bound_on_rangeI)
 next
+  fix i
+  assume upper_i: "upper_bound_on I\<^sub>R  (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} i"
+  have a_le_b: "a \<le> b" using range_mem unfolding I\<^sub>R_def proof auto
+    assume "range a b = UNIV"
+    hence False unfolding range_def using le_nat_floor linorder_not_le by blast
+    thus "a \<le> b" by simp
+  next
+    fix c d
+    assume range_eq: "range a b = range c d"
+      and c_le_d: "c \<le> d"
+    have a_eq_c: "a = c" using range_eq unfolding range_def
+      by (metis (no_types, lifting) c_le_d dual_order.trans mem_Collect_eq nle_le)
+    have b_eq_d: "b = d" using range_eq unfolding range_def
+      by (metis (no_types, lifting) c_le_d dual_order.trans mem_Collect_eq nle_le)
+    show "a \<le> b" using c_le_d unfolding a_eq_c b_eq_d .
+  qed
+
+  show "range a b \<sqsubseteq>\<^sub>r i" unfolding less_eq_range_def proof -
+    have i_subsetI: "\<And>j. \<lbrakk> j \<in> I\<^sub>R\<^sub>s; range a b \<subseteq> j \<rbrakk> \<Longrightarrow> i \<subseteq> j" using upper_bound_on_leE[OF upper_i] unfolding less_eq_range_def by blast
+    show "i \<subseteq> range a b" proof (cases "range a b \<in> I\<^sub>R\<^sub>s")
+      case range_mem: True
+      show ?thesis using range_mem order.refl by (rule i_subsetI)
+    next
+      case range_nmem: False \<comment> \<open>[a, b] は有理数の閉区間ではない\<close>
+      show "i \<subseteq> range a b"
+      \<comment> \<open>実数の閉区間 [a, b] を含む有理数の閉区間 [c, d] があり、ある実数の閉区間 i = [a', b'] は [c, d] に含まれるとする。\<close>
+      \<comment> \<open>背理法を考えてみる？i が [a, b] を真に含むとするとその間に要素があってそれがなんか不都合になればよい。
++---------------------+
+|      j \<in> I_R*       |
+|                     |
+|  +---------------+  |
+|  | [a, b] \<in> I_R  |  |
+|  |               |  |
+|  |  +---------+  |  |
+|  |  | i \<in> I_R |  |  |
+|  |  +---------+  |  |
+|  |               |  |
+|  +---------------+  |
+|                     |
++---------------------+
+
+
++--------------------------+
+|      j \<in> I_R*            |
+|                          |
+|  +--------------------+  |
+|  |   i \<in> I_R          |  |
+|  |                    |  |
+|  |  +--------------+  |  |
+|  |  | [a, b] \<in> I_R |  |  |
+|  |  +--------------+  |  |
+|  |                    |  |
+|  +--------------------+  |
+|                          |
++--------------------------+
+\<close>
+      \<comment> \<open>このとき、a \<le> a' \<and> b' \<le> b を示せ。\<close>
+    oops
+
+lemma range_in_I_R:
+  assumes "a \<le> b"
+  shows "range a b \<in> I\<^sub>R"
+using assms unfolding range_def I\<^sub>R_def by auto
+
+lemma inj_range1:
+  assumes a_le_b: "a \<le> b"
+    and "range a b = range c d"
+  shows "c = a" and "d = b"
+using assms unfolding range_def proof auto
+  assume "{x. a \<le> x \<and> x \<le> b} = {x. c \<le> x \<and> x \<le> d}"
+  hence "\<And>x. a \<le> x \<and> x \<le> b \<longleftrightarrow> c \<le> x \<and> x \<le> d" by blast
+  thus "c = a" by (meson a_le_b nle_le order.trans)
+next
+  assume "{x. a \<le> x \<and> x \<le> b} = {x. c \<le> x \<and> x \<le> d}"
+  hence "\<And>x. a \<le> x \<and> x \<le> b \<longleftrightarrow> c \<le> x \<and> x \<le> d" by blast
+  thus "d = b" by (metis a_le_b nle_le order.trans)
+qed
+
+lemma ex_range_in_I_Rs:
+  assumes "i \<in> I\<^sub>R\<^sub>s"
+  obtains a b where "i = range a b" and "\<And>c d. i = range c d \<Longrightarrow> c = a \<and> d = b" and "a \<le> b"
+proof -
+  obtain a b where i_eq: "i = range a b" and a_le_b: "a \<le> b"
+    using assms unfolding I\<^sub>R\<^sub>s_def using of_rat_less_eq by auto
+  show ?thesis proof
+    show "i = range a b" by (rule i_eq)
+  next
+    fix c d
+    assume "i = range c d"
+    thus "c = a \<and> d = b" using inj_range1[OF a_le_b] using i_eq by auto
+  next
+    show "a \<le> b" using a_le_b by blast
+  qed
+qed
+
+lemma range_mem_I_RE:
+  assumes "range a b \<in> I\<^sub>R"
+  shows "a \<le> b"
+using assms unfolding I\<^sub>R_def proof auto
+  assume "range a b = UNIV"
+  hence False unfolding range_def using le_nat_floor linorder_not_le by blast
+  thus "a \<le> b" by simp
+next
+  fix c d
+  assume range_eq: "range a b = range c d"
+    and c_le_d: "c \<le> d"
+  have a_eq_c: "a = c" using range_eq unfolding range_def
+    by (metis (no_types, lifting) c_le_d dual_order.trans mem_Collect_eq nle_le)
+  have b_eq_d: "b = d" using range_eq unfolding range_def
+    by (metis (no_types, lifting) c_le_d dual_order.trans mem_Collect_eq nle_le)
+  show "a \<le> b" using c_le_d unfolding a_eq_c b_eq_d .
+qed
+
+lemma range_leI1:
+  assumes a_le_c: "a \<le> c" and d_le_b: "d \<le> b"
+    and a_le_b: "a \<le> b"
+  shows "range a b \<sqsubseteq>\<^sub>r range c d"
+unfolding range_def less_eq_range_def proof auto
+  fix x
+  assume "c \<le> x"
+  thus "a \<le> x" using a_le_c by auto
+next
+  fix x
+  assume "x \<le> d"
+  thus "x \<le> b" using d_le_b by auto
+qed
+
+lemma supremum_on_range:
+  assumes range_mem: "range a b \<in> I\<^sub>R"
+  shows "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)"
+proof -
+  have a_le_b: "a \<le> b" using range_mem by (rule range_mem_I_RE)
+  let ?c = "\<lambda>i :: real set. (min (THE c. \<exists>d. i = range c d) a)"
+  let ?d = "\<lambda>i :: real set. (max (THE d. \<exists>c. i = range c d) b)"
+
+  let ?x = "\<lambda>i :: real set. (TODO_x :: real set set)"
+  let ?a = "\<lambda>i :: real set. range (?c i) (?d i)" \<comment> \<open>i \<in> I_R* を仮定してよい。\<close>
+  \<comment> \<open>
+--*---*-----------------*---*----
+  |   |                 |   |
+  |<---- i \<in> I_Rs ----->|   |
+  :   |                     |
+  :   |<---- range a b ---->|
+  :                         :
+  |<---- ?a --------------->|
+\<close>
+  show ?thesis using po_on_range proof (rule supremum_on_CollectE)
+    fix i
+    assume "i \<in> I\<^sub>R\<^sub>s"
+    show "(?x i) \<subseteq> I\<^sub>R" sorry
+  next
+    fix i
+    assume "i \<in> I\<^sub>R\<^sub>s"
+    show "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) (?x i) (?a i)" sorry
+  next
+    show "{i |i. i \<in> I\<^sub>R\<^sub>s \<and> i \<sqsubseteq>\<^sub>r range a b} = \<Union> {?x i| i. i \<in> I\<^sub>R\<^sub>s}" sorry
+  next
+    show "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {?a i | i. i \<in> I\<^sub>R\<^sub>s} (range a b)" proof (rule supremum_onI)
+      show "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {?a i |i. i \<in> I\<^sub>R\<^sub>s} (range a b)" using range_mem proof (rule upper_bound_onI)
+        show "{?a i |i. i \<in> I\<^sub>R\<^sub>s} \<subseteq> I\<^sub>R" proof (rule subsetI)
+          fix x
+          assume "x \<in> {range (?c i) (?d i) |i. i \<in> I\<^sub>R\<^sub>s}"
+          then obtain j where j_mem: "j \<in> I\<^sub>R\<^sub>s" and x_eq: "x = range (?c j) (?d j)" by blast
+          have ex1_THE_c: "\<exists>!c. \<exists>d. j = range c d \<and> c \<le> d" using ex_range_in_I_Rs[OF j_mem] by metis
+          have ex1_THE_d: "\<exists>!d. \<exists>c. j = range c d \<and> c \<le> d" using ex_range_in_I_Rs[OF j_mem] by metis
+          show "x \<in> I\<^sub>R" unfolding x_eq proof (rule range_in_I_R)
+            have "(THE c. \<exists>d. j = range c d \<and> c \<le> d) \<le> (THE d. \<exists>c. j = range c d \<and> c \<le> d)"
+              by (smt (verit, ccfv_threshold) ex_range_in_I_Rs j_mem theI')
+            thus "?c j \<le> ?d j" using a_le_b by linarith
+          qed
+        qed
+      next
+        fix x
+        assume "x \<in> {?a i |i. i \<in> I\<^sub>R\<^sub>s}"
+        then obtain j where x_eq: "x = range (?c j) (?d j)" and j_mem: "j \<in> I\<^sub>R\<^sub>s" by blast
+        show "x \<sqsubseteq>\<^sub>r range a b" unfolding x_eq proof (rule range_leI1)
+          show "?c j \<le> a" by linarith
+        next
+          show "b \<le> ?d j" by linarith
+        next
+          have "(THE c. \<exists>d. j = range c d \<and> c \<le> d) \<le> (THE d. \<exists>c. j = range c d \<and> c \<le> d)"
+            by (smt (verit, ccfv_threshold) ex_range_in_I_Rs j_mem theI')
+          thus "?c j \<le> ?d j" using a_le_b by linarith
+        qed
+      qed
+    next
+      fix j
+      assume upper_j: "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {?a i |i. i \<in> I\<^sub>R\<^sub>s} j"
+      have "\<And>i. i \<in> I\<^sub>R\<^sub>s \<Longrightarrow> ?a i \<sqsubseteq>\<^sub>r j" using upper_bound_on_leE[OF upper_j] by blast
+      show "range a b \<sqsubseteq>\<^sub>r j"
+    qed
+  qed
+qed
 oops
-\<comment> \<open>上界であることは示せたが、これが上界の中で最小であることを示すのが難しい。\<close>
-\<comment> \<open>命題3.1.13 または 3.1.14 を利用するとうまく解けるのかもしれないが、命題3.1.13では結局最小であることを示すことに帰着するので別ルートにはならなかった。\<close>
-\<comment> \<open>一方、命題 3.1.14 を利用する場合には紐付けの I を決定する必要があるがこれが思いつかなかった。\<close>
+
 
 end
