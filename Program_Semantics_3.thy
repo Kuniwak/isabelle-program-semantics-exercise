@@ -1219,4 +1219,170 @@ next
   thus "b = \<^bold>\<squnion> {a i |i. i \<in> I}" using Sup_eq by blast
 qed
 
+subsection "命題 3.1.15"
+text "X を有向集合とする。X の元の組 (x, y) について、cpo D の元 a(x, y) が定められていて、"
+text "各 z \<in> X について x \<sqsubseteq> y ならば a(x, z) \<sqsubseteq> a(y, z) かつ a(z, x) \<sqsubseteq> a(z, y) が成り立っているとする。"
+text "このとき"
+text   "A = {a(x,y) | x,y \<in> X} と B = {a(z,z) | z \<in> X}"
+text "はともに有向集合で \<squnion>A = \<squnion>B が成り立つ。"
+
+lemma directed_on_diff:
+  assumes directed_on: "directed_on Ddir ledir X"
+    and cpo_on: "cpo_on Dcpo lecpo"
+    and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
+    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x z) (a y z)"
+    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a z x) (a z y)"
+    and A_def: "A = { a x y | x y. x \<in> X \<and> y \<in> X }"
+  shows "directed_on Dcpo lecpo A"
+proof -
+  show "directed_on Dcpo lecpo A" using cpo_on_poE[OF cpo_on] proof (rule directed_onI)
+    show "A \<subseteq> Dcpo" using a_mem unfolding A_def by blast
+  next
+    show "A \<noteq> {}" using directed_on_nemptyE[OF directed_on] unfolding A_def by blast
+  next
+    fix a1 a2
+    assume a1_mem: "a1 \<in> A"
+      and a2_mem: "a2 \<in> A"
+    obtain x1 y1 where a1_eq: "a1 = a x1 y1" and x1_mem: "x1 \<in> X" and y1_mem: "y1 \<in> X" using a1_mem unfolding A_def by blast
+    obtain x2 y2 where a2_eq: "a2 = a x2 y2" and x2_mem: "x2 \<in> X" and y2_mem: "y2 \<in> X" using a2_mem unfolding A_def by blast
+    obtain zx where x1_le_zx: "ledir x1 zx" and x2_le_zx: "ledir x2 zx" and zx_mem: "zx \<in> X" using directed_on_exE[OF directed_on x1_mem x2_mem] by blast
+    obtain zy where y1_le_zy: "ledir y1 zy" and y2_le_zy: "ledir y2 zy" and zy_mem: "zy \<in> X" using directed_on_exE[OF directed_on y1_mem y2_mem] by blast
+    obtain zz where zx_le_zz: "ledir zx zz" and zy_le_zz: "ledir zy zz" and zz_mem: "zz \<in> X" using directed_on_exE[OF directed_on zx_mem zy_mem] by blast
+    show "\<exists>c\<in>A. lecpo a1 c \<and> lecpo a2 c" unfolding a1_eq a2_eq proof (intro bexI conjI)
+      show "lecpo (a x1 y1) (a zz zz)" using cpo_on_poE[OF cpo_on] a_mem[OF x1_mem y1_mem] a_mem[OF x1_mem zz_mem] a_mem[OF zz_mem zz_mem] proof (rule po_transE)
+        show "lecpo (a x1 zz) (a zz zz)" using x1_mem zz_mem zz_mem proof (rule lecpoI1)
+          show "ledir x1 zz" using x1_le_zx zx_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] x1_mem zx_mem zz_mem by (meson subsetD)
+        qed
+      next
+        show "lecpo (a x1 y1) (a x1 zz)" using y1_mem zz_mem x1_mem proof (rule lecpoI2)
+          show "ledir y1 zz" using y1_le_zy zy_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] y1_mem zy_mem zz_mem by (meson subsetD)
+        qed
+      qed
+    next
+      show "lecpo (a x2 y2) (a zz zz)" using cpo_on_poE[OF cpo_on] a_mem[OF x2_mem y2_mem] a_mem[OF x2_mem zz_mem] a_mem[OF zz_mem zz_mem] proof (rule po_transE)
+        show "lecpo (a x2 zz) (a zz zz)" using x2_mem zz_mem zz_mem proof (rule lecpoI1)
+          show "ledir x2 zz" using x2_le_zx zx_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] x2_mem zx_mem zz_mem by (meson subsetD)
+        qed
+      next
+        show "lecpo (a x2 y2) (a x2 zz)" using y2_mem zz_mem x2_mem proof (rule lecpoI2)
+          show "ledir y2 zz" using y2_le_zy zy_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] y2_mem zy_mem zz_mem by (meson subsetD)
+        qed
+      qed
+    next
+      show "a zz zz \<in> A" unfolding A_def using zz_mem by blast
+    qed
+  qed
+qed
+
+lemma directed_on_same:
+  fixes Ddir :: "'a set"
+    and Dcpo :: "'b set"
+    and a :: "'a \<Rightarrow> 'a \<Rightarrow> 'b"
+  assumes directed_on: "directed_on Ddir ledir X"
+    and cpo_on: "cpo_on Dcpo lecpo"
+    and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
+    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x z) (a y z)"
+    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a z x) (a z y)"
+    and B_def: "B = { a z z | z. z \<in> X }"
+  shows "directed_on Dcpo lecpo B"
+proof -
+  have lecpoI: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x x) (a y y)" proof -
+    fix x y
+    assume x_mem: "x \<in> X"
+      and y_mem: "y \<in> X"
+      and x_le_y: "ledir x y"
+    have xy_le_yy: "lecpo (a x y) (a y y)" using x_mem y_mem y_mem x_le_y by (rule lecpoI1)
+    have xx_le_xy: "lecpo (a x x) (a x y)" using x_mem y_mem x_mem x_le_y by (rule lecpoI2)
+    show "lecpo (a x x) (a y y)" using cpo_on_poE[OF cpo_on] a_mem[OF x_mem x_mem] a_mem[OF x_mem y_mem] a_mem[OF y_mem y_mem] xx_le_xy xy_le_yy by (rule po_transE)
+  qed
+  show "directed_on Dcpo lecpo B" using cpo_on_poE[OF cpo_on] proof (rule directed_onI)
+    show "B \<subseteq> Dcpo" unfolding B_def using a_mem by blast
+  next
+    show "B \<noteq> {}" unfolding B_def using directed_on_nemptyE[OF directed_on] by blast
+  next
+    fix b1 b2
+    assume b1_mem: "b1 \<in> B"
+      and b2_mem: "b2 \<in> B"
+    obtain x1 where b1_eq: "b1 = a x1 x1" and x1_mem: "x1 \<in> X" using b1_mem unfolding B_def by blast
+    obtain x2 where b2_eq: "b2 = a x2 x2" and x2_mem: "x2 \<in> X" using b2_mem unfolding B_def by blast
+    obtain x3 where x1_le_x3: "ledir x1 x3" and x2_le_x3: "ledir x2 x3" and x3_mem: "x3 \<in> X" using directed_on_exE[OF directed_on x1_mem x2_mem] by blast
+    show "\<exists>c\<in>B. lecpo b1 c \<and> lecpo b2 c" unfolding b1_eq b2_eq proof (intro bexI conjI)
+      show "lecpo (a x1 x1) (a x3 x3)" using x1_mem x3_mem x1_le_x3 by (rule lecpoI)
+    next
+      show "lecpo (a x2 x2) (a x3 x3)" using x2_mem x3_mem x2_le_x3 by (rule lecpoI)
+    next
+      show "a x3 x3 \<in> B" unfolding B_def using x3_mem by blast
+    qed
+  qed
+qed
+
+lemma sup_eqI:
+  fixes Ddir :: "'a set"
+    and Dcpo :: "'b set"
+    and a :: "'a \<Rightarrow> 'a \<Rightarrow> 'b"
+  assumes directed_on: "directed_on Ddir ledir X"
+    and cpo_on: "cpo_on Dcpo lecpo"
+    and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
+    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x z) (a y z)"
+    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a z x) (a z y)"
+    and A_def: "A = { a x y | x y. x \<in> X \<and> y \<in> X }"
+    and B_def: "B = { a z z | z. z \<in> X }"
+    and sup_xa: "supremum_on Dcpo lecpo A xa"
+    and sup_xb: "supremum_on Dcpo lecpo B xb"
+  shows "xa = xb"
+using cpo_on_poE[OF cpo_on] supremum_on_memE[OF sup_xa] supremum_on_memE[OF sup_xb] proof (rule po_antisymE)
+  show xa_le_xb: "lecpo xb xa" proof -
+    show "lecpo xb xa" using sup_xb proof (rule supremum_on_leastE)
+      show "upper_bound_on Dcpo lecpo B xa" using supremum_on_memE[OF sup_xa] proof (rule upper_bound_onI)
+        show "B \<subseteq> Dcpo" unfolding B_def using a_mem by blast
+      next
+        fix x
+        assume "x \<in> B"
+        hence x_mem_A: "x \<in> A" unfolding A_def B_def by blast
+        show "lecpo x xa" using sup_xa x_mem_A by (rule supremum_on_leE)
+      qed
+    qed
+  qed
+next
+  show xa_le_xb: "lecpo xa xb" proof -
+    have 1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x z; ledir y z \<rbrakk> \<Longrightarrow> lecpo (a x y) (a z z)" proof -
+      fix x y z
+      assume x_mem: "x \<in> X"
+        and y_mem: "y \<in> X"
+        and z_mem: "z \<in> X"
+        and x_le_z: "ledir x z"
+        and y_le_z: "ledir y z"
+      show "lecpo (a x y) (a z z)" using cpo_on_poE[OF cpo_on] a_mem[OF x_mem y_mem] a_mem[OF z_mem y_mem] a_mem[OF z_mem z_mem] proof (rule po_transE)
+        show "lecpo (a x y) (a z y)" using x_mem z_mem y_mem x_le_z by (rule lecpoI1)
+      next
+        show "lecpo (a z y) (a z z)" using y_mem z_mem z_mem y_le_z by (rule lecpoI2)
+      qed
+    qed
+    have upper_on_A_xb: "upper_bound_on Dcpo lecpo A xb" proof -
+      show "upper_bound_on Dcpo lecpo A xb" using supremum_on_memE[OF sup_xb] proof (rule upper_bound_onI)
+        show "A \<subseteq> Dcpo" unfolding A_def using a_mem by blast
+      next
+        fix a_xy
+        assume a_xy_mem: "a_xy \<in> A"
+        then obtain x y where a1_eq: "a_xy = a x y" and x_mem: "x \<in> X" and y_mem: "y \<in> X" unfolding A_def by blast
+        obtain z where x_le_z: "ledir x z" and y_le_z: "ledir y z" and z_mem: "z \<in> X" using directed_on_exE[OF directed_on x_mem y_mem] by blast
+        show "lecpo a_xy xb" using cpo_on_poE[OF cpo_on] proof (rule po_transE)
+          show "a_xy \<in> Dcpo" using a_xy_mem unfolding A_def using a_mem by blast
+        next
+          show "a z z \<in> Dcpo" using z_mem z_mem by (rule a_mem)
+        next
+          show "xb \<in> Dcpo" using sup_xb by (rule supremum_on_memE)
+        next
+          show "lecpo a_xy (a z z)" unfolding a1_eq using x_mem y_mem z_mem x_le_z y_le_z by (rule 1)
+        next
+          show "lecpo (a z z) xb" using sup_xb proof (rule supremum_on_leE)
+            show "a z z \<in> B" unfolding B_def using z_mem by blast
+          qed
+        qed
+      qed
+    qed
+    show "lecpo xa xb" using sup_xa upper_on_A_xb by (rule supremum_on_leastE)
+  qed
+qed
+
 end
