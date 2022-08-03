@@ -1,5 +1,5 @@
 theory Program_Semantics_3
-imports Main HOL.Real
+  imports Main HOL.Real
 begin
 
 \<comment> \<open>理解を確認するため組み込みの定義は使いません。\<close>
@@ -916,6 +916,7 @@ next
   qed
 oops
 
+
 text "また、I_\<real> の部分集合 I*_\<real> を"
 text   "I*_\<real> = {[a, b] | a \<le> b で a と b は有理数 }"
 text "と定義すると、"
@@ -1226,7 +1227,7 @@ text "このとき"
 text   "A = {a(x,y) | x,y \<in> X} と B = {a(z,z) | z \<in> X}"
 text "はともに有向集合で \<squnion>A = \<squnion>B が成り立つ。"
 
-lemma directed_on_diff:
+lemma directed_onI1:
   assumes directed_on: "directed_on Ddir ledir X"
     and cpo_on: "cpo_on Dcpo lecpo"
     and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
@@ -1274,7 +1275,7 @@ proof -
   qed
 qed
 
-lemma directed_on_same:
+lemma directed_onI2:
   fixes Ddir :: "'a set"
     and Dcpo :: "'b set"
     and a :: "'a \<Rightarrow> 'a \<Rightarrow> 'b"

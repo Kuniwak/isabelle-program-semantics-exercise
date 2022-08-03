@@ -56,14 +56,9 @@ proof -
   qed
 qed
 
-context complete_lattice
-begin
-
-theorem ex_infimum:
+theorem (in complete_lattice) ex_infimum:
   obtains a where "infimum a X"
 using complete_lattice_on subset_UNIV by (rule ex_infimum_on_complete_lattice)
-
-end
 
 
 subsubsection "3"
@@ -492,24 +487,70 @@ next
   thus "x \<le> b" using d_le_b by auto
 qed
 
+lemma inter_in_I_R:
+  assumes i_mem: "i \<in> I\<^sub>R"
+    and j_mem: "j \<in> I\<^sub>R"
+    and no_disjnt: "i \<inter> j \<noteq> {}"
+  shows "i \<inter> j \<in> I\<^sub>R"
+proof -
+  show "i \<inter> j \<in> I\<^sub>R" unfolding I\<^sub>R_def proof clarify
+    assume inter_neq: "i \<inter> j \<noteq> UNIV"
+    show "\<exists>a b. i \<inter> j = range a b \<and> a \<le> b" proof (cases "i = UNIV")
+      case i_eq: True
+      hence inter_eq: "i \<inter> j = j" by simp
+      hence j_neq: "j \<noteq> UNIV" using inter_neq by blast
+      then obtain a b where j_eq: "j = range a b" and a_le_b: "a \<le> b" using j_mem unfolding I\<^sub>R_def by blast
+      show ?thesis unfolding inter_eq by (intro exI, rule conjI[OF j_eq a_le_b])
+    next
+      case i_neq: False
+      then show ?thesis proof (cases "j = UNIV")
+        case j_eq: True
+        hence inter_eq: "i \<inter> j = i" by simp
+        hence j_neq: "i \<noteq> UNIV" using inter_neq by blast
+        then obtain a b where i_eq: "i = range a b" and a_le_b: "a \<le> b" using i_mem unfolding I\<^sub>R_def by blast
+        show ?thesis unfolding inter_eq by (intro exI, rule conjI[OF i_eq a_le_b])
+      next
+        case j_neq: False
+        obtain a b where i_eq: "i = range a b" and a_le_b: "a \<le> b" using i_mem i_neq unfolding I\<^sub>R_def by blast
+        obtain c d where j_eq: "j = range c d" and c_le_d: "c \<le> d" using j_mem j_neq unfolding I\<^sub>R_def by blast
+        show "\<exists>a b. i \<inter> j = range a b \<and> a \<le> b" unfolding i_eq j_eq proof (intro exI conjI)
+          show "range a b \<inter> range c d = range (max a c) (min b d)" unfolding range_def by auto
+        next
+          show "max a c \<le> min b d" using a_le_b c_le_d no_disjnt unfolding i_eq j_eq range_def by force
+        qed
+      qed
+    qed
+  qed
+qed
+
 lemma supremum_on_range:
   assumes range_mem: "range a b \<in> I\<^sub>R"
   shows "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {x |x. x \<in> I\<^sub>R\<^sub>s \<and> x \<sqsubseteq>\<^sub>r range a b} (range a b)"
 proof -
   have a_le_b: "a \<le> b" using range_mem by (rule range_mem_I_RE)
-  let ?c = "\<lambda>i :: real set. (min (THE c. \<exists>d. i = range c d) a)"
-  let ?d = "\<lambda>i :: real set. (max (THE d. \<exists>c. i = range c d) b)"
 
   let ?x = "\<lambda>i :: real set. (TODO_x :: real set set)"
-  let ?a = "\<lambda>i :: real set. range (?c i) (?d i)" \<comment> \<open>i \<in> I_R* を仮定してよい。\<close>
+  let ?a = "\<lambda>i :: real set. range a b" \<comment> \<open>i \<in> I_R* を仮定してよい。\<close>
   \<comment> \<open>
 --*---*-----------------*---*----
   |   |                 |   |
-  |<---- i \<in> I_Rs ----->|   |
-  :   |                     |
-  :   |<---- range a b ---->|
-  :                         :
-  |<---- ?a --------------->|
+  |<---- i \<in> I_R* ----->|   |
+      |                 :   |
+      |<---- range a b ---->|
+      :                 :
+      |<---- ?a ------->|
+
+{x |x. x \<in> I_R* \<and> x \<sqsubseteq> range a b} を i で分割する
+
+?a の満たすべき性質：
+1. ?a i は実数の閉区間を生成する。  {?a i |i. i \<in> I_R*} \<subseteq> I_R
+2. どんな i でも ?a i は range a b を含む。   \<And>x. x \<in> {?a i |i. i \<in> I_R*} \<Longrightarrow> x \<sqsubseteq> range a b
+3. ?a ` I_R* のどんな上界 j でも range a b に含まれる。  \<And>j. upper_bound_on I_R (\<sqsubseteq>) {?a i |i. i \<in> I_R*} j \<Longrightarrow> range a b \<sqsubseteq> j
+
+?x の満たすべき性質：
+1. ?x ` I_R* の合併は {i |i. i \<in> I_R* \<and> x \<sqsubseteq> range a b} と等しい。 {i |i. i \<in> I_R* \<and> i \<sqsubseteq> range a b} = \<Union> {?x i| i. i \<in> I_R*}
+   言い換えると、?x は {i |i. i \<in> I_R* \<and> x \<sqsubseteq> range a b} を i によって分割する。
+2. ?x i は実数の閉区間のみからなる集合を生成する。 (?x i) \<subseteq> I_R
 \<close>
   show ?thesis using po_on_range proof (rule supremum_on_CollectE)
     fix i
@@ -526,35 +567,23 @@ proof -
       show "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {?a i |i. i \<in> I\<^sub>R\<^sub>s} (range a b)" using range_mem proof (rule upper_bound_onI)
         show "{?a i |i. i \<in> I\<^sub>R\<^sub>s} \<subseteq> I\<^sub>R" proof (rule subsetI)
           fix x
-          assume "x \<in> {range (?c i) (?d i) |i. i \<in> I\<^sub>R\<^sub>s}"
-          then obtain j where j_mem: "j \<in> I\<^sub>R\<^sub>s" and x_eq: "x = range (?c j) (?d j)" by blast
-          have ex1_THE_c: "\<exists>!c. \<exists>d. j = range c d \<and> c \<le> d" using ex_range_in_I_Rs[OF j_mem] by metis
-          have ex1_THE_d: "\<exists>!d. \<exists>c. j = range c d \<and> c \<le> d" using ex_range_in_I_Rs[OF j_mem] by metis
-          show "x \<in> I\<^sub>R" unfolding x_eq proof (rule range_in_I_R)
-            have "(THE c. \<exists>d. j = range c d \<and> c \<le> d) \<le> (THE d. \<exists>c. j = range c d \<and> c \<le> d)"
-              by (smt (verit, ccfv_threshold) ex_range_in_I_Rs j_mem theI')
-            thus "?c j \<le> ?d j" using a_le_b by linarith
-          qed
+          assume "x \<in> {?a i |i. i \<in> I\<^sub>R\<^sub>s}"
+          then obtain j where j_mem: "j \<in> I\<^sub>R\<^sub>s" and x_eq: "x = ?a j" by blast
+          show "x \<in> I\<^sub>R" unfolding x_eq by (rule range_mem)
         qed
       next
         fix x
         assume "x \<in> {?a i |i. i \<in> I\<^sub>R\<^sub>s}"
-        then obtain j where x_eq: "x = range (?c j) (?d j)" and j_mem: "j \<in> I\<^sub>R\<^sub>s" by blast
-        show "x \<sqsubseteq>\<^sub>r range a b" unfolding x_eq proof (rule range_leI1)
-          show "?c j \<le> a" by linarith
-        next
-          show "b \<le> ?d j" by linarith
-        next
-          have "(THE c. \<exists>d. j = range c d \<and> c \<le> d) \<le> (THE d. \<exists>c. j = range c d \<and> c \<le> d)"
-            by (smt (verit, ccfv_threshold) ex_range_in_I_Rs j_mem theI')
-          thus "?c j \<le> ?d j" using a_le_b by linarith
-        qed
+        then obtain j where j_mem: "j \<in> I\<^sub>R\<^sub>s" and x_eq: "x = ?a j" by blast
+        show "x \<sqsubseteq>\<^sub>r range a b" unfolding x_eq using po_on_range range_mem by (rule po_reflE)
       qed
     next
       fix j
       assume upper_j: "upper_bound_on I\<^sub>R (\<sqsubseteq>\<^sub>r) {?a i |i. i \<in> I\<^sub>R\<^sub>s} j"
-      have "\<And>i. i \<in> I\<^sub>R\<^sub>s \<Longrightarrow> ?a i \<sqsubseteq>\<^sub>r j" using upper_bound_on_leE[OF upper_j] by blast
-      show "range a b \<sqsubseteq>\<^sub>r j"
+      have 1: "\<And>i. i \<in> I\<^sub>R\<^sub>s \<Longrightarrow> ?a i \<sqsubseteq>\<^sub>r j" using upper_bound_on_leE[OF upper_j] by blast
+      show "range a b \<sqsubseteq>\<^sub>r j" proof (rule 1)
+    next
+      show "range (real_of_rat 0) (real_of_rat 0) \<in> I\<^sub>R\<^sub>s" unfolding I\<^sub>R\<^sub>s_def by blast
     qed
   qed
 qed

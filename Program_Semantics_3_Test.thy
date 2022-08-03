@@ -1,4 +1,4 @@
-theory Program_Semantics_3_Test imports Program_Semantics_3
+theory Program_Semantics_3_Test imports Program_Semantics_3_Exercise
 begin
 abbreviation (in partial_order) less :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubset>" 53)
   where "a \<sqsubset> b \<equiv> a \<noteq> b \<and> a \<sqsubseteq> b"
@@ -146,8 +146,6 @@ proof -
   obtain y where 1: "infimum y X" using ex_infimum .
   have Inf_eq: "\<^bold>\<sqinter> X = y" using 1 by (rule Inf_eq)
   show "x \<sqsubseteq> \<^bold>\<sqinter> X" unfolding Inf_eq using 1 proof (rule infimum_on_greatestE)
-    show "x \<in> UNIV" by (rule UNIV_I)
-  next
     show "x \<sqsubseteq>\<^sub>s X" using assms .
   qed
 qed
