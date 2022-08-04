@@ -3,7 +3,7 @@ theory Program_Semantics_3
 begin
 
 \<comment> \<open>理解を確認するため組み込みの定義は使いません。\<close>
-hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on range
+hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on range mono_on
 
 section "第3章 領域理論の基礎"
 subsection "定義3.1.1"
@@ -502,7 +502,7 @@ lemma cpo_onE:
   assumes "cpo_on D le"
   shows cpo_on_poE: "partial_order_on D le"
     and cpo_on_bot_onE: "\<exists>a. bot_on D le a"
-    and "\<And>X. directed_on D le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
+    and cpo_on_exE: "\<And>X. directed_on D le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
 using assms unfolding cpo_on_def by blast+
 
 class cpo = partial_order_bot +
@@ -1318,9 +1318,6 @@ proof -
 qed
 
 lemma sup_eqI:
-  fixes Ddir :: "'a set"
-    and Dcpo :: "'b set"
-    and a :: "'a \<Rightarrow> 'a \<Rightarrow> 'b"
   assumes directed_on: "directed_on Ddir ledir X"
     and cpo_on: "cpo_on Dcpo lecpo"
     and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
@@ -1359,7 +1356,7 @@ next
         show "lecpo (a z y) (a z z)" using y_mem z_mem z_mem y_le_z by (rule lecpoI2)
       qed
     qed
-    have upper_on_A_xb: "upper_bound_on Dcpo lecpo A xb" proof -
+    show "lecpo xa xb" using sup_xa proof (rule supremum_on_leastE)
       show "upper_bound_on Dcpo lecpo A xb" using supremum_on_memE[OF sup_xb] proof (rule upper_bound_onI)
         show "A \<subseteq> Dcpo" unfolding A_def using a_mem by blast
       next
@@ -1382,8 +1379,117 @@ next
         qed
       qed
     qed
-    show "lecpo xa xb" using sup_xa upper_on_A_xb by (rule supremum_on_leastE)
   qed
 qed
+
+
+subsection "定義 3.2.1"
+text "D と D' を半順序集合として、関数 f : D \<rightarrow> D' について、"
+text   "\<forall>a \<in> D \<forall>b \<in> D (a \<sqsubseteq> b \<Rightarrow> f(a) \<sqsubseteq> f(b))"
+text "が成り立つとき、f を単調関数（monotone function）と呼ぶ。"
+
+definition mono_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'b set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool"
+  where "mono_on Da lea Db leb f \<equiv> partial_order_on Da lea
+                                 \<and> partial_order_on Db leb
+                                 \<and> (\<forall>a \<in> Da. f a \<in> Db)
+                                 \<and> (\<forall>a \<in> Da. \<forall>b \<in> Da. lea a b \<longrightarrow> leb (f a) (f b))"
+
+lemma mono_onI:
+  assumes "partial_order_on Da lea"
+    and "partial_order_on Db leb"
+    and "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db"
+    and "\<And>a b. \<lbrakk> a \<in> Da; b \<in> Da; lea a b \<rbrakk> \<Longrightarrow> leb (f a) (f b)"
+  shows "mono_on Da lea Db leb f"
+unfolding mono_on_def using assms by blast
+
+
+subsection "定義 3.2.2"
+text "D と D' を cpo として、関数 f : D \<rightarrow> D' が連続（continuous）であるとは、任意の有向集合 X \<subseteq> D について、"
+text "{f(x) | x \<in> X} の上限が存在して、"
+text   "f(\<squnion>X) = \<squnion>{f(x) | x \<in> X}"
+text "が成り立つことである。"
+
+definition cont_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'b set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool"
+  where "cont_on Da lea Db leb f \<equiv> cpo_on Da lea
+                                 \<and> cpo_on Db leb
+                                 \<and> (\<forall>a \<in> Da. f a \<in> Db)
+                                 \<and> (\<forall>Xa. directed_on Da lea Xa \<longrightarrow> (\<exists>xb. supremum_on Db leb {f xa | xa. xa \<in> Xa} xb))
+                                 \<and> (\<forall>Xa xa xb. directed_on Da lea Xa
+                                            \<longrightarrow> supremum_on Da lea Xa xa
+                                            \<longrightarrow> supremum_on Db leb {f xa | xa. xa \<in> Xa} xb
+                                            \<longrightarrow> f xa = xb)"
+
+lemma cont_onE:
+  assumes "cont_on Da lea Db leb f"
+  shows cont_on_dom_cpoE: "cpo_on Da lea"
+    and cont_on_ran_cpoE: "cpo_on Db leb"
+    and cont_on_ranE: "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db"
+    and cont_on_exE: "\<And>Xa. directed_on Da lea Xa \<Longrightarrow> \<exists>xb. supremum_on Db leb {f xa | xa. xa \<in> Xa} xb"
+    and cont_on_sup_eqE: "\<And>Xa xa xb. \<lbrakk> directed_on Da lea Xa; supremum_on Da lea Xa xa; supremum_on Db leb {f xa | xa. xa \<in> Xa} xb \<rbrakk> \<Longrightarrow> f xa = xb"
+using assms unfolding cont_on_def by blast+
+
+lemma cont_on_is_mono_on:
+  assumes cont_on: "cont_on Da lea Db leb f"
+  shows "mono_on Da lea Db leb f"
+proof -
+  have po_on_Da: "partial_order_on Da lea" using cont_on_dom_cpoE[OF cont_on] by (rule cpo_on_poE)
+  show ?thesis using po_on_Da proof (rule mono_onI)
+  next
+    show "partial_order_on Db leb" using cont_on_ran_cpoE[OF cont_on] by (rule cpo_on_poE)
+  next
+    show "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db" using cont_on by (rule cont_on_ranE)
+  next
+    fix a b
+    assume a_mem: "a \<in> Da"
+      and b_mem: "b \<in> Da"
+      and a_le_b: "lea a b"
+    have directed_on_a: "directed_on Da lea {a, b}" using po_on_Da proof (rule directed_onI)
+      show "{a, b} \<subseteq> Da" using a_mem b_mem by blast
+    next
+      show "{a, b} \<noteq> {}" by blast
+    next
+      fix x y
+      assume x_mem: "x \<in> {a, b}"
+        and y_mem: "y \<in> {a, b}"
+      hence "x = a \<and> y = a \<or> x = a \<and> y = b \<or> x = b \<and> y = a \<or> x = b \<and> y = b" by blast
+      thus "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" proof (elim disjE conjE)
+        assume eq: "x = a" "y = a"
+        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da a_mem] by blast
+      next
+        assume eq: "x = a" "y = b"
+        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da b_mem] a_le_b by blast
+      next
+        assume eq: "x = b" "y = a"
+        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da b_mem] a_le_b by blast
+      next
+        assume eq: "x = b" "y = b"
+        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da b_mem] by blast
+      qed
+    qed
+    have sup_b: "supremum_on Da lea {a, b} b" proof (rule supremum_onI)
+      show "upper_bound_on Da lea {a, b} b" using b_mem proof (rule upper_bound_onI)
+        show "{a, b} \<subseteq> Da" using a_mem b_mem by blast
+      next
+        fix x
+        show "\<And>x. x \<in> {a, b} \<Longrightarrow> lea x b" using po_reflE[OF po_on_Da b_mem] a_le_b by blast
+      qed
+    next
+      fix c
+      assume upper_c: "upper_bound_on Da lea {a, b} c"
+      have "\<And>x. x \<in> {a, b} \<Longrightarrow> lea x c" using upper_c by (rule upper_bound_on_leE)
+      thus "lea b c" by blast
+    qed
+    obtain fc where sup_fc: "supremum_on Db leb {f x|x. x \<in> {a, b}} fc" using cont_on_exE[OF cont_on directed_on_a] by blast
+    have eq: "f b = fc" using cont_on directed_on_a sup_b using sup_fc by (rule cont_on_sup_eqE)
+    show "leb (f a) (f b)" unfolding eq using sup_fc proof (rule supremum_on_leE)
+      show "f a \<in> {f x |x. x \<in> {a, b}}" by blast
+    qed
+  qed
+qed
+
+subsection "命題 3.2.3"
+text "D と D' を cpo として、D は狭義の無限上昇列を含まないとすると、すべての単調関数 f : D \<rightarrow> D' は連続である。"
+text "ただし、狭義の無限上昇列とは a_0 \<sqsubseteq> a_1 \<sqsubseteq> a_2 \<sqsubseteq> \<dots> で a_i \<noteq> a_i+1 (i = 0, 1, 2, \<dots>) を満たす列 a_0, a_1, a_2, \<dots> のことである。"
+
 
 end
