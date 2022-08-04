@@ -1,5 +1,5 @@
 theory Program_Semantics_3
-  imports Main HOL.Real
+  imports Main HOL.Real "~~/src/HOL/Library/Countable_Set"
 begin
 
 \<comment> \<open>理解を確認するため組み込みの定義は使いません。\<close>
@@ -449,11 +449,25 @@ subsection "定義 3.1.5"
 text "半順序集合 D の元の列 a0 \<sqsubseteq> a1 \<sqsubseteq> a2 \<sqsubseteq> \<dots> を \<omega> 鎖（\<omega>-chain）と呼ぶ。"
 text "すなわち、列 (a0, a1, a2, \<dots>) は自然数の集合と1対1に対応し、i \<le> j ならば ai \<sqsubseteq> aj である。"
 
-definition (in partial_order) omega_chain_on :: "'a set \<Rightarrow> (nat \<Rightarrow> 'a) \<Rightarrow> bool"
-  where "omega_chain_on D f \<equiv> \<forall>i j. i \<le> j \<longrightarrow> f i \<sqsubseteq> f j"
+definition omega_chain_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> (nat \<Rightarrow> 'a) \<Rightarrow> bool"
+  where "omega_chain_on D le f \<equiv> partial_order_on D le \<and> (\<forall>n. f n \<in> D) \<and> (\<forall>i j. i \<le> j \<longrightarrow> le (f i) (f j))"
+
+lemma omega_chain_onI:
+  assumes "partial_order_on D le"
+    and "\<And>n. f n \<in> D"
+    and "\<And>i j. i \<le> j \<Longrightarrow> le (f i) (f j)"
+  shows "omega_chain_on D le f"
+unfolding omega_chain_on_def using assms by blast
+
+lemma omega_chain_onE:
+  assumes "omega_chain_on D le f"
+  shows omega_chain_on_poE: "partial_order_on D le"
+    and omega_chain_on_ranE: "\<And>n. f n \<in> D"
+    and omega_chain_on_leE: "\<And>i j. i \<le> j \<Longrightarrow> le (f i) (f j)"
+using assms unfolding omega_chain_on_def by blast+
 
 abbreviation (in partial_order) omega_chain :: "(nat \<Rightarrow> 'a) \<Rightarrow> bool"
-  where "omega_chain \<equiv> omega_chain_on UNIV"
+  where "omega_chain \<equiv> omega_chain_on UNIV (\<sqsubseteq>)"
 
 
 subsection "定義 3.1.6"
@@ -949,7 +963,155 @@ text "となる。すなわち、各実数は有理数で区切られた区間�
 
 
 subsection "命題 3.1.12"
-\<comment> \<open>TODO\<close>
+text "半順序集合 D について次の2つの条件は同値である。"
+text "(1) 任意の可算な有向集合 X \<subseteq> D について、X は上限を持つ。"
+text "(2) 任意の\<omega>鎖は上限を持つ。"
+
+fun a_3_1_12 :: "(nat \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> nat \<Rightarrow> 'a"
+  where "a_3_1_12 x s 0 = x 0"
+      | "a_3_1_12 x s (Suc n) = s (a_3_1_12 x s n) (x (Suc n))"
+
+lemma
+  fixes D :: "'a set"
+  assumes po: "partial_order_on D le"
+  shows "(\<forall>X. countable X \<longrightarrow> directed_on D le X \<longrightarrow> (\<exists>x. supremum_on D le X x)) \<longleftrightarrow> (\<forall>f. omega_chain_on D le f \<longrightarrow> (\<exists>x. supremum_on D le {f n|n. True} x))"
+proof (intro iffI allI impI)
+  fix f :: "nat \<Rightarrow> 'a"
+  assume 1[rule_format]: "\<forall>X. countable X \<longrightarrow> directed_on D le X \<longrightarrow> (\<exists>x. supremum_on D le X x)"
+    and omega_chain_on: "omega_chain_on D le f"
+  have "\<And>i j. i \<le> j \<Longrightarrow> le (f i) (f j)" using omega_chain_on by (rule omega_chain_on_leE)
+  show "\<exists>x. supremum_on D le {f n|n. True} x" proof (rule 1)
+    show "countable {f n |n. True}" proof (rule countableI)
+      show "inj_on (inv f) {f n |n. True}" proof (rule inj_onI)
+        fix x y
+        assume "x \<in> {f n |n. True}"
+          and "y \<in> {f n |n. True}"
+          and inv_eq: "inv f x = inv f y"
+        then obtain xn yn where x_eq: "x = f xn" and y_eq: "y = f yn" by blast
+        show "x = y" using inv_eq by (metis inv_into_injective rangeI x_eq y_eq)
+      qed
+    qed
+  next
+    show "directed_on D le {f n |n. True}" using po proof (rule directed_onI)
+      show "{f n |n. True} \<subseteq> D" using omega_chain_on_ranE[OF omega_chain_on] by blast
+    next
+      show "{f n |n. True} \<noteq> {}" by blast
+    next
+      fix x y
+      assume "x \<in> {f n |n. True}"
+        and "y \<in> {f n |n. True}"
+      then obtain xn yn where x_eq: "x = f xn" and y_eq: "y = f yn" by blast
+      let ?c = "f (max xn yn)"
+      show "\<exists>c\<in>{f n |n. True}. le x c \<and> le y c" unfolding x_eq y_eq proof (intro bexI conjI)
+        show "le (f xn) ?c" using omega_chain_on proof (rule omega_chain_on_leE)
+          show "xn \<le> max xn yn" by linarith
+        qed
+      next
+        show "le (f yn) ?c" using omega_chain_on proof (rule omega_chain_on_leE)
+          show "yn \<le> max xn yn" by linarith
+        qed
+      next
+        show "f (max xn yn) \<in> {f n |n. True}" by blast
+      qed
+    qed
+  qed
+next
+  fix X
+  assume ex_sup[rule_format]: "\<forall>f. omega_chain_on D le f \<longrightarrow> (\<exists>x. supremum_on D le {f n |n. True} x)"
+    and countable: "countable X"
+    and directed_on: "directed_on D le X"
+  obtain x where x_mem_X: "\<And>n :: nat. x n \<in> X" and surj_on: "\<And>y. y \<in> X \<Longrightarrow> \<exists>n. x n = y" using directed_on_nemptyE[OF directed_on]
+    by (metis countable from_nat_into from_nat_into_surj)
+  have x_mem_D: "\<And>n. x n \<in> D" using x_mem_X directed_on_subsetE[OF directed_on] by blast
+  have "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> \<exists>x3 \<in> X. le x1 x3 \<and> le x2 x3" using directed_on_exE[OF directed_on] by blast
+  then obtain s
+    where le_s1: "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> le x1 (s x1 x2)"
+      and le_s2: "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> le x2 (s x1 x2)"
+      and s_mem: "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> s x1 x2 \<in> X" by metis
+  let ?a = "a_3_1_12 x s"
+  have a_mem_X: "\<And>n. ?a n \<in> X" proof -
+    fix n
+    show "?a n \<in> X" proof (induct n)
+      case 0
+      have eq: "?a 0 = (x 0)" by simp
+      show ?case unfolding eq by (rule x_mem_X)
+    next
+      case (Suc n)
+      have eq: "?a (Suc n) = s (?a n) (x (Suc n))" by simp
+      show ?case unfolding eq using Suc x_mem_X by (rule s_mem)
+    qed
+  qed
+  have a_mem_D: "\<And>n. ?a n \<in> D" using a_mem_X directed_on_subsetE[OF directed_on] by blast
+  have omega_chain_a: "omega_chain_on D le ?a" using po proof (rule omega_chain_onI)
+    fix n
+    show "?a n \<in> D" by (rule a_mem_D)
+  next
+    fix i j :: nat
+    have 1: "\<And>i. le (?a i) (?a (Suc i))" proof -
+      fix i
+      show "le (?a i) (?a (Suc i))" proof (induct i)
+        case 0
+        show ?case by (simp; rule le_s1, rule x_mem_X, rule x_mem_X)
+      next
+        case (Suc i)
+        show ?case by (simp; rule le_s1, rule s_mem, rule a_mem_X, rule x_mem_X, rule x_mem_X)
+      qed
+    qed
+    assume le: "i \<le> j"
+    then obtain k where "i \<le> i + k" and j_eq: "j = i + k" using le_Suc_ex by blast
+    show "le (?a i) (?a j)" unfolding j_eq proof (induct k)
+      case 0
+      show ?case using po_reflE[OF po a_mem_D] by simp
+    next
+      case (Suc k)
+      thus ?case by (metis 1 a_mem_D add_Suc add_Suc_shift po_transE[OF po])
+    qed
+  qed
+  obtain as where sup_as: "supremum_on D le {?a n| n. True} as" using ex_sup[OF omega_chain_a] by blast
+  have "supremum_on D le X as" proof (rule supremum_onI)
+    show "upper_bound_on D le X as" using supremum_on_memE[OF sup_as] directed_on_subsetE[OF directed_on] proof (rule upper_bound_onI)
+      fix y
+      assume "y \<in> X"
+      then obtain n where y_eq: "y = x n" using surj_on by blast
+      
+      show "le y as" unfolding y_eq using po x_mem_D a_mem_D supremum_on_memE[OF sup_as] proof (rule po_transE)
+        show "\<And>n. le (x n) (?a n)"
+        proof -
+          fix n
+          show "le (x n) (?a n)" proof (induct n)
+            case 0
+            show ?case by (simp add: po_reflE[OF po x_mem_D])
+          next
+            case (Suc n)
+            have eq: "?a (Suc n) = s (?a n) (x (Suc n))" by simp
+            show ?case unfolding eq using a_mem_X x_mem_X by (rule le_s2)
+          qed
+        qed
+      next
+        show "le (?a n) as" using sup_as proof (rule supremum_on_leE)
+          show "?a n \<in> {?a n | n. True}" by blast
+        qed
+      qed
+    qed
+  next
+    fix a
+    assume upper_a: "upper_bound_on D le X a"
+    show "le as a" using sup_as proof (rule supremum_on_leastE)
+      show "upper_bound_on D le {?a n |n. True} a" using upper_bound_on_memE[OF upper_a] proof (rule upper_bound_onI)
+        show "{?a n| n. True} \<subseteq> D" using a_mem_D by blast
+      next
+        fix an
+        assume "an \<in> {?a n |n. True}"
+        then obtain n where an_eq: "an = ?a n" by blast
+        show "le an a" unfolding an_eq using upper_a proof (rule upper_bound_on_leE)
+          show "?a n \<in> X" by (rule a_mem_X)
+        qed
+      qed
+    qed
+  qed
+  thus "\<exists>x. supremum_on D le X x" by blast
+qed
+
 
 subsection "命題 3.1.13"
 text "D を半順序集合、X を D の部分集合、d \<in> D とすると、次の2つの条件は同値である。"
@@ -1654,22 +1816,6 @@ next
   qed
 qed
 
-inductive infinite_chain_3_2_3 :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> nat \<Rightarrow> 'a \<Rightarrow> bool"
-  for D :: "'a set" and le :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and  X :: "'a set" and a0 :: 'a and b :: "'a \<Rightarrow> 'a" and c :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
-  where infinite_chain_3_2_3_0I: "\<lbrakk> a0 \<in> X; c a0 (b a0) \<in> X; b an \<in> X; \<not>(le (b an) an); le (b an) (c an (b an)); le an (c an (b an)); (c an (b an)) \<in> X \<rbrakk> \<Longrightarrow> infinite_chain_3_2_3 D le X a0 b c 0 (c a0 (b a0))"
-      | infinite_chain_3_2_3_SucI: "\<lbrakk> infinite_chain_3_2_3 D le X a0 b c n an; b an \<in> X; \<not>(le (b an) an); le (b an) (c an (b an)); le an (c an (b an)); (c an (b an)) \<in> X \<rbrakk> \<Longrightarrow> infinite_chain_3_2_3 D le X a0 b c (Suc n) (c an (b an))"
-
-lemma infinite_chain_3_2_3_memE:
-  assumes "infinite_chain_3_2_3 D le X a0 b c n an"
-  shows "an \<in> X"
-using assms proof (induct rule: infinite_chain_3_2_3.induct)
-  case infinite_chain_3_2_3_0I
-  then show ?case by blast
-next
-  case (infinite_chain_3_2_3_SucI n an)
-  then show ?case by blast
-qed
-
 fun a_3_2_3 :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> nat \<Rightarrow> 'a"
   where "a_3_2_3 a0 b c 0 = a0"
       | "a_3_2_3 a0 b c (Suc n) = c (a_3_2_3 a0 b c n) (b (a_3_2_3 a0 b c n))"
@@ -1773,8 +1919,5 @@ proof -
     qed
   qed
 qed
-
-hide_fact infinite_chain_3_2_3_memE
-hide_const infinite_chain_3_2_3 a_3_2_3
 
 end
