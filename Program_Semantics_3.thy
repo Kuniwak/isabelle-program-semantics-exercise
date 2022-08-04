@@ -1674,78 +1674,6 @@ fun a_3_2_3 :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Right
   where "a_3_2_3 a0 b c 0 = a0"
       | "a_3_2_3 a0 b c (Suc n) = c (a_3_2_3 a0 b c n) (b (a_3_2_3 a0 b c n))"
 
-lemma ex_infinite_chain_3_2_3:
-  assumes po: "partial_order_on D le"
-    and directed_on: "directed_on D le X"
-    and sup_x: "supremum_on D le X x"
-    and nmem: "x \<notin> X"
-    and a0_mem: "a0 \<in> X"
-  obtains a b c
-    where "\<And>n. infinite_chain_3_2_3 D le X a0 b c n (c (a n) (b (a n)))"
-      and "\<And>n. a n \<in> X"
-      and "\<And>n. \<not>le (b (a n)) (a n)"
-      and "\<And>n. b (a n) \<in> X"
-      and "\<And>n. le (a n) (c (a n) (b (a n)))"
-      and "\<And>n. le (b (a n)) (c (a n) (b (a n)))"
-      and "\<And>n. c (a n) (b (a n)) \<in> X"
-      and "a 0 = a0"
-      and "\<And>n. a (Suc n) = c (a n) (b (a n))"
-proof -
-  have "\<And>an. an \<in> X \<Longrightarrow> \<exists>b \<in> X. \<not>le b an"
-    by (metis (mono_tags, lifting) directed_on_subsetE[OF directed_on] in_mono nmem po_antisymE[OF po] supremum_on_leE[OF sup_x] supremum_on_leastE[OF sup_x] supremum_on_memE[OF sup_x] upper_bound_onI)
-  then obtain b where not_le: "\<And>an. an \<in> X \<Longrightarrow> \<not>le (b an) an" and b_mem: "\<And>an. an \<in> X \<Longrightarrow> b an \<in> X" by metis
-  then obtain c where an_le: "\<And>an. an \<in> X \<Longrightarrow> le an (c an (b an))" and b_le: "\<And>an. an \<in> X \<Longrightarrow> le (b an) (c an (b an))" and c_mem: "\<And>an. an \<in> X \<Longrightarrow> c an (b an) \<in> X" using directed_on_exE[OF directed_on] b_mem by metis
-  let ?a = "a_3_2_3 a0 b c"
-  have a_mem: "\<And>n. ?a n \<in> X" proof -
-    fix n
-    show "?a n \<in> X" proof (induct n)
-      case 0
-      then show ?case using a0_mem by simp
-    next
-      case (Suc n)
-      then show ?case by (simp add: c_mem)
-    qed
-  qed
-  show thesis proof
-    fix n
-    show "infinite_chain_3_2_3 D le X a0 b c n (c (?a n) (b (?a n)))" proof (induct n)
-      case 0
-      have eq: "?a 0 = a0" by simp
-      show ?case unfolding eq using a0_mem c_mem[OF a0_mem] b_mem[OF a0_mem] not_le[OF a0_mem] b_le[OF a0_mem] an_le[OF a0_mem] c_mem[OF a0_mem] by (rule infinite_chain_3_2_3_0I)
-    next
-      case (Suc n)
-      have eq: "?a (Suc n) = c (?a n) (b (?a n))" by simp
-      show ?case unfolding eq using Suc proof (rule infinite_chain_3_2_3_SucI)
-        show "b (c (?a n) (b (?a n))) \<in> X" by (rule b_mem, rule c_mem, rule a_mem)
-      next
-        show "\<not> le (b (c (?a n) (b (?a n)))) (c (?a n) (b (?a n)))" by (rule not_le, rule c_mem, rule a_mem)
-      next
-        show "le (b (c (?a n) (b (?a n)))) (c (c (?a n) (b (?a n))) (b (c (?a n) (b (?a n)))))" by (rule b_le, rule c_mem, rule a_mem)
-      next
-        show "le (c (?a n) (b (?a n))) (c (c (?a n) (b (?a n))) (b (c (?a n) (b (?a n)))))" by (meson Suc an_le infinite_chain_3_2_3_memE)
-      next
-        show "c (c (?a n) (b (?a n))) (b (c (?a n) (b (?a n)))) \<in> X" by (rule c_mem, rule c_mem, rule a_mem)
-      qed
-    qed
-  next
-    show "\<And>n. ?a n \<in> X" by (rule a_mem)
-  next
-    show "\<And>n. \<not> le (b (?a n)) (?a n)" using a_mem by (rule not_le)
-  next
-    show "\<And>n. b (?a n) \<in> X" using a_mem by (rule b_mem)
-  next
-    show "\<And>n. le (?a n) (c (?a n) (b (?a n)))" using a_mem by (rule an_le)
-  next
-    show "\<And>n. le (b (?a n)) (c (?a n) (b (?a n)))" using a_mem by (rule b_le)
-  next
-    show "\<And>n. c (?a n) (b (?a n)) \<in> X" using a_mem by (rule c_mem)
-  next
-    show "?a 0 = a0" by simp
-  next
-    show "\<And>n. ?a (Suc n) = c (?a n) (b (?a n))" by simp
-  qed
-qed
-
 lemma
   fixes D :: "'a set"
     and D' :: "'b set"
@@ -1810,27 +1738,37 @@ proof -
     show "x \<in> X" using no_infinite proof (rule contrapos_np)
       assume nmem: "x \<notin> X"
       obtain a0 where a0_mem: "a0 \<in> X" using directed_on_nemptyE[OF directed_on] by blast
-      obtain a b c
-        where infinite_chain: "\<And>n. infinite_chain_3_2_3 D le X a0 b c n (c (a n) (b (a n)))"
-          and a_mem: "\<And>n. a n \<in> X"
-          and not_le: "\<And>n. \<not>le (b (a n)) (a n)"
-          and b_mem: "\<And>n. b (a n) \<in> X"
-          and an_le: "\<And>n. le (a n) (c (a n) (b (a n)))"
-          and b_le: "\<And>n. le (b (a n)) (c (a n) (b (a n)))"
-          and c_mem: "\<And>n. c (a n) (b (a n)) \<in> X"
-          and a0: "a 0 = a0"
-          and aSuc: "\<And>n. a (Suc n) = c (a n) (b (a n))"
-        using ex_infinite_chain_3_2_3[OF cpo_on_poE[OF cpo_on] directed_on sup_x nmem a0_mem] by metis
+      have "\<And>an. an \<in> X \<Longrightarrow> \<exists>b \<in> X. \<not>le b an"
+        by (metis (mono_tags, lifting) directed_on_subsetE[OF directed_on] in_mono nmem po_antisymE[OF cpo_on_poE[OF cpo_on]] supremum_on_leE[OF sup_x] supremum_on_leastE[OF sup_x] supremum_on_memE[OF sup_x] upper_bound_onI)
+      then obtain b where not_le: "\<And>an. an \<in> X \<Longrightarrow> \<not>le (b an) an"
+        and b_mem: "\<And>an. an \<in> X \<Longrightarrow> b an \<in> X" by metis
+      then obtain c where an_le: "\<And>an. an \<in> X \<Longrightarrow> le an (c an (b an))"
+        and b_le: "\<And>an. an \<in> X \<Longrightarrow> le (b an) (c an (b an))"
+        and c_mem: "\<And>an. an \<in> X \<Longrightarrow> c an (b an) \<in> X"
+        using directed_on_exE[OF directed_on] b_mem by metis
+      let ?a = "a_3_2_3 a0 b c"
+      have a_mem: "\<And>n. ?a n \<in> X" proof -
+        fix n
+        show "?a n \<in> X" proof (induct n)
+          case 0
+          then show ?case using a0_mem by simp
+        next
+          case (Suc n)
+          then show ?case by (simp add: c_mem)
+        qed
+      qed
       show "\<exists>a. (\<forall>i. a i \<in> D) \<and> (\<forall>i. a i \<noteq> a (Suc i) \<and> le (a i) (a (Suc i)))" proof (intro exI conjI allI impI)
         fix n
-        show "a n \<in> D" using a_mem directed_on_subsetE[OF directed_on] by blast
+        show "?a n \<in> D" using a_mem directed_on_subsetE[OF directed_on] by blast
       next
         fix n :: nat
-        have neq: "a n \<noteq> x" using a_mem nmem by blast
-        show "a n \<noteq> a (Suc n)" unfolding aSuc using not_le b_le by metis
+        have neq: "?a n \<noteq> x" using a_mem nmem by blast
+        have eq: "?a (Suc n) = c (?a n) (b (?a n))" by simp
+        show "?a n \<noteq> ?a (Suc n)" unfolding eq using not_le[OF a_mem] b_le[OF a_mem] by metis
       next
         fix n
-        show "le (a n) (a (Suc n))" unfolding aSuc by (rule an_le)
+        have eq: "?a (Suc n) = c (?a n) (b (?a n))" by simp
+        show "le (?a n) (?a (Suc n))" unfolding eq using a_mem by (rule an_le)
       qed
     qed
   qed
