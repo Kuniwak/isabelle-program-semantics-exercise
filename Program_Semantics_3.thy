@@ -1514,6 +1514,13 @@ lemma mono_onI:
   shows "mono_on Da lea Db leb f"
 unfolding mono_on_def using assms by blast
 
+lemma mono_onE:
+  assumes "mono_on Da lea Db leb f"
+  shows mono_on_dom_poE: "partial_order_on Da lea"
+    and mono_on_ran_poE: "partial_order_on Db leb"
+    and mono_on_ranE: "\<And>x. x \<in> Da \<Longrightarrow> f x \<in> Db"
+    and mono_on_leE: "\<And>a b. \<lbrakk> a \<in> Da; b \<in> Da; lea a b \<rbrakk> \<Longrightarrow> leb (f a) (f b)"
+using assms unfolding mono_on_def by blast+
 
 subsection "定義 3.2.2"
 text "D と D' を cpo として、関数 f : D \<rightarrow> D' が連続（continuous）であるとは、任意の有向集合 X \<subseteq> D について、"
@@ -1530,6 +1537,15 @@ definition cont_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> b
                                             \<longrightarrow> supremum_on Da lea Xa xa
                                             \<longrightarrow> supremum_on Db leb {f xa | xa. xa \<in> Xa} xb
                                             \<longrightarrow> f xa = xb)"
+
+lemma cont_onI:
+  assumes "cpo_on Da lea"
+    and "cpo_on Db leb"
+    and "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db"
+    and "\<And>Xa. directed_on Da lea Xa \<Longrightarrow> \<exists>xb. supremum_on Db leb {f xa | xa. xa \<in> Xa} xb"
+    and "\<And>Xa xa xb. \<lbrakk> directed_on Da lea Xa; supremum_on Da lea Xa xa; supremum_on Db leb {f xa | xa. xa \<in> Xa} xb \<rbrakk> \<Longrightarrow> f xa = xb"
+  shows "cont_on Da lea Db leb f"
+unfolding cont_on_def using assms by blast
 
 lemma cont_onE:
   assumes "cont_on Da lea Db leb f"
@@ -1603,5 +1619,246 @@ subsection "命題 3.2.3"
 text "D と D' を cpo として、D は狭義の無限上昇列を含まないとすると、すべての単調関数 f : D \<rightarrow> D' は連続である。"
 text "ただし、狭義の無限上昇列とは a_0 \<sqsubseteq> a_1 \<sqsubseteq> a_2 \<sqsubseteq> \<dots> で a_i \<noteq> a_i+1 (i = 0, 1, 2, \<dots>) を満たす列 a_0, a_1, a_2, \<dots> のことである。"
 
+lemma mono_on_directed_onE:
+  assumes directed_on: "directed_on D le X"
+    and mono_on: "mono_on D le D' le' f"
+  shows "directed_on D' le' {f x|x. x \<in> X}"
+using mono_on_ran_poE[OF mono_on] proof (rule directed_onI)
+  show "{f x |x. x \<in> X} \<subseteq> D'" using mono_on_ranE[OF mono_on] directed_on_subsetE[OF directed_on] by blast
+next
+  show "{f x |x. x \<in> X} \<noteq> {}" using directed_on_nemptyE[OF directed_on] by blast
+next
+  fix fa fb
+  assume a_mem: "fa \<in> {f x |x. x \<in> X}" and b_mem: "fb \<in> {f x |x. x \<in> X}"
+  obtain a where fa_eq: "fa = f a" and a_mem: "a \<in> X" using a_mem by blast
+  obtain b where fb_eq: "fb = f b" and b_mem: "b \<in> X" using b_mem by blast
+  obtain c where a_le_c: "le a c" and b_le_c: "le b c" and c_mem: "c \<in> X" using directed_on_exE[OF directed_on a_mem b_mem] by blast
+  show "\<exists>c\<in>{f x |x. x \<in> X}. le' fa c \<and> le' fb c" unfolding fa_eq fb_eq proof (intro bexI conjI)
+    show "le' (f a) (f c)" using mono_on proof (rule mono_on_leE)
+      show "a \<in> D" using a_mem directed_on_subsetE[OF directed_on] by blast
+    next
+      show "c \<in> D" using c_mem directed_on_subsetE[OF directed_on] by blast
+    next
+      show "le a c" by (rule a_le_c)
+    qed
+  next
+    show "le' (f b) (f c)" using mono_on proof (rule mono_on_leE)
+      show "b \<in> D" using b_mem directed_on_subsetE[OF directed_on] by blast
+    next
+      show "c \<in> D" using c_mem directed_on_subsetE[OF directed_on] by blast
+    next
+      show "le b c" by (rule b_le_c)
+    qed
+  next
+    show "f c \<in> {f x |x. x \<in> X}" using c_mem by blast
+  qed
+qed
+
+inductive infinite_chain_3_2_3 :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> nat \<Rightarrow> 'a \<Rightarrow> bool"
+  for D :: "'a set" and le :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and  X :: "'a set" and a0 :: 'a and b :: "'a \<Rightarrow> 'a" and c :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
+  where infinite_chain_3_2_3_0I: "\<lbrakk> a0 \<in> X; c a0 (b a0) \<in> X; b an \<in> X; \<not>(le (b an) an); le (b an) (c an (b an)); le an (c an (b an)); (c an (b an)) \<in> X \<rbrakk> \<Longrightarrow> infinite_chain_3_2_3 D le X a0 b c 0 (c a0 (b a0))"
+      | infinite_chain_3_2_3_SucI: "\<lbrakk> infinite_chain_3_2_3 D le X a0 b c n an; b an \<in> X; \<not>(le (b an) an); le (b an) (c an (b an)); le an (c an (b an)); (c an (b an)) \<in> X \<rbrakk> \<Longrightarrow> infinite_chain_3_2_3 D le X a0 b c (Suc n) (c an (b an))"
+
+lemma infinite_chain_3_2_3_memE:
+  assumes "infinite_chain_3_2_3 D le X a0 b c n an"
+  shows "an \<in> X"
+using assms proof (induct rule: infinite_chain_3_2_3.induct)
+  case infinite_chain_3_2_3_0I
+  then show ?case by blast
+next
+  case (infinite_chain_3_2_3_SucI n an)
+  then show ?case by blast
+qed
+
+fun a_3_2_3 :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> nat \<Rightarrow> 'a"
+  where "a_3_2_3 a0 b c 0 = a0"
+      | "a_3_2_3 a0 b c (Suc n) = c (a_3_2_3 a0 b c n) (b (a_3_2_3 a0 b c n))"
+
+lemma ex_infinite_chain_3_2_3:
+  assumes po: "partial_order_on D le"
+    and directed_on: "directed_on D le X"
+    and sup_x: "supremum_on D le X x"
+    and nmem: "x \<notin> X"
+    and a0_mem: "a0 \<in> X"
+  obtains a b c
+    where "\<And>n. infinite_chain_3_2_3 D le X a0 b c n (c (a n) (b (a n)))"
+      and "\<And>n. a n \<in> X"
+      and "\<And>n. \<not>le (b (a n)) (a n)"
+      and "\<And>n. b (a n) \<in> X"
+      and "\<And>n. le (a n) (c (a n) (b (a n)))"
+      and "\<And>n. le (b (a n)) (c (a n) (b (a n)))"
+      and "\<And>n. c (a n) (b (a n)) \<in> X"
+      and "a 0 = a0"
+      and "\<And>n. a (Suc n) = c (a n) (b (a n))"
+proof -
+  have "\<And>an. an \<in> X \<Longrightarrow> \<exists>b \<in> X. \<not>le b an"
+    by (metis (mono_tags, lifting) directed_on_subsetE[OF directed_on] in_mono nmem po_antisymE[OF po] supremum_on_leE[OF sup_x] supremum_on_leastE[OF sup_x] supremum_on_memE[OF sup_x] upper_bound_onI)
+  then obtain b where not_le: "\<And>an. an \<in> X \<Longrightarrow> \<not>le (b an) an" and b_mem: "\<And>an. an \<in> X \<Longrightarrow> b an \<in> X" by metis
+  then obtain c where an_le: "\<And>an. an \<in> X \<Longrightarrow> le an (c an (b an))" and b_le: "\<And>an. an \<in> X \<Longrightarrow> le (b an) (c an (b an))" and c_mem: "\<And>an. an \<in> X \<Longrightarrow> c an (b an) \<in> X" using directed_on_exE[OF directed_on] b_mem by metis
+  have ex: "\<And>n. \<exists>an \<in> X. infinite_chain_3_2_3 D le X a0 b c n (c an (b an))" proof -
+    fix n
+    show "\<exists>an \<in> X. infinite_chain_3_2_3 D le X a0 b c n (c an (b an))"
+    proof (induct n)
+      case 0
+      show ?case proof (rule bexI)
+        show "infinite_chain_3_2_3 D le X a0 b c 0 (c a0 (b a0))" using a0_mem c_mem[OF a0_mem] b_mem[OF a0_mem] not_le[OF a0_mem] b_le[OF a0_mem] an_le[OF a0_mem] c_mem[OF a0_mem] by (rule infinite_chain_3_2_3_0I)
+      next
+        show "a0 \<in> X" by (rule a0_mem)
+      qed
+    next
+      case (Suc i)
+      then obtain an where infinite_chain: "infinite_chain_3_2_3 D le X a0 b c i an" by blast
+      have an_mem: "an \<in> X" using infinite_chain by (rule infinite_chain_3_2_3_memE)
+      have "an \<noteq> x" using nmem an_mem by blast
+      show ?case proof (rule bexI)
+        show "infinite_chain_3_2_3 D le X a0 b c (Suc i) (c an (b an))" using infinite_chain b_mem[OF an_mem] not_le[OF an_mem] b_le[OF an_mem] an_le[OF an_mem] c_mem[OF an_mem] by (rule infinite_chain_3_2_3_SucI)
+      next
+        show "an \<in> X" by (rule an_mem)
+      qed
+    qed
+  qed
+  let ?a = "a_3_2_3 a0 b c"
+  have a_mem: "\<And>n. ?a n \<in> X" proof -
+    fix n
+    show "?a n \<in> X" proof (induct n)
+      case 0
+      then show ?case using a0_mem by simp
+    next
+      case (Suc n)
+      then show ?case by (simp add: c_mem)
+    qed
+  qed
+  show thesis proof
+    fix n
+    show "infinite_chain_3_2_3 D le X a0 b c n (c (a_3_2_3 a0 b c n) (b (a_3_2_3 a0 b c n)))" proof (induct n)
+      case 0
+      have eq: "?a 0 = a0" by simp
+      show ?case unfolding eq using a0_mem c_mem[OF a0_mem] b_mem[OF a0_mem] not_le[OF a0_mem] b_le[OF a0_mem] an_le[OF a0_mem] c_mem[OF a0_mem] by (rule infinite_chain_3_2_3_0I)
+    next
+      case (Suc n)
+      have eq: "?a (Suc n) = c (?a n) (b (?a n))" by simp
+      show ?case unfolding eq using Suc proof (rule infinite_chain_3_2_3_SucI)
+        show "b (c (?a n) (b (?a n))) \<in> X" by (rule b_mem, rule c_mem, rule a_mem)
+      next
+        show "\<not> le (b (c (?a n) (b (?a n)))) (c (?a n) (b (?a n)))" by (rule not_le, rule c_mem, rule a_mem)
+      next
+        show "le (b (c (?a n) (b (?a n)))) (c (c (?a n) (b (?a n))) (b (c (?a n) (b (?a n)))))" by (rule b_le, rule c_mem, rule a_mem)
+      next
+        show "le (c (?a n) (b (?a n))) (c (c (?a n) (b (?a n))) (b (c (?a n) (b (?a n)))))" by (meson Suc an_le infinite_chain_3_2_3_memE)
+      next
+        show "c (c (?a n) (b (?a n))) (b (c (?a n) (b (?a n)))) \<in> X" by (rule c_mem, rule c_mem, rule a_mem)
+      qed
+    qed
+  next
+    show "\<And>n. ?a n \<in> X" by (rule a_mem)
+  next
+    show "\<And>n. \<not> le (b (?a n)) (?a n)" using a_mem by (rule not_le)
+  next
+    show "\<And>n. b (?a n) \<in> X" using a_mem by (rule b_mem)
+  next
+    show "\<And>n. le (?a n) (c (?a n) (b (?a n)))" using a_mem by (rule an_le)
+  next
+    show "\<And>n. le (b (?a n)) (c (?a n) (b (?a n)))" using a_mem by (rule b_le)
+  next
+    show "\<And>n. c (?a n) (b (?a n)) \<in> X" using a_mem by (rule c_mem)
+  next
+    show "?a 0 = a0" by simp
+  next
+    show "\<And>n. ?a (Suc n) = c (?a n) (b (?a n))" by simp
+  qed
+qed
+
+lemma
+  fixes D :: "'a set"
+    and D' :: "'b set"
+    and f :: "'a \<Rightarrow> 'b"
+  assumes cpo_on: "cpo_on D le"
+    and cpo_on': "cpo_on D' le'"
+    and no_infinite: "\<nexists>a. (\<forall>i :: nat. a i \<in> D) \<and> (\<forall>i. a i \<noteq> a (Suc i) \<and> le (a i) (a (Suc i)))"
+    and mono_on: "mono_on D le D' le' f"
+  shows "cont_on D le D' le' f"
+proof -
+  have 1: "\<And>fx. \<lbrakk> \<And>X x. \<lbrakk> directed_on D le X; supremum_on D le X x \<rbrakk> \<Longrightarrow> x \<in> X \<rbrakk> \<Longrightarrow> cont_on D le D' le' f" proof -
+    assume x_mem: "\<And>X x. \<lbrakk> directed_on D le X; supremum_on D le X x \<rbrakk> \<Longrightarrow> x \<in> X"
+    show "cont_on D le D' le' f" using cpo_on cpo_on' proof (rule cont_onI)
+      show "\<And>a. a \<in> D \<Longrightarrow> f a \<in> D'" by (rule mono_on_ranE[OF mono_on])
+    next
+      fix Xa
+      assume directed_on: "directed_on D le Xa"
+      show "\<exists>xb. supremum_on D' le' {f xa |xa. xa \<in> Xa} xb" using cpo_on_exE[OF cpo_on' mono_on_directed_onE[OF directed_on mono_on]] by blast
+    next
+      fix Xa xa xb
+      assume directed_on: "directed_on D le Xa"
+        and sup_xa: "supremum_on D le Xa xa"
+        and sup_xb: "supremum_on D' le' {f xa |xa. xa \<in> Xa} xb"
+      have x_mem: "xa \<in> Xa" using directed_on sup_xa by (rule x_mem)
+      show "f xa = xb" using cpo_on_poE[OF cpo_on'] mono_on_ranE[OF mono_on supremum_on_memE[OF sup_xa]] supremum_on_memE[OF sup_xb] proof (rule po_antisymE)
+        show f_x_le_fx: "le' (f xa) xb" using sup_xb proof (rule supremum_on_leE)
+          show "f xa \<in> {f x |x. x \<in> Xa}" using x_mem by blast
+        qed
+      next
+        have "\<And>y. y \<in> Xa \<Longrightarrow> le' (f y) (f xa)" using mono_on proof (rule mono_on_leE)
+          show "\<And>y. y \<in> Xa \<Longrightarrow> y \<in> D" using directed_on_subsetE[OF directed_on] by blast
+        next
+          show "xa \<in> D" using sup_xa by (rule supremum_on_memE)
+        next
+          fix y
+          assume y_mem: "y \<in> Xa"
+          show "le y xa" using sup_xa y_mem by (rule supremum_on_leE)
+        qed
+        show "le' xb (f xa)" using sup_xb proof (rule supremum_on_leastE)
+          show "upper_bound_on D' le' {f x |x. x \<in> Xa} (f xa)" using mono_on_ranE[OF mono_on supremum_on_memE[OF sup_xa]] proof (rule upper_bound_onI)
+            show "{f x |x. x \<in> Xa} \<subseteq> D'" using mono_on_ranE[OF mono_on] directed_on_subsetE[OF directed_on] by blast
+          next
+            fix y
+            assume "y \<in> {f x |x. x \<in> Xa}"
+            then obtain z where y_eq: "y = f z" and z_mem: "z \<in> Xa" by blast
+            show "le' y (f xa)" unfolding y_eq using mono_on proof (rule mono_on_leE)
+              show "z \<in> D" using z_mem directed_on_subsetE[OF directed_on] by blast
+            next
+              show "xa \<in> D" using sup_xa by (rule supremum_on_memE)
+            next
+              show "le z xa" using sup_xa z_mem by (rule supremum_on_leE)
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+  show ?thesis proof (rule 1)
+    fix X x
+    assume directed_on: "directed_on D le X"
+      and sup_x: "supremum_on D le X x"
+    show "x \<in> X" using no_infinite proof (rule contrapos_np)
+      assume nmem: "x \<notin> X"
+      obtain a0 where a0_mem: "a0 \<in> X" using directed_on_nemptyE[OF directed_on] by blast
+      obtain a b c
+        where infinite_chain: "\<And>n. infinite_chain_3_2_3 D le X a0 b c n (c (a n) (b (a n)))"
+          and a_mem: "\<And>n. a n \<in> X"
+          and not_le: "\<And>n. \<not>le (b (a n)) (a n)"
+          and b_mem: "\<And>n. b (a n) \<in> X"
+          and an_le: "\<And>n. le (a n) (c (a n) (b (a n)))"
+          and b_le: "\<And>n. le (b (a n)) (c (a n) (b (a n)))"
+          and c_mem: "\<And>n. c (a n) (b (a n)) \<in> X"
+          and a0: "a 0 = a0"
+          and aSuc: "\<And>n. a (Suc n) = c (a n) (b (a n))"
+        using ex_infinite_chain_3_2_3[OF cpo_on_poE[OF cpo_on] directed_on sup_x nmem a0_mem] by metis
+      show "\<exists>a. (\<forall>i. a i \<in> D) \<and> (\<forall>i. a i \<noteq> a (Suc i) \<and> le (a i) (a (Suc i)))" proof (intro exI conjI allI impI)
+        fix n
+        show "a n \<in> D" using a_mem directed_on_subsetE[OF directed_on] by blast
+      next
+        fix n :: nat
+        have neq: "a n \<noteq> x" using a_mem nmem by blast
+        show "a n \<noteq> a (Suc n)" unfolding aSuc using not_le b_le by metis
+      next
+        fix n
+        show "le (a n) (a (Suc n))" unfolding aSuc by (rule an_le)
+      qed
+    qed
+  qed
+qed
+
+hide_fact infinite_chain_3_2_3_memE
+hide_const infinite_chain_3_2_3 a_3_2_3
 
 end
