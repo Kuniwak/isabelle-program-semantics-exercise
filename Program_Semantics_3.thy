@@ -506,7 +506,7 @@ lemma cpo_onE:
 using assms unfolding cpo_on_def by blast+
 
 class cpo = partial_order_bot +
-  assumes "cpo_on UNIV (\<sqsubseteq>)"
+  assumes cpo_on: "cpo_on UNIV (\<sqsubseteq>)"
 begin
 lemma directed: "directed X \<longleftrightarrow> (X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. a \<sqsubseteq> c \<and> b \<sqsubseteq> c))"
   unfolding directed_on_def using po by blast
@@ -1380,6 +1380,118 @@ next
       qed
     qed
   qed
+qed
+
+subsection "系 3.1.16"
+text "自然数の組 (i, j) について、cpo D の元 a_ij が定められていて、各自然数 k について"
+text "i \<le> j ならば a_ik \<sqsubseteq> a_jk かつ a_ki \<sqsubseteq> a_kj が成り立っているとする。このとき"
+text   "A = {a_ij | i,j \<in> \<nat>} と B = {a_kk | k \<in> \<nat>}"
+text "はともに有向集合で、\<squnion>A = \<squnion>B が成り立つ。"
+
+lemma po_on_nat: "partial_order_on (UNIV :: nat set) (\<le>)"
+proof (rule partial_order_onI)
+  show "\<And>a :: nat. a \<le> a" by (rule order.refl)
+next
+  show "\<And>a b :: nat. \<lbrakk> a \<le> b; b \<le> a \<rbrakk> \<Longrightarrow> a = b" by (rule order.antisym)
+next
+  show "\<And>a b c :: nat. \<lbrakk> a \<le> b; b \<le> c \<rbrakk> \<Longrightarrow> a \<le> c" by (rule order.trans)
+qed
+
+lemma directed_on_nat:
+  assumes nempty: "X \<noteq> {}"
+  shows "directed_on (UNIV :: nat set) (\<le>) X"
+using po_on_nat subset_UNIV nempty proof (rule directed_onI)
+  fix a b
+  assume a_mem: "a \<in> X"
+    and b_mem: "b \<in> X"
+  show "\<exists>c \<in> X. a \<le> c \<and> b \<le> c" proof (intro bexI conjI)
+    show "a \<le> max a b" by linarith
+  next
+    show "b \<le> max a b" by linarith
+  next
+    show "max a b \<in> X" using a_mem b_mem by linarith
+  qed
+qed
+
+lemma directed_on_matrixI1:
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
+  assumes cpo_on: "cpo_on D le"
+    and a_mem: "\<And>i j. a i j \<in> D"
+    and leI1: "\<And>i j k. i \<le> j \<Longrightarrow> le (a i k) (a j k)"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> le (a k i) (a k j)"
+    and A_def: "A = {a i j| i j. True}"
+  shows "directed_on D le A"
+proof (rule directed_onI1)
+  show "directed_on (UNIV :: nat set) (\<le>) (UNIV :: nat set)" proof (rule directed_on_nat)
+    show "UNIV \<noteq> {}" by blast
+  qed
+next
+  show "cpo_on D le" by (rule cpo_on)
+next
+  show "\<And>x y. a x y \<in> D" by (rule a_mem)
+next
+  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a i k) (a j k)" by (rule leI1)
+next
+  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a k i) (a k j)" by (rule leI2)
+next
+  show "A = {a x y |x y. x \<in> UNIV \<and> y \<in> UNIV}" using A_def by blast
+qed
+
+lemma directed_on_matrixI2:
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
+  assumes cpo_on: "cpo_on D le"
+    and a_mem: "\<And>i j. a i j \<in> D"
+    and leI1: "\<And>i j k. i \<le> j \<Longrightarrow> le (a i k) (a j k)"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> le (a k i) (a k j)"
+    and B_def: "B = {a k k| k. True}"
+  shows "directed_on D le B"
+proof (rule directed_onI2)
+  show "directed_on (UNIV :: nat set) (\<le>) (UNIV :: nat set)" proof (rule directed_on_nat)
+    show "UNIV \<noteq> {}" by blast
+  qed
+next
+  show "cpo_on D le" by (rule cpo_on)
+next
+  show "\<And>x y. a x y \<in> D" by (rule a_mem)
+next
+  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a i k) (a j k)" by (rule leI1)
+next
+  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a k i) (a k j)" by (rule leI2)
+next
+  show "B = {a z z |z. z \<in> UNIV }" using B_def by blast
+qed
+
+lemma sup_on_matrix_eqI:
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
+  assumes cpo_on: "cpo_on D le"
+    and a_mem: "\<And>i j. a i j \<in> D"
+    and leI1: "\<And>i j k. i \<le> j \<Longrightarrow> le (a i k) (a j k)"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> le (a k i) (a k j)"
+    and A_def: "A = {a i j| i j. True}"
+    and B_def: "B = {a k k| k. True}"
+    and sup_xa: "supremum_on D le A xa"
+    and sup_xb: "supremum_on D le B xb"
+  shows "xa = xb"
+proof (rule sup_eqI)
+  show "directed_on (UNIV :: nat set) (\<le>) (UNIV :: nat set)" proof (rule directed_on_nat)
+    show "UNIV \<noteq> {}" by blast
+  qed
+next
+  show "cpo_on D le" by (rule cpo_on)
+next
+  show "\<And>x y. a x y \<in> D" by (rule a_mem)
+next
+  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a i k) (a j k)" by (rule leI1)
+next
+  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a k i) (a k j)" by (rule leI2)
+next
+  show "A = {a x y |x y. x \<in> UNIV \<and> y \<in> UNIV}" using A_def by blast
+next
+  show "B = {a k k |k. k \<in> UNIV}" using B_def by blast
+next
+  show "supremum_on D le A xa" by (rule sup_xa)
+next
+  show "supremum_on D le B xb" by (rule sup_xb)
 qed
 
 

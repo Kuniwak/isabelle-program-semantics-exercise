@@ -590,4 +590,111 @@ qed
 oops
 
 
+subsection "7"
+text "系 3.1.16 の条件を仮定すると、"
+text   "\<squnion>{a_ij | i, j \<in> \<nat>} = \<squnion>{\<squnion>{a_ij | i \<in> \<nat>} | j \<in> \<nat>}"
+text                       "= \<squnion>{\<squnion>{a_ij | j \<in> \<nat>} | i \<in> \<nat>}"
+text                       "= \<squnion>{a_kk | k \<in> \<nat>}"
+text "が成り立つことを示せ。"
+
+lemma (in cpo)
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
+  assumes leI1: "\<And>i j k. i \<le> j \<Longrightarrow> a i k \<sqsubseteq> a j k"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> a k i \<sqsubseteq> a k j"
+    and A_def: "A = {a i j| i j. i \<in> UNIV \<and> j \<in> UNIV}"
+    and B_def: "B = {a k k| k. k \<in> UNIV}"
+    and sup_xa: "supremum A xa"
+    and sup_xb: "supremum B xb"
+  shows "\<^bold>\<squnion>{a i j| i j. j \<in> UNIV} = \<^bold>\<squnion>{\<^bold>\<squnion>{a i j| i. i \<in> UNIV}| j. j \<in> UNIV}"
+proof (rule supremum_eq2)
+  fix j
+  have directed_on: "directed {a i j| i. i \<in> UNIV}" using directed_on_nat proof (rule directed_onI1)
+    show "UNIV \<noteq> {}" by blast
+  next
+    show "cpo_on UNIV (\<sqsubseteq>)" by (rule cpo_on)
+  next
+    fix x y
+    show "a x y \<in> UNIV" by (rule UNIV_I)
+  next
+    fix x y z :: nat
+    assume "x \<le> y"
+    thus "a x j \<sqsubseteq> a y j" by (rule leI1)
+  next
+    fix x y z :: nat
+    show "a z j \<sqsubseteq> a z j" by (rule po_refl)
+  next
+    show "{a i j |i. i \<in> UNIV} = {z. \<exists>x y. z = a x j \<and> x \<in> UNIV \<and> y \<in> UNIV}" by blast
+  qed
+  obtain x where sup_x: "supremum {a i j| i. i \<in> UNIV} x" using cpo_on_exE[OF cpo_on directed_on] by blast
+  have eq: "\<^bold>\<squnion> {a i j |i. i \<in> UNIV} = x" using sup_x by (rule Sup_eq)
+  show "supremum {a i j | i. i \<in> UNIV} (\<^bold>\<squnion> {a i j |i. i \<in> UNIV})" unfolding eq by (rule sup_x)
+next
+  have eq1: "\<Union> {{a i j |i. i \<in> UNIV} |j. j \<in> UNIV} = {a i j | i j. i \<in> UNIV \<and> j \<in> UNIV}" by blast
+  have eq2: "\<^bold>\<squnion> {a i j |i j. j \<in> UNIV} = \<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV}" using UNIV_I by metis
+  have eq3: "\<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV} = xa" using sup_xa unfolding A_def by (rule Sup_eq)
+  show "supremum (\<Union> {{a i j |i. i \<in> UNIV} |j. j \<in> UNIV}) (\<^bold>\<squnion> {a i j |i j. j \<in> UNIV})" unfolding eq1 eq2 eq3 unfolding A_def[symmetric] by (rule sup_xa)
+qed
+
+lemma (in cpo)
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
+  assumes leI1: "\<And>i j k. i \<le> j \<Longrightarrow> a i k \<sqsubseteq> a j k"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> a k i \<sqsubseteq> a k j"
+    and A_def: "A = {a i j| i j. i \<in> UNIV \<and> j \<in> UNIV}"
+    and B_def: "B = {a k k| k. k \<in> UNIV}"
+    and sup_xa: "supremum A xa"
+    and sup_xb: "supremum B xb"
+  shows "\<^bold>\<squnion>{a i j| i j. j \<in> UNIV} = \<^bold>\<squnion>{\<^bold>\<squnion>{a i j| j. j \<in> UNIV}| i. i \<in> UNIV}"
+proof (rule supremum_eq2)
+  fix i
+  have directed_on: "directed {a i j| j. j \<in> UNIV}" using directed_on_nat proof (rule directed_onI1)
+    show "UNIV \<noteq> {}" by blast
+  next
+    show "cpo_on UNIV (\<sqsubseteq>)" by (rule cpo_on)
+  next
+    fix x y
+    show "a x y \<in> UNIV" by (rule UNIV_I)
+  next
+    fix x y z :: nat
+    show "a i z \<sqsubseteq> a i z" by (rule po_refl)
+  next
+    fix x y z :: nat
+    assume "x \<le> y"
+    thus "a i x \<sqsubseteq> a i y" by (rule leI2)
+  next
+    show "{a i j |j. j \<in> UNIV} = {z. \<exists>x y. z = a i y \<and> x \<in> UNIV \<and> y \<in> UNIV}" by blast
+  qed
+  obtain x where sup_x: "supremum {a i j| j. j \<in> UNIV} x" using cpo_on_exE[OF cpo_on directed_on] by blast
+  have eq: "\<^bold>\<squnion> {a i j |j. j \<in> UNIV} = x" using sup_x by (rule Sup_eq)
+  show "supremum {a i j | j. j \<in> UNIV} (\<^bold>\<squnion> {a i j |j. j \<in> UNIV})" unfolding eq by (rule sup_x)
+next
+  have eq1: "\<Union> {{a i j |j. j \<in> UNIV} |i. i \<in> UNIV} = {a i j | i j. i \<in> UNIV \<and> j \<in> UNIV}" by blast
+  have eq2: "\<^bold>\<squnion> {a i j |i j. j \<in> UNIV} = \<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV}" using UNIV_I by metis
+  have eq3: "\<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV} = xa" using sup_xa unfolding A_def by (rule Sup_eq)
+  show "supremum (\<Union> {{a i j |j. j \<in> UNIV} |i. i \<in> UNIV}) (\<^bold>\<squnion> {a i j |i j. j \<in> UNIV})" unfolding eq1 eq2 eq3 unfolding A_def[symmetric] by (rule sup_xa)
+qed
+
+lemma (in cpo)
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
+  assumes leI1: "\<And>i j k. i \<le> j \<Longrightarrow> a i k \<sqsubseteq> a j k"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> a k i \<sqsubseteq> a k j"
+    and A_def: "A = {a i j| i j. i \<in> UNIV \<and> j \<in> UNIV}"
+    and B_def: "B = {a k k| k. k \<in> UNIV}"
+    and sup_xa: "supremum A xa"
+    and sup_xb: "supremum B xb"
+  shows "\<^bold>\<squnion>{a i j| i j. j \<in> UNIV} = \<^bold>\<squnion>{a k k | k. k \<in> UNIV}"
+using cpo_on UNIV_I proof (rule sup_on_matrix_eqI)
+  show "\<And>i j k. i \<le> j \<Longrightarrow> a i k \<sqsubseteq> a j k" by (rule leI1)
+next
+  show "\<And>i j k. i \<le> j \<Longrightarrow> a k i \<sqsubseteq> a k j" by (rule leI2)
+next
+  show "A = {a i j |i j. True}" unfolding A_def by blast
+next
+  show "B = {a k k |k. True}" unfolding B_def by blast
+next
+  have eq: "{a i j |i j. j \<in> UNIV} = A" unfolding A_def by blast
+  show "supremum A (\<^bold>\<squnion> {a i j |i j. j \<in> UNIV})" unfolding eq Sup_eq[OF sup_xa] by (rule sup_xa)
+next
+  show "supremum B (\<^bold>\<squnion> {a k k |k. k \<in> UNIV})" unfolding B_def[symmetric] Sup_eq[OF sup_xb] by (rule sup_xb)
+qed
+
 end
