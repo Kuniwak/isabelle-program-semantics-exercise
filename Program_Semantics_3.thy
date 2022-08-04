@@ -1695,28 +1695,6 @@ proof -
     by (metis (mono_tags, lifting) directed_on_subsetE[OF directed_on] in_mono nmem po_antisymE[OF po] supremum_on_leE[OF sup_x] supremum_on_leastE[OF sup_x] supremum_on_memE[OF sup_x] upper_bound_onI)
   then obtain b where not_le: "\<And>an. an \<in> X \<Longrightarrow> \<not>le (b an) an" and b_mem: "\<And>an. an \<in> X \<Longrightarrow> b an \<in> X" by metis
   then obtain c where an_le: "\<And>an. an \<in> X \<Longrightarrow> le an (c an (b an))" and b_le: "\<And>an. an \<in> X \<Longrightarrow> le (b an) (c an (b an))" and c_mem: "\<And>an. an \<in> X \<Longrightarrow> c an (b an) \<in> X" using directed_on_exE[OF directed_on] b_mem by metis
-  have ex: "\<And>n. \<exists>an \<in> X. infinite_chain_3_2_3 D le X a0 b c n (c an (b an))" proof -
-    fix n
-    show "\<exists>an \<in> X. infinite_chain_3_2_3 D le X a0 b c n (c an (b an))"
-    proof (induct n)
-      case 0
-      show ?case proof (rule bexI)
-        show "infinite_chain_3_2_3 D le X a0 b c 0 (c a0 (b a0))" using a0_mem c_mem[OF a0_mem] b_mem[OF a0_mem] not_le[OF a0_mem] b_le[OF a0_mem] an_le[OF a0_mem] c_mem[OF a0_mem] by (rule infinite_chain_3_2_3_0I)
-      next
-        show "a0 \<in> X" by (rule a0_mem)
-      qed
-    next
-      case (Suc i)
-      then obtain an where infinite_chain: "infinite_chain_3_2_3 D le X a0 b c i an" by blast
-      have an_mem: "an \<in> X" using infinite_chain by (rule infinite_chain_3_2_3_memE)
-      have "an \<noteq> x" using nmem an_mem by blast
-      show ?case proof (rule bexI)
-        show "infinite_chain_3_2_3 D le X a0 b c (Suc i) (c an (b an))" using infinite_chain b_mem[OF an_mem] not_le[OF an_mem] b_le[OF an_mem] an_le[OF an_mem] c_mem[OF an_mem] by (rule infinite_chain_3_2_3_SucI)
-      next
-        show "an \<in> X" by (rule an_mem)
-      qed
-    qed
-  qed
   let ?a = "a_3_2_3 a0 b c"
   have a_mem: "\<And>n. ?a n \<in> X" proof -
     fix n
@@ -1730,7 +1708,7 @@ proof -
   qed
   show thesis proof
     fix n
-    show "infinite_chain_3_2_3 D le X a0 b c n (c (a_3_2_3 a0 b c n) (b (a_3_2_3 a0 b c n)))" proof (induct n)
+    show "infinite_chain_3_2_3 D le X a0 b c n (c (?a n) (b (?a n)))" proof (induct n)
       case 0
       have eq: "?a 0 = a0" by simp
       show ?case unfolding eq using a0_mem c_mem[OF a0_mem] b_mem[OF a0_mem] not_le[OF a0_mem] b_le[OF a0_mem] an_le[OF a0_mem] c_mem[OF a0_mem] by (rule infinite_chain_3_2_3_0I)
