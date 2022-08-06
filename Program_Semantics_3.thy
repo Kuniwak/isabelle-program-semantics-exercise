@@ -3,7 +3,7 @@ theory Program_Semantics_3
 begin
 
 \<comment> \<open>理解を確認するため組み込みの定義は使いません。\<close>
-hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on range mono_on
+hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on range mono range
 
 \<comment> \<open>これから先の定義では、台集合 D や D' を UNIV と同一視します。これによって台集合が有限であった場合の帰納法が封印されますが、これによって解けなくなる問題はありませんでした。\<close>
 
@@ -15,7 +15,7 @@ text "(2) a \<sqsubseteq> b かつ b \<sqsubseteq> a ならば a = b（反対称
 text "(3) a \<sqsubseteq> b かつ b \<sqsubseteq> c ならば a \<sqsubseteq> c（推移律）"
 
 class po =
-  fixes less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubseteq>" 53)
+  fixes le :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubseteq>" 53)
   assumes refl: "\<And>a. a \<sqsubseteq> a"
     and antisym: "\<And>a b. \<lbrakk> a \<sqsubseteq> b; b \<sqsubseteq> a \<rbrakk> \<Longrightarrow> a = b"
     and trans: "\<And>a b c. \<lbrakk> a \<sqsubseteq> b; b \<sqsubseteq> c \<rbrakk> \<Longrightarrow> a \<sqsubseteq> c"
@@ -36,7 +36,6 @@ text   "\<forall>a \<in> D (a \<sqsubseteq> \<top>)"
 class po_top = po +
   fixes top :: 'a ("\<top>")
   assumes le_top: "\<And>a. a \<sqsubseteq> \<top>"
-begin
 
 
 subsection "定義 3.1.3"
@@ -77,6 +76,12 @@ lemma (in po)
   shows supremum_upperE: "X \<^sub>s\<sqsubseteq> d"
     and supremum_leastE: "\<And>a. X \<^sub>s\<sqsubseteq> a \<Longrightarrow> d \<sqsubseteq> a"
 using assms unfolding supremum_def by blast+
+
+lemma (in po) supremum_leE:
+  assumes sup_d: "supremum X d"
+    and x_mem: "x \<in> X"
+  shows "x \<sqsubseteq> d"
+using supremum_upperE[OF sup_d] x_mem by (rule upperE)
 
 
 text "同様に上界および上限と対になる概念として、下界および下限が定義できる。元 d \<in> D について、"
@@ -133,7 +138,7 @@ proof -
   qed
 qed
 
-definition (in po) Sup :: "'a set \<Rightarrow> 'a" ("\<^bold>\<squnion> _" [52] 52)
+definition (in po) Sup :: "'a set \<Rightarrow> 'a" ("\<^bold>\<squnion> _" [54] 54)
   where "\<^bold>\<squnion>X \<equiv> (THE x. supremum X x)"
 
 lemma (in po) Sup_eq:
@@ -146,7 +151,7 @@ qed
 
 text "同様に、X の下限が存在すれば唯一なので、その元を \<sqinter>X で表す。"
 
-lemma infimum_uniq:
+lemma (in po) infimum_uniq:
   fixes a b :: 'a
   assumes inf_a: "infimum X a"
     and inf_b: "infimum X b"
@@ -161,56 +166,32 @@ next
   qed
 qed
 
-definition (in po) Inf :: "'a set \<Rightarrow> 'a" ("\<^bold>\<sqinter> _" [52] 52)
+definition (in po) Inf :: "'a set \<Rightarrow> 'a" ("\<^bold>\<sqinter> _" [54] 54)
   where "\<^bold>\<sqinter>X \<equiv> (THE x. infimum X x)"
 
 lemma (in po) Inf_eq:
   assumes "infimum X a"
   shows "\<^bold>\<sqinter>X = a"
 unfolding Inf_def using assms proof (rule the_equality)
-  show "\<And>d. infimum d X \<Longrightarrow> d = a" using infimum_uniq[OF assms] .
+  show "\<And>d. infimum X d \<Longrightarrow> d = a" using assms by (rule infimum_uniq)
 qed
 
 
 subsection "定義 3.1.4"
 text "半順序集合 D において、すべての部分集合 X \<subseteq> D について上限 \<squnion>X \<in> D が存在するとき、D を完備束（complete_lattice）と呼ぶ。"
-definition complete_lattice_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
-  where "complete_lattice_on D le \<equiv> \<forall>X \<subseteq> D. \<exists>x. supremum_on D le X x"
-
-lemma complete_lattice_onI:
-  assumes "\<And>X. X \<subseteq> D \<Longrightarrow> \<exists>x. supremum_on D le X x"
-  shows "complete_lattice_on D le"
-unfolding complete_lattice_on_def using assms by blast
-
-lemma complete_lattice_onE:
-  assumes "complete_lattice_on D le"
-    and "X \<subseteq> D"
-  obtains x where "supremum_on D le X x"
-using assms unfolding complete_lattice_on_def by blast
-
-class complete_lattice = partial_order +
-  assumes complete_lattice_on: "complete_lattice_on UNIV (\<sqsubseteq>)"
+class complete_lattice = po +
+  assumes ex_supremum: "\<And>X. \<exists>d. supremum X d"
 begin
-
-lemma ex_supremum:
-  obtains x where "supremum X x"
-proof (rule complete_lattice_onE[OF complete_lattice_on])
-  show "X \<subseteq> UNIV" by (rule subset_UNIV)
-next
-  fix x
-  assume "\<And>x. supremum X x \<Longrightarrow> thesis" "supremum X x"
-  thus thesis by blast
-qed
 
 lemma le_Sup:
   assumes "x \<in> X"
-  shows "x \<sqsubseteq> \<^bold>\<squnion> X"
-  using Sup_eq assms ex_supremum supremum_on_upper_onE upper_on_leE by metis
+  shows "x \<sqsubseteq> \<^bold>\<squnion>X"
+  using Sup_eq assms ex_supremum supremum_upperE upperE by metis
 
 lemma least_Sup:
   assumes "X \<^sub>s\<sqsubseteq> b"
-  shows "\<^bold>\<squnion> X \<sqsubseteq> b"
-  using Sup_eq assms ex_supremum supremum_on_leastE by metis
+  shows "\<^bold>\<squnion>X \<sqsubseteq> b"
+  using Sup_eq assms ex_supremum supremum_leastE by metis
 
 
 text "完備束の定義で X = \<emptyset> とすると、\<squnion>X は D の最小元になり、X = D とすると \<squnion>X は D の最大限になる。"
@@ -218,14 +199,12 @@ text "すなわち、完備束は常に最小元と最大元を持つことが�
 definition bot :: 'a
   where "bot \<equiv> Sup {}"
 
-sublocale partial_order_bot "(\<sqsubseteq>)" bot
+sublocale po_bot "(\<sqsubseteq>)" bot
 proof standard
-  show "bot_on UNIV (\<sqsubseteq>) bot" unfolding bot_on_def bot_def proof (intro conjI ballI)
-    show "\<^bold>\<squnion>{} \<in> UNIV" by (rule UNIV_I)
-  next
+  show "\<And>a. (bot :: 'a) \<sqsubseteq> a" unfolding bot_def proof -
     fix a
     show "\<^bold>\<squnion> {} \<sqsubseteq> a" proof (rule least_Sup)
-      show "{} \<^sub>s\<sqsubseteq> a " unfolding upper_on_def by simp
+      show "{} \<^sub>s\<sqsubseteq> a " unfolding upper_def by simp
     qed
   qed
 qed
@@ -233,15 +212,11 @@ qed
 definition top
   where "top \<equiv> Sup UNIV"
 
-sublocale partial_order_top "(\<sqsubseteq>)" top
+sublocale po_top "(\<sqsubseteq>)" top
 proof standard
-  show "top_on UNIV (\<sqsubseteq>) top" unfolding top_on_def top_def proof (intro conjI ballI)
-    show "\<^bold>\<squnion> UNIV \<in> UNIV" by (rule UNIV_I)
-  next
-    fix a
-    show "a \<sqsubseteq> \<^bold>\<squnion> UNIV" proof (rule le_Sup)
-      show "a \<in> UNIV" by (rule UNIV_I)
-    qed
+  fix a :: 'a
+  show "a \<sqsubseteq> (top :: 'a)" unfolding top_def proof (rule le_Sup)
+    show "a \<in> UNIV" by (rule UNIV_I)
   qed
 qed
 end
@@ -250,25 +225,18 @@ subsection "定義 3.1.5"
 text "半順序集合 D の元の列 a0 \<sqsubseteq> a1 \<sqsubseteq> a2 \<sqsubseteq> \<dots> を \<omega> 鎖（\<omega>-chain）と呼ぶ。"
 text "すなわち、列 (a0, a1, a2, \<dots>) は自然数の集合と1対1に対応し、i \<le> j ならば ai \<sqsubseteq> aj である。"
 
-definition omega_chain_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> (nat \<Rightarrow> 'a) \<Rightarrow> bool"
-  where "omega_chain_on D eq le f \<equiv> partial_order_on D eq le \<and> (\<forall>n. f n \<in> D) \<and> (\<forall>i j. i \<le> j \<longrightarrow> le (f i) (f j))"
+definition (in po) omega_chain :: "(nat \<Rightarrow> 'a) \<Rightarrow> bool"
+  where "omega_chain f \<equiv> \<forall>i j. i \<le> j \<longrightarrow> f i \<sqsubseteq> f j"
 
-lemma omega_chain_onI:
-  assumes "partial_order_on D eq le"
-    and "\<And>n. f n \<in> D"
-    and "\<And>i j. i \<le> j \<Longrightarrow> le (f i) (f j)"
-  shows "omega_chain_on D eq le f"
-unfolding omega_chain_on_def using assms by blast
+lemma (in po) omega_chainI:
+  assumes "\<And>i j. i \<le> j \<Longrightarrow> f i \<sqsubseteq> f j"
+  shows "omega_chain f"
+unfolding omega_chain_def using assms by blast
 
-lemma omega_chain_onE:
-  assumes "omega_chain_on D eq le f"
-  shows omega_chain_on_poE: "partial_order_on D eq le"
-    and omega_chain_on_ranE: "\<And>n. f n \<in> D"
-    and omega_chain_on_leE: "\<And>i j. i \<le> j \<Longrightarrow> le (f i) (f j)"
-using assms unfolding omega_chain_on_def by blast+
-
-abbreviation (in partial_order) omega_chain :: "(nat \<Rightarrow> 'a) \<Rightarrow> bool"
-  where "omega_chain \<equiv> omega_chain_on UNIV (=) (\<sqsubseteq>)"
+lemma (in po) omega_chainE:
+  assumes "omega_chain f"
+  shows omega_chain_leE: "\<And>i j. i \<le> j \<Longrightarrow> f i \<sqsubseteq> f j"
+using assms unfolding omega_chain_def by blast+
 
 
 subsection "定義 3.1.6"
@@ -276,199 +244,218 @@ text "半順序集合 D の空でない部分集合 X で、"
 text   "\<forall>a \<in> X \<forall>b \<in> X \<exists>c \<in> X (a \<sqsubseteq> c かつ b \<sqsubseteq> c)"
 text "が成り立つとき、X は有向集合（directed set）であるという。"
 
-definition directed_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> bool"
-  where "directed_on D eq le X \<equiv> partial_order_on D eq le \<and> X \<subseteq> D \<and> X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. le a c \<and> le b c)"
+definition (in po) directed :: "'a set \<Rightarrow> bool"
+  where "directed X \<equiv> X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. a \<sqsubseteq> c \<and> b \<sqsubseteq> c)"
 
-lemma directed_onI:
-  assumes "partial_order_on D eq le"
-    and "X \<subseteq> D"
-    and "X \<noteq> {}"
-    and "\<And>a b. \<lbrakk> a \<in> X; b \<in> X \<rbrakk> \<Longrightarrow> \<exists>c \<in> X. le a c \<and> le b c"
-  shows "directed_on D eq le X"
-unfolding directed_on_def using assms by blast
+lemma (in po) directedI:
+  assumes "X \<noteq> {}"
+    and "\<And>a b. \<lbrakk> a \<in> X; b \<in> X \<rbrakk> \<Longrightarrow> \<exists>c \<in> X. a \<sqsubseteq> c \<and> b \<sqsubseteq> c"
+  shows "directed X"
+unfolding directed_def using assms by blast
 
-lemma directed_onE:
-  assumes "directed_on D eq le X"
-  shows directed_on_poE: "partial_order_on D eq le"
-    and directed_on_subsetE: "X \<subseteq> D"
-    and directed_on_nemptyE: "X \<noteq> {}"
-    and directed_on_exE: "\<And>a b. \<lbrakk> a \<in> X; b \<in> X \<rbrakk> \<Longrightarrow> \<exists>c \<in> X. le a c \<and> le b c"
-using assms unfolding directed_on_def by blast+
-
-abbreviation (in partial_order) directed :: "'a set \<Rightarrow> bool"
-  where "directed \<equiv> directed_on UNIV (=) (\<sqsubseteq>)"
+lemma (in po)
+  assumes "directed X"
+  shows directed_nemptyE: "X \<noteq> {}"
+    and directed_exE: "\<And>a b. \<lbrakk> a \<in> X; b \<in> X \<rbrakk> \<Longrightarrow> \<exists>c \<in> X. a \<sqsubseteq> c \<and> b \<sqsubseteq> c"
+using assms unfolding directed_def by blast+
 
 
 subsection "定義 3.1.7"
 text "次の2つの条件を満たす半順序集合 D を完備半順序集合（complete partially ordered set）と呼ぶ。"
 text "(1) D は最小元をもつ。"
 text "(2) D は任意の有向部分集合 X について、X の上限 \<squnion> X \<in> D が存在する。"
-definition cpo_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> bool"
-  where "cpo_on D eq le \<equiv> partial_order_on D eq le \<and> (\<exists>a. bot_on D le a) \<and> (\<forall>X. directed_on D eq le X \<longrightarrow> (\<exists>x \<in> D. supremum_on D le X x))"
 
-lemma cpo_onI:
-  assumes "partial_order_on D eq le"
-    and "bot_on D le a"
-    and "\<And>X. directed_on D eq le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
-  shows "cpo_on D eq le"
-unfolding cpo_on_def using assms by blast
+class cpo = po_bot +
+  assumes ex_sup: "\<And>X. directed X \<Longrightarrow> \<exists>d. supremum X d"
 
-lemma cpo_onE:
-  assumes "cpo_on D eq le"
-  shows cpo_on_poE: "partial_order_on D eq le"
-    and cpo_on_bot_onE: "\<exists>a. bot_on D le a"
-    and cpo_on_exE: "\<And>X. directed_on D eq le X \<Longrightarrow> \<exists>x \<in> D. supremum_on D le X x"
-using assms unfolding cpo_on_def by blast+
-
-class cpo = partial_order_bot +
-  assumes cpo_on: "cpo_on UNIV (=) (\<sqsubseteq>)"
-begin
-lemma directed: "directed X \<longleftrightarrow> (X \<noteq> {} \<and> (\<forall>a \<in> X. \<forall>b \<in> X. \<exists>c \<in> X. a \<sqsubseteq> c \<and> b \<sqsubseteq> c))"
-  unfolding directed_on_def using po by blast
-end
 
 subsection "例 3.1.8"
 
 subsection "例 3.1.9"
-text "集合 S から T への部分関数の全体を [S \<rightharpoonup> T] と表す。前に説明したように部分関数間の半順序を"
+text "集合 S から T への部分関数の全体を [S \<rightharpoonup> T] と表す。"
+
+typedef ('a, 'b) graph = "{R :: ('a \<times> 'b) set. single_valued R}"
+proof (rule exI)
+  show "{} \<in> {R. single_valued R}" unfolding single_valued_def by blast
+qed
+
+
+text "前に説明したように部分関数間の半順序を"
 text   "f \<sqsubseteq> g \<Leftrightarrow> \<forall>x \<in> S (f(x) が定義されていれば g(x) も定義され f(x) = g(x))"
 text "のように定義すると、[S \<rightharpoonup> T] は cpo となる。"
-\<comment>\<open>後述の cpo_on_graph にて証明\<close>
+\<comment>\<open>後で証明\<close>
 
 text "部分関数の半順序はもっと違った観点からも定義できる。f を S から T への部分関数として、直積"
 text   "S \<times> T = {(a, b)|a \<in> S かつ b \<in> T}"
 text "の部分集合 {(x, f(x))|x \<in> S かつ f(x) が定義されている } を f のグラフと呼ぶ。"
-definition graph :: "('a \<times> 'b) set \<Rightarrow> bool"
-  where "graph R \<equiv> single_valued R"
+
+instantiation graph :: (type, type) po
+begin
+
 
 text "部分関数 f とそのグラフを同一視すれば、f \<subseteq> g と f \<sqsubseteq> g は同じことになる。"
-definition less_eq_graph :: "('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>g" 53)
-  where "R1 \<sqsubseteq>\<^sub>g R2 \<equiv> R1 \<subseteq> R2"
+
+definition le_graph :: "('a, 'b) graph \<Rightarrow> ('a, 'b) graph \<Rightarrow> bool"
+  where "R1 \<sqsubseteq> R2 \<equiv> Rep_graph R1 \<subseteq> Rep_graph R2"
+
+instance proof
+  fix a :: "('a, 'b) graph"
+  show "a \<sqsubseteq> a" unfolding le_graph_def by (rule order.refl)
+next
+  fix a b :: "('a, 'b) graph"
+  assume "a \<sqsubseteq> b" "b \<sqsubseteq> a"
+  hence "Rep_graph a = Rep_graph b" unfolding le_graph_def by (rule order.antisym)
+  thus "a = b" by (simp add: Rep_graph_inject)
+next
+  fix a b c :: "('a, 'b) graph"
+  assume "a \<sqsubseteq> b" "b \<sqsubseteq> c"
+  hence subset: "Rep_graph a \<subseteq> Rep_graph c" unfolding le_graph_def by (rule order.trans)
+  show "a \<sqsubseteq> c" unfolding le_graph_def by (rule subset)
+qed
+end
+
 
 text "この半順序における [S \<rightharpoonup> T] の最小元は空集合を \<emptyset> \<in> S \<times> T、すなわち、いたるところ未定義の部分関数である。"
-lemma bot_on_graph: "bot_on {R. graph R} (\<sqsubseteq>\<^sub>g) {}"
-  unfolding bot_on_def less_eq_graph_def graph_def single_valued_def by blast
 
-lemma po_on_graph: "partial_order_on {R. graph R} (=) ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool)" proof (rule partial_order_onI)
-  fix R :: "('a \<times> 'b) set"
-  show "R \<sqsubseteq>\<^sub>g R" unfolding less_eq_graph_def by (rule order.refl)
-next
-  fix R1 R2 :: "('a \<times> 'b) set"
-  assume "R1 \<sqsubseteq>\<^sub>g R2" "R2 \<sqsubseteq>\<^sub>g R1"
-  thus "R1 = R2" unfolding less_eq_graph_def by (rule order.antisym)
-next
-  fix R1 R2 R3 :: "('a \<times> 'b) set"
-  assume "R1 \<sqsubseteq>\<^sub>g R2" "R2 \<sqsubseteq>\<^sub>g R3"
-  thus "R1 \<sqsubseteq>\<^sub>g R3" unfolding less_eq_graph_def by (rule order.trans)
+instantiation graph :: (type, type) po_bot
+begin
+
+definition bot_graph :: "('a, 'b) graph"
+  where "bot_graph \<equiv> Abs_graph {}"
+
+instance proof
+  fix a :: "('a, 'b) graph"
+  have eq: "Rep_graph \<bottom> = {}" unfolding bot_graph_def proof (rule Abs_graph_inverse)
+    show "{} \<in> {R. single_valued R}" by auto
+  qed
+  show "\<bottom> \<sqsubseteq> a" unfolding le_graph_def eq by blast
 qed
+end
+
 
 text "また F を [S \<rightharpoonup> T] の有向部分集合とすると、F の上限は \<Union>F である。"
-lemma graph_UnI:
-  assumes directed_on: "directed_on {R. graph R} (=) (\<sqsubseteq>\<^sub>g) F"
-  shows "graph (\<Union>F)"
-using directed_on proof (rule contrapos_pp)
-  assume "\<not> graph (\<Union> F)"
-  then obtain a b c where mem1_Un: "(a, b) \<in> \<Union>F" and mem2_Un: "(a, c) \<in> \<Union>F" and neq: "b \<noteq> c" unfolding graph_def single_valued_def by blast
-  obtain R1 R2 where mem1_R1: "(a, b) \<in> R1" and R1_mem: "R1 \<in> F" and mem2_R2: "(a, c) \<in> R2" and R2_mem: "R2 \<in> F" using mem1_Un mem2_Un by blast
-  show "\<not> directed_on {R. graph R} (=) (\<sqsubseteq>\<^sub>g) F" unfolding directed_on_def de_Morgan_conj ball_simps bex_simps proof (intro disjI2 bexI)
-    show "\<forall>x\<in>F. \<not> R1 \<sqsubseteq>\<^sub>g x \<or> \<not> R2 \<sqsubseteq>\<^sub>g x" unfolding less_eq_graph_def proof (intro ballI)
-      fix x
-      assume "x \<in> F"
-      hence graph_x: "graph x" using directed_on_subsetE[OF directed_on] by blast
-      show "\<not> R1 \<subseteq> x \<or> \<not> R2 \<subseteq> x " by (meson graph_def graph_x in_mono mem1_R1 mem2_R2 neq single_valued_def)
+lemma Rep_graph_Abs_graph_Un:
+  fixes F :: "('s, 't) graph set"
+  assumes directed: "directed F"
+  shows "Rep_graph (Abs_graph (\<Union> (Rep_graph ` F))) = \<Union>(Rep_graph ` F)"
+proof (rule Abs_graph_inverse, rule CollectI)
+  show "single_valued (\<Union> (Rep_graph ` F))" using assms proof (rule contrapos_pp)
+    assume "\<not> single_valued (\<Union> (Rep_graph ` F))"
+    then obtain a b c
+      where mem1_Un: "(a, b) \<in> \<Union> (Rep_graph ` F)"
+        and mem2_Un: "(a, c) \<in> \<Union> (Rep_graph ` F)"
+        and neq: "b \<noteq> c"
+      unfolding single_valued_def by blast
+    obtain R1 R2
+      where mem1_R1: "(a, b) \<in> Rep_graph R1"
+        and R1_mem: "R1 \<in> F"
+        and mem2_R2: "(a, c) \<in> Rep_graph R2"
+        and R2_mem: "R2 \<in> F"
+      using mem1_Un mem2_Un by blast
+    show "\<not>directed F" unfolding directed_def ball_simps bex_simps proof auto
+      assume "\<forall>a\<in>F. \<forall>b\<in>F. \<exists>c\<in>F. a \<sqsubseteq> c \<and> b \<sqsubseteq> c"
+      then obtain R3 where R1_le_R3: "R1 \<sqsubseteq> R3" and R2_le_R3: "R2 \<sqsubseteq> R3" using R1_mem R2_mem by blast
+      show "False" using R1_le_R3 R2_le_R3 unfolding le_graph_def proof -
+        assume "Rep_graph R1 \<subseteq> Rep_graph R3"
+        hence mem1: "(a, b) \<in> Rep_graph R3" using mem1_R1 by blast
+        assume "Rep_graph R2 \<subseteq> Rep_graph R3"
+        hence mem2: "(a, c) \<in> Rep_graph R3" using mem2_R2 by blast
+        have "single_valued (Rep_graph R3)" using Rep_graph by blast
+        thus False unfolding single_valued_def using mem1 mem2 neq by blast
+      qed
     qed
-  next
-    show "R1 \<in> F" by (rule R1_mem)
-  next
-    show "R2 \<in> F" by (rule R2_mem)
   qed
 qed
 
-
-text "また F を [S \<rightharpoonup> T] の有向部分集合とすると、F の上限は \<Union>F である。"
-lemma supremum_on_graph:
-  fixes F :: "('a \<times> 'b) set set"
-  assumes directed_on: "directed_on {R. graph R} (=) (\<sqsubseteq>\<^sub>g) F"
-  shows "supremum_on {R. graph R} (\<sqsubseteq>\<^sub>g) F (\<Union>F)"
-proof (rule supremum_onI)
-  show "upper_on {R. graph R} (\<sqsubseteq>\<^sub>g) F (\<Union>F)" proof (rule upper_onI)
-    show "\<Union> F \<in> {R. graph R}" using graph_UnI[OF directed_on] by blast
-  next
-    show "F \<subseteq> {R. graph R}" using graph_UnI[OF directed_on] unfolding graph_def using single_valued_subset[where ?s="\<Union> F"] by blast
-  next
+lemma supremum_Un:
+  fixes F :: "('a, 'b) graph set"
+  assumes directed: "directed F"
+  shows "supremum F (Abs_graph (\<Union> (Rep_graph ` F)))"
+proof (rule supremumI)
+  show " F \<^sub>s\<sqsubseteq> Abs_graph (\<Union> (Rep_graph ` F))" proof (rule upperI)
     fix x
     assume x_mem: "x \<in> F"
-    show "x \<sqsubseteq>\<^sub>g \<Union>F" unfolding less_eq_graph_def using x_mem by blast
+    show "x \<sqsubseteq> Abs_graph (\<Union> (Rep_graph ` F)) " unfolding le_graph_def Rep_graph_Abs_graph_Un[OF directed] using x_mem by blast
   qed
 next
   fix a
-  assume upper_a: "upper_on {R. graph R} (\<sqsubseteq>\<^sub>g) F a"
-  show "\<Union>F \<sqsubseteq>\<^sub>g a" unfolding less_eq_graph_def proof (rule Sup_least)
+  assume upper_a: "F \<^sub>s\<sqsubseteq> a"
+  show "Abs_graph (\<Union> (Rep_graph ` F)) \<sqsubseteq> a" unfolding le_graph_def Rep_graph_Abs_graph_Un[OF directed] proof (rule Sup_least)
     fix x
-    assume x_mem: "x \<in> F"
-    show "x \<subseteq> a" using upper_on_leE[OF upper_a x_mem] unfolding less_eq_graph_def .
+    assume x_mem: "x \<in> Rep_graph ` F"
+    then obtain y where x_eq: "x = Rep_graph y" and y_mem: "y \<in> F" by blast
+    show "x \<subseteq> Rep_graph a" using upperE[OF upper_a y_mem] unfolding le_graph_def x_eq .
   qed
 qed
 
-lemma cpo_on_graph: "cpo_on {R. graph R} (=) (\<sqsubseteq>\<^sub>g)"
-proof (rule cpo_onI)
-  show "partial_order_on {R. graph R} (=) ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool)" by (rule po_on_graph)
-next
-  show "bot_on {R. graph R} ((\<sqsubseteq>\<^sub>g) :: ('a \<times> 'b) set \<Rightarrow> ('a \<times> 'b) set \<Rightarrow> bool) {}" by (rule bot_on_graph)
-next
-  fix X :: "('a \<times> 'b) set set"
-  assume directed_on_X: "directed_on {R. graph R} (=) (\<sqsubseteq>\<^sub>g) X"
-  show "\<exists>x\<in>{R. graph R}. supremum_on {R. graph R} (\<sqsubseteq>\<^sub>g) X x" using supremum_on_graph[OF directed_on_X] proof
-    show "\<Union> X \<in> {R. graph R}" proof
-      show "graph (\<Union> X)" using directed_on_X by (rule graph_UnI)
-    qed
-  qed
+instantiation graph :: (type, type) cpo
+begin
+
+instance proof
+  fix X :: "('a, 'b) graph set"
+  assume directed: "directed X"
+  show "\<exists>d. supremum X d" by (rule exI, rule supremum_Un[OF directed])
 qed
+end
+
 
 subsection "例 3.1.10"
 text "上の例で扱った部分関数は、未定義を表す特別な要素を導入して全関数とみなすこともできる。"
 text "一般に、集合 S に新しく要素 \<bottom> を付け加えた集合 S_\<bottom> は、"
 text   "a \<sqsubseteq> b \<Leftrightarrow> a = \<bottom> あるいは a = b"
-definition less_eq_option :: "('a option) \<Rightarrow> ('a option) \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>o" 53)
-  where "a \<sqsubseteq>\<^sub>o b \<equiv> a = None \<or> a = b"  
+instantiation option :: (type) po
+begin
+
+definition le_option :: "('a option) \<Rightarrow> ('a option) \<Rightarrow> bool"
+  where "a \<sqsubseteq> b \<equiv> a = None \<or> a = b"
+
+instance proof
+  fix a :: "'a option"
+  show "a \<sqsubseteq> a" unfolding le_option_def by blast
+next
+  fix a b :: "'a option"
+  assume "a \<sqsubseteq> b" "b \<sqsubseteq> a"
+  thus "a = b" unfolding le_option_def by blast
+next
+  fix a b c :: "'a option"
+  assume "a \<sqsubseteq> b" "b \<sqsubseteq> c"
+  thus "a \<sqsubseteq> c" unfolding le_option_def by blast
+qed
+end
+
+instantiation option :: (type) po_bot
+begin
+
+definition bot_option :: "'a option"
+  where "\<bottom> \<equiv> None"
+
+instance proof
+  fix a :: "'a option"
+  show "\<bottom> \<sqsubseteq> a" unfolding le_option_def bot_option_def by blast
+qed
+end
 
 text "と定義した半順序 \<sqsubseteq> に関して cpo をなす。このような cpo を特に平坦 cpo（flat cpo）と呼ぶ。"
-lemma cpo_on_option: "cpo_on (UNIV :: 'a option set) (=) (\<sqsubseteq>\<^sub>o)"
-proof (rule cpo_onI)
-  show "partial_order (=) ((\<sqsubseteq>\<^sub>o) :: ('a option) \<Rightarrow> ('a option) \<Rightarrow> bool)" proof (rule partial_order_onI)
-    fix a :: "'a option"
-    show "a \<sqsubseteq>\<^sub>o a" unfolding less_eq_option_def by simp
-  next
-    fix a b :: "'a option"
-    assume "a \<sqsubseteq>\<^sub>o b" "b \<sqsubseteq>\<^sub>o a"
-    thus "a = b" unfolding less_eq_option_def by blast
-  next
-    fix a b c :: "'a option"
-    assume "a \<sqsubseteq>\<^sub>o b" "b \<sqsubseteq>\<^sub>o c"
-    thus "a \<sqsubseteq>\<^sub>o c" unfolding less_eq_option_def by blast
-  qed
-next
-  show "bot_on UNIV ((\<sqsubseteq>\<^sub>o) :: ('a option) \<Rightarrow> ('a option) \<Rightarrow> bool) None" using UNIV_I proof (rule bot_onI)
-    fix d :: "'a option"
-    show "None \<sqsubseteq>\<^sub>o d" unfolding less_eq_option_def by simp
-  qed
-next
+instantiation option :: (type) cpo
+begin
+
+instance proof
   fix X :: "'a option set"
-  assume directed_on: "directed_on UNIV (=) (\<sqsubseteq>\<^sub>o) X"
+  assume directed: "directed X"
   have "(\<exists>x. X = {x}) \<or> (\<exists>x. X = {None, Some x})" proof -
-    obtain x1 where x1_mem: "x1 \<in> X" using directed_on_nemptyE[OF directed_on] by blast
+    obtain x1 where x1_mem: "x1 \<in> X" using directed_nemptyE[OF directed] by blast
     show "(\<exists>x. X = {x}) \<or> (\<exists>x. X = {None, Some x})" proof (cases "X = {x1}")
       case True
       show ?thesis by (rule disjI1; simp add: True)
     next
       case False
-      have "X \<noteq> {}" using directed_on by (rule directed_on_nemptyE)
+      have "X \<noteq> {}" using directed by (rule directed_nemptyE)
       then obtain x2 where x2_mem: "x2 \<in> X" and x1_neq_x2: "x1 \<noteq> x2" using x1_mem False by blast
       show ?thesis proof (rule disjI2)
         show "\<exists>x. X = {None, Some x}" proof (cases "x1 = None")
           case x1_eq: True
           then obtain y2 where x2_eq: "x2 = Some y2" using x1_neq_x2 option.exhaust_sel by blast
-          have Some_uniq: "\<And>y. Some y \<in> X \<Longrightarrow> Some y = x2" by (metis x1_eq directed_on directed_on_exE less_eq_option_def option.distinct(1) x1_neq_x2 x2_mem)
+          have Some_uniq: "\<And>y. Some y \<in> X \<Longrightarrow> Some y = x2" by (metis x1_eq directed directed_exE le_option_def option.distinct(1) x1_neq_x2 x2_mem)
           obtain Y where X_eq: "X = insert None (Some ` Y)" by (metis Set.set_insert x1_eq notin_range_Some subsetI subset_imageE x1_mem)
           hence Y_eq: "Y = {y2}" using Some_uniq by (smt (verit, ccfv_threshold) Diff_eq_empty_iff Diff_insert_absorb x1_eq X_eq \<open>\<And>thesis. (\<And>x2. \<lbrakk>x2 \<in> X; x1 \<noteq> x2\<rbrakk> \<Longrightarrow> thesis) \<Longrightarrow> thesis\<close> x2_eq image_iff image_subset_iff insertE mk_disjoint_insert singletonI subset_insertI these_empty these_image_Some_eq these_insert_Some)
           show ?thesis proof
@@ -477,8 +464,8 @@ next
         next
           case False
           then obtain y1 where x1_eq: "x1 = Some y1" by blast
-          have Some_uniq: "\<And>y. Some y \<in> X \<Longrightarrow> Some y = x1" by (metis False directed_on directed_on_exE less_eq_option_def option.discI x1_mem)
-          have x2_eq: "x2 = None" by (metis False directed_on directed_on_exE less_eq_option_def x1_mem x1_neq_x2 x2_mem)
+          have Some_uniq: "\<And>y. Some y \<in> X \<Longrightarrow> Some y = x1" by (metis False directed directed_exE le_option_def option.discI x1_mem)
+          have x2_eq: "x2 = None" by (metis False directed directed_exE le_option_def x1_mem x1_neq_x2 x2_mem)
           obtain Y where X_eq: "X = insert None (Some ` Y)" by (metis Set.set_insert notin_range_Some subsetI subset_imageE x2_eq x2_mem)
           hence Y_eq: "Y = {y1}" using Some_uniq using x1_eq x1_mem by blast
           show ?thesis proof
@@ -488,114 +475,140 @@ next
       qed
     qed
   qed
-  thus "\<exists>x\<in>UNIV. supremum_on UNIV (\<sqsubseteq>\<^sub>o) X x" proof auto
+  thus "\<exists>x. supremum X x" proof auto
     fix x :: "'a option"
-    show "\<exists>y. supremum_on UNIV (\<sqsubseteq>\<^sub>o) {x} y" proof
-      show "supremum_on UNIV (\<sqsubseteq>\<^sub>o) {x} x" unfolding supremum_on_def upper_on_def less_eq_option_def by blast
+    show "\<exists>y. supremum {x} y" proof
+      show "supremum {x} x" unfolding supremum_def upper_def le_option_def by blast
     qed
   next
     fix x :: 'a
-    show "\<exists>y. supremum_on UNIV (\<sqsubseteq>\<^sub>o) {None, Some x} y" proof
-      show "supremum_on UNIV (\<sqsubseteq>\<^sub>o) {None, Some x} (Some x)" unfolding supremum_on_def upper_on_def less_eq_option_def by blast
+    show "\<exists>y. supremum {None, Some x} y" proof
+      show "supremum {None, Some x} (Some x)" unfolding supremum_def upper_def le_option_def by blast
     qed
   qed
 qed
+end
+
 
 text "\<bottom> と未定義要素と考えると、S から T への部分関数は S から T_\<bottom> への全関数として表せる。"
+
+typedef ('a, 'b) pfun = "UNIV :: ('a \<Rightarrow> 'b option) set"
+proof
+  show "(\<lambda>_. undefined) \<in> (UNIV :: ('a \<Rightarrow> 'b option) set)" by (rule UNIV_I)
+qed
+
+
 text "すなわち、f \<in> [S \<rightharpoonup> T] は次の全関数 f^: S \<rightarrow> T_\<bottom> で表せる。"
 text   "f^(x) = { f(x) (f(x) が定義)"
 text   "        { \<bottom>    (f(x) が未定義)"
-definition less_eq_partial_fun :: "('a \<Rightarrow> 'b option) \<Rightarrow> ('a \<Rightarrow> 'b option) \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>f" 53)
-  where "f \<sqsubseteq>\<^sub>f g \<equiv> \<forall>x y. f x = Some y \<longrightarrow> g x = Some y"
 
-lemma cpo_on_partial_fun: "cpo_on (UNIV :: ('a \<Rightarrow> 'b option) set) (=) (\<sqsubseteq>\<^sub>f)"
-proof (rule cpo_onI)
-  show "partial_order (=) ((\<sqsubseteq>\<^sub>f) :: ('a \<Rightarrow> 'b option) \<Rightarrow> ('a \<Rightarrow> 'b option) \<Rightarrow> bool)" proof (rule partial_order_onI)
-    fix f :: "'a \<Rightarrow> 'b option"
-    show "f \<sqsubseteq>\<^sub>f f" unfolding less_eq_partial_fun_def by blast
-  next
-    fix f g :: "'a \<Rightarrow> 'b option"
-    assume f_le_g: "f \<sqsubseteq>\<^sub>f g" and g_le_f: "g \<sqsubseteq>\<^sub>f f"
-    show "f = g" proof
-      fix x
-      show "f x = g x" proof (cases "f x")
-        case f_x_eq: None
-        show ?thesis proof (cases "g x")
-          case g_x_eq: None
-          show ?thesis by (simp add: f_x_eq g_x_eq)
-        next
-          case g_x_eq: (Some a)
-          hence "f x = Some a" using g_le_f unfolding less_eq_partial_fun_def by blast
-          hence False using f_x_eq by simp
-          thus ?thesis by simp
-        qed
+instantiation pfun :: (type, type) po
+begin
+
+definition le_pfun :: "('a, 'b) pfun \<Rightarrow> ('a, 'b) pfun \<Rightarrow> bool"
+  where "f \<sqsubseteq> g \<equiv> \<forall>x y. (Rep_pfun f) x = Some y \<longrightarrow> (Rep_pfun g) x = Some y"
+
+instance proof
+  fix a :: "('a, 'b) pfun"
+  show "a \<sqsubseteq> a" unfolding le_pfun_def by blast
+next
+  fix f g :: "('a, 'b) pfun"
+  assume f_le_g: "f \<sqsubseteq> g" and g_le_f: "g \<sqsubseteq> f"
+  have "Rep_pfun f = Rep_pfun g" proof
+    fix x
+    show "(Rep_pfun f) x = (Rep_pfun g) x" proof (cases "(Rep_pfun f) x")
+      case f_x_eq: None
+      show ?thesis proof (cases "(Rep_pfun g) x")
+        case g_x_eq: None
+        show ?thesis by (simp add: f_x_eq g_x_eq)
       next
-        case f_x_eq: (Some a)
-        hence g_x_eq: "g x = Some a" using f_le_g unfolding less_eq_partial_fun_def by blast
-        show ?thesis unfolding f_x_eq g_x_eq by (rule refl)
+        case g_x_eq: (Some a)
+        hence "(Rep_pfun f) x = Some a" using g_le_f unfolding le_pfun_def by blast
+        hence False using f_x_eq by simp
+        thus ?thesis by simp
       qed
+    next
+      case f_x_eq: (Some a)
+      hence g_x_eq: "(Rep_pfun g) x = Some a" using f_le_g unfolding le_pfun_def by blast
+      show ?thesis unfolding f_x_eq g_x_eq by (rule HOL.refl)
     qed
-  next
-    fix a b c :: "'a \<Rightarrow> 'b option"
-    assume a_le_b: "a \<sqsubseteq>\<^sub>f b" and b_le_c: "b \<sqsubseteq>\<^sub>f c"
-    thus "a \<sqsubseteq>\<^sub>f c" unfolding less_eq_partial_fun_def by auto
   qed
+  thus "f = g" using Rep_pfun_inject by blast
 next
-  show "bot_on UNIV ((\<sqsubseteq>\<^sub>f) :: ('a \<Rightarrow> 'b option) \<Rightarrow> ('a \<Rightarrow> 'b option) \<Rightarrow> bool) (\<lambda>_. None)" using UNIV_I proof (rule bot_onI)
-    fix d :: "'a \<Rightarrow> 'b option"
-    show "Map.empty \<sqsubseteq>\<^sub>f d" unfolding less_eq_partial_fun_def by blast
-  qed
-next
-  fix X :: "('a \<Rightarrow> 'b option) set"
-  assume directed_on: "directed_on UNIV (=) (\<sqsubseteq>\<^sub>f) X"
-  let ?m = "\<lambda>x. if (\<exists>f \<in> X. \<exists>y. f x = Some y) then Some (THE y. \<exists>f \<in> X. f x = Some y) else None"
-  show "\<exists>x\<in>UNIV. supremum_on UNIV (\<sqsubseteq>\<^sub>f) X x" proof
-    show "supremum_on UNIV (\<sqsubseteq>\<^sub>f) X ?m" proof (rule supremum_onI)
-      show "upper_on UNIV (\<sqsubseteq>\<^sub>f) X ?m" using UNIV_I subset_UNIV proof (rule upper_onI)
+  fix a b c :: "('a, 'b) pfun"
+  assume a_le_b: "a \<sqsubseteq> b" and b_le_c: "b \<sqsubseteq> c"
+  thus "a \<sqsubseteq> c" unfolding le_pfun_def by auto
+qed
+end
+
+instantiation pfun :: (type, type) po_bot
+begin
+
+definition bot_pfun :: "('a, 'b) pfun"
+  where "\<bottom> \<equiv> Abs_pfun Map.empty"
+
+instance proof
+  fix a :: "('a, 'b) pfun"
+  have eq: "Rep_pfun (Abs_pfun Map.empty) = Map.empty" by (rule Abs_pfun_inverse, rule UNIV_I)
+  show "\<bottom> \<sqsubseteq> a" unfolding le_pfun_def bot_pfun_def eq by blast
+qed
+end
+
+instantiation pfun :: (type, type) cpo
+begin
+
+instance proof
+  fix X :: "('a, 'b) pfun set"
+  assume directed: "directed X"
+  let ?m = "\<lambda>x. if (\<exists>f \<in> Rep_pfun ` X. \<exists>y. f x = Some y) then Some (THE y. \<exists>f \<in> Rep_pfun ` X. f x = Some y) else None"
+  have eq: "Rep_pfun (Abs_pfun ?m) = ?m" by (rule Abs_pfun_inverse, rule UNIV_I)
+  show "\<exists>d. supremum X d" proof (rule exI)
+    show "supremum X (Abs_pfun ?m)" proof (rule supremumI)
+      show "X \<^sub>s\<sqsubseteq> Abs_pfun ?m" proof (rule upperI)
         fix f1
         assume f1_mem: "f1 \<in> X"
-        show "f1 \<sqsubseteq>\<^sub>f ?m" unfolding less_eq_partial_fun_def using f1_mem proof auto
+        show "f1 \<sqsubseteq> (Abs_pfun ?m)" unfolding le_pfun_def eq using f1_mem proof auto
           fix x y1
-          assume f1_x_eq: "f1 x = Some y1"
-          show "(THE y. \<exists>f\<in>X. f x = Some y) = y1" proof (rule the_equality)
-            show "\<exists>f\<in>X. f x = Some y1" using f1_mem proof
-              show "f1 x = Some y1" by (rule f1_x_eq)
+          assume f1_x_eq: "Rep_pfun f1 x = Some y1"
+          show "(THE y. \<exists>f\<in>X. Rep_pfun f x = Some y) = y1" proof (rule the_equality)
+            show "\<exists>f\<in>X. Rep_pfun f x = Some y1" using f1_mem proof
+              show "Rep_pfun f1 x = Some y1" by (rule f1_x_eq)
             qed
           next
             fix y2
-            assume "\<exists>f\<in>X. f x = Some y2"
-            then obtain f2 where f2_x_eq: "f2 x = Some y2" and f2_mem: "f2 \<in> X" by blast
-            show "y2 = y1" using directed_on_exE[OF directed_on f1_mem f2_mem] unfolding less_eq_partial_fun_def
+            assume "\<exists>f\<in>X. Rep_pfun f x = Some y2"
+            then obtain f2 where f2_x_eq: "Rep_pfun f2 x = Some y2" and f2_mem: "f2 \<in> X" by blast
+            show "y2 = y1" using directed_exE[OF directed f1_mem f2_mem] unfolding le_pfun_def
               by (metis f2_x_eq f1_x_eq option.inject)
           qed
         qed
       qed
     next
       fix f1
-      assume upper_f1: "upper_on UNIV (\<sqsubseteq>\<^sub>f) X f1"
-      show "?m \<sqsubseteq>\<^sub>f f1" unfolding less_eq_partial_fun_def proof auto
+      assume upper_f1: "X \<^sub>s\<sqsubseteq> f1"
+      show "Abs_pfun ?m \<sqsubseteq> f1" unfolding le_pfun_def eq proof auto
         fix f2 x y
         assume f2_mem: "f2 \<in> X"
-          and f2_x_eq: "f2 x = Some y"
-        have THE_eq: "(THE y. \<exists>f\<in>X. f x = Some y) = y" proof (rule the_equality)
-          show "\<exists>f\<in>X. f x = Some y" using f2_mem proof
-            show "f2 x = Some y" by (rule f2_x_eq)
+          and f2_x_eq: "Rep_pfun f2 x = Some y"
+        have THE_eq: "(THE y. \<exists>f\<in>X. Rep_pfun f x = Some y) = y" proof (rule the_equality)
+          show "\<exists>f\<in>X. Rep_pfun f x = Some y" using f2_mem proof
+            show "Rep_pfun f2 x = Some y" by (rule f2_x_eq)
           qed
         next
           fix y'
-          assume "\<exists>f\<in>X. f x = Some y'"
-          then obtain f3 where f3_x_eq: "f3 x = Some y'" and f3_mem: "f3 \<in> X" by blast
-          show "y' = y" using directed_on_exE[OF directed_on f2_mem f3_mem] unfolding less_eq_partial_fun_def
+          assume "\<exists>f\<in>X. Rep_pfun f x = Some y'"
+          then obtain f3 where f3_x_eq: "Rep_pfun f3 x = Some y'" and f3_mem: "f3 \<in> X" by blast
+          show "y' = y" using directed_exE[OF directed f2_mem f3_mem] unfolding le_pfun_def
             by (metis f2_x_eq f3_x_eq option.inject)
         qed
-        have "f2 \<sqsubseteq>\<^sub>f f1" using upper_f1 f2_mem by (rule upper_on_leE)
-        thus "f1 x = Some (THE y. \<exists>f\<in>X. f x = Some y)" unfolding THE_eq less_eq_partial_fun_def using f2_x_eq by blast
+        have "f2 \<sqsubseteq> f1" using upper_f1 f2_mem by (rule upperE)
+        thus "Rep_pfun f1 x = Some (THE y. \<exists>f\<in>X. Rep_pfun f x = Some y)" unfolding THE_eq le_pfun_def using f2_x_eq by blast
       qed
     qed
-  next
-    show "?m \<in> UNIV" by (rule UNIV_I)
   qed
 qed
+end
+
 
 subsection "例 3.1.11"
 text "実数 a, b \<in> \<real> について、"
@@ -604,154 +617,151 @@ text "のように閉区間を定義する。"
 definition range :: "real \<Rightarrow> real \<Rightarrow> real set"
   where "range a b \<equiv> {c | c. a \<le> c \<and> c \<le> b}"
 
+
 text "閉区間の全部と \<real> 自身を合わせた集合"
 text   "I_\<real> = {[a, b] | a \<le> b} \<union> {\<real>}"
-definition I\<^sub>R :: "real set set"
-  where "I\<^sub>R \<equiv> {range a b | a b. a \<le> b} \<union> {UNIV}"
+typedef range = "{range a b |a b. True} \<union> {UNIV}"
+  by blast
+
 
 text "は、"
 text   "X \<sqsubseteq> Y \<Leftrightarrow> Y \<subseteq> X (X, Y \<in> I_\<real>)"
-definition less_eq_range :: "real set \<Rightarrow> real set \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>r" 53)
-  where "X \<sqsubseteq>\<^sub>r Y \<equiv> Y \<subseteq> X"
+
+instantiation range :: po
+begin
+
+definition le_range :: "range \<Rightarrow> range \<Rightarrow> bool"
+  where "X \<sqsubseteq> Y \<equiv> Rep_range Y \<subseteq> Rep_range X"
+
+instance proof
+  fix a :: range
+  show "a \<sqsubseteq> a" unfolding le_range_def by (rule order.refl)
+next
+  fix a b :: range
+  assume a_le_b: "a \<sqsubseteq> b"
+    and b_le_a: "b \<sqsubseteq> a"
+  have "Rep_range a = Rep_range b" using b_le_a a_le_b unfolding le_range_def by (rule equalityI)
+  thus "a = b" using Rep_range_inject by blast
+next
+  fix a b c :: range
+  assume a_le_b: "a \<sqsubseteq> b"
+    and b_le_c: "b \<sqsubseteq> c"
+  show "a \<sqsubseteq> c" using b_le_c a_le_b unfolding le_range_def by (rule order.trans)
+qed
+end
+
+instantiation range :: po_bot
+begin
+
+definition bot_range :: range
+  where "\<bottom> \<equiv> Abs_range UNIV"
+
+lemma Rep_range_bot: "Rep_range \<bottom> = UNIV" unfolding bot_range_def
+  by (rule Abs_range_inverse, blast)
+
+instance proof
+  fix a :: range
+  show "\<bottom> \<sqsubseteq> a" unfolding le_range_def Rep_range_bot by (rule subset_UNIV)
+qed
+end
+
 
 text "と定義した半順序に関して cpo をなす。"
-lemma directed_on_minusI:
-  assumes directed_on: "directed_on D (=) le X"
-    and bot_on: "bot_on D le b"
-    and neq: "X \<noteq> {b}"
-  shows "directed_on D (=) le (X - {b})"
-proof (rule directed_onI)
-  show "partial_order_on D (=) le" using directed_on by (rule directed_on_poE)
-next
-  show "X - {b} \<subseteq> D" using directed_on_subsetE[OF directed_on] by blast
-next
-  show "X - {b} \<noteq> {}" using neq directed_on_nemptyE[OF directed_on] by blast
-next
+lemma (in po_bot) directed_minusI:
+  assumes directed: "directed X"
+    and neq: "X \<noteq> {\<bottom>}"
+  shows "directed (X - {\<bottom>})"
+proof (rule directedI)
   fix x y
-  assume "x \<in> X - {b}"
-    and "y \<in> X - {b}"
-  hence x_mem: "x \<in> X" and x_neq: "x \<noteq> b" and y_mem: "y \<in> X" and y_neq: "y \<noteq> b" by blast+
-  obtain z where x_le_z: "le x z" and y_le_z: "le y z" and z_mem: "z \<in> X" using directed_on_exE[OF directed_on x_mem y_mem] by blast
-  show "\<exists>c\<in>X - {b}. le x c \<and> le y c" proof
-    show "le x z \<and> le y z" using x_le_z y_le_z by (rule conjI)
+  assume "x \<in> X - {\<bottom>}"
+    and "y \<in> X - {\<bottom>}"
+  hence x_mem: "x \<in> X" and x_neq: "x \<noteq> \<bottom>" and y_mem: "y \<in> X" and y_neq: "y \<noteq> \<bottom>" by blast+
+  obtain z where x_le_z: "x \<sqsubseteq> z" and y_le_z: "y \<sqsubseteq> z" and z_mem: "z \<in> X" using directed_exE[OF directed x_mem y_mem] by blast
+  show "\<exists>c \<in> X - {\<bottom>}. x \<sqsubseteq> c \<and> y \<sqsubseteq> c" proof
+    show "x \<sqsubseteq> z \<and> y \<sqsubseteq> z" using x_le_z y_le_z by (rule conjI)
   next
-    have "z \<noteq> b" using x_neq y_neq bot_on unfolding bot_on_def
-      by (metis directed_on_subsetE[OF directed_on] in_mono po_antisymE[OF directed_on_poE[OF directed_on]] y_le_z y_mem)
-    thus "z \<in> X - {b}" using z_mem by blast
+    have "z \<noteq> \<bottom>" using x_neq y_neq bot_le by (metis antisym y_le_z)
+    thus "z \<in> X - {\<bottom>}" using z_mem by blast
   qed
+next
+  show "X - {\<bottom>} \<noteq> {}" using neq directed_nemptyE[OF directed] by blast
 qed
 
-lemma bot_on_range: "bot_on I\<^sub>R (\<sqsubseteq>\<^sub>r) UNIV"
-proof (rule bot_onI)
-  fix d
-  show "UNIV \<sqsubseteq>\<^sub>r d" unfolding less_eq_range_def by (rule subset_UNIV)
-next
-  show "UNIV \<in> I\<^sub>R" unfolding I\<^sub>R_def by blast
-qed
+instantiation range :: cpo
+begin
 
-lemma po_on_range: "partial_order_on I\<^sub>R (=) (\<sqsubseteq>\<^sub>r)"
-proof (rule partial_order_onI)
-  fix a
-  show "a \<sqsubseteq>\<^sub>r a" unfolding less_eq_range_def by (rule order.refl)
-next
-  fix a b
-  assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
-    and b_le_a: "b \<sqsubseteq>\<^sub>r a"
-  show "a = b" using b_le_a a_le_b unfolding less_eq_range_def by (rule equalityI)
-next
-  fix a b c
-  assume a_le_b: "a \<sqsubseteq>\<^sub>r b"
-    and b_le_c: "b \<sqsubseteq>\<^sub>r c"
-  show "a \<sqsubseteq>\<^sub>r c" using b_le_c a_le_b unfolding less_eq_range_def by (rule order.trans)
-qed
-
-lemma cpo_on_range: "cpo_on I\<^sub>R (=) (\<sqsubseteq>\<^sub>r)"
-proof (rule cpo_onI)
-  show "partial_order_on I\<^sub>R (=) (\<sqsubseteq>\<^sub>r)" by (rule po_on_range)
-next
-  show "bot_on I\<^sub>R (\<sqsubseteq>\<^sub>r) UNIV" by (rule bot_on_range)
-next
-  fix X
-  assume directed_on: "directed_on I\<^sub>R (=) (\<sqsubseteq>\<^sub>r) X"
-  have In_X_mem: "\<Inter> X \<in> I\<^sub>R" proof -
-    have 1: "\<Inter> X = UNIV \<or> (\<exists>a b. \<Inter> X = range a b \<and> a \<le> b)" proof (cases "X = {UNIV}")
+instance proof
+  fix X :: "range set"
+  assume directed: "directed X"
+  have eq: "Rep_range (Abs_range (\<Inter> (Rep_range ` X))) = \<Inter> (Rep_range ` X)" proof (rule Abs_range_inverse)
+    have 1: "\<Inter> (Rep_range ` X) = Rep_range \<bottom> \<or> (\<exists>a b. \<Inter> (Rep_range ` X) = range a b \<and> a \<le> b)" proof (cases "X = {\<bottom>}")
       case X_eq: True
       show ?thesis unfolding X_eq proof (rule disjI1)
-        show "\<Inter> {UNIV} = UNIV" by simp
+        show "\<Inter> (Rep_range ` {\<bottom>}) = Rep_range \<bottom>" by simp
       qed
     next
       case X_neq: False
-      have ex_range: "\<And>X. \<lbrakk> directed_on I\<^sub>R (=) (\<sqsubseteq>\<^sub>r) X; X \<noteq> {UNIV} \<rbrakk> \<Longrightarrow> \<exists>a b. \<Inter> X = range a b \<and> a \<le> b"
+      have ex_range: "\<And>X. \<lbrakk> directed X; X \<noteq> {\<bottom>} \<rbrakk> \<Longrightarrow> \<exists>a b. \<Inter> (Rep_range ` X) = range a b \<and> a \<le> b"
         sorry \<comment> \<open>次を仮定してもなお解けなかった: UNIV の singleton でなければ最大元と最小元が存在する\<close>
-      show ?thesis proof (rule disjI2; cases "UNIV \<in> X")
+      show ?thesis proof (rule disjI2; cases "\<bottom> \<in> X")
         case UNIV_mem: True
-        let ?X = "X - {UNIV}"
-        have Int_X_eq: "\<Inter> X = \<Inter> ?X" by blast
-        have "\<exists>a b. \<Inter> ?X = range a b \<and> a \<le> b" proof (rule ex_range)
-          show "directed_on I\<^sub>R (=) (\<sqsubseteq>\<^sub>r) ?X" using directed_on bot_on_range X_neq by (rule directed_on_minusI)
+        let ?X = "X - {\<bottom>}"
+        have Int_X_eq: "\<Inter> (Rep_range ` X) = \<Inter> (Rep_range ` ?X)" using X_neq using Rep_range_bot insert_Diff subsetI by auto
+        have "\<exists>a b. \<Inter> (Rep_range ` ?X) = range a b \<and> a \<le> b" proof (rule ex_range)
+          show "directed (X - {\<bottom>})" using directed X_neq by (rule directed_minusI)
         next
-          show "X - {UNIV} \<noteq> {UNIV}" by blast
+          show "X - {\<bottom>} \<noteq> {\<bottom>}" by blast
         qed
-        then obtain a b where Int_X'_eq: "\<Inter> ?X = range a b" and a_le_b: "a \<le> b" by blast
-        show "\<exists>a b. \<Inter> X = range a b \<and> a \<le> b" unfolding Int_X_eq proof (intro exI)
-          show " \<Inter> ?X = range a b \<and> a \<le> b " using Int_X'_eq a_le_b by (rule conjI)
+        then obtain a b where Int_X'_eq: "\<Inter> (Rep_range ` ?X) = range a b" and a_le_b: "a \<le> b" by blast
+        show "\<exists>a b. \<Inter> (Rep_range ` X) = range a b \<and> a \<le> b" unfolding Int_X_eq proof (intro exI)
+          show " \<Inter> (Rep_range ` ?X) = range a b \<and> a \<le> b" using Int_X'_eq a_le_b by (rule conjI)
         qed
       next
         case UNIV_nmem: False
-        hence UNIV_neq: "X \<noteq> {UNIV}" by blast
-        have "\<exists>a b. \<Inter> X = range a b \<and> a \<le> b" using directed_on UNIV_neq by (rule ex_range)
-        then obtain a b where Int_X_eq: "\<Inter> X = range a b" and a_le_b: "a \<le> b" by blast
-        show "\<exists>a b. \<Inter> X = range a b \<and> a \<le> b" proof (intro exI)
-          show "\<Inter> X = range a b \<and> a \<le> b" using Int_X_eq a_le_b by (rule conjI)
+        hence UNIV_neq: "X \<noteq> {\<bottom>}" by blast
+        have "\<exists>a b. \<Inter> (Rep_range ` X) = range a b \<and> a \<le> b" using directed UNIV_neq by (rule ex_range)
+        then obtain a b where Int_X_eq: "\<Inter> (Rep_range ` X) = range a b" and a_le_b: "a \<le> b" by blast
+        show "\<exists>a b. \<Inter> (Rep_range ` X) = range a b \<and> a \<le> b" proof (intro exI)
+          show "\<Inter> (Rep_range ` X) = range a b \<and> a \<le> b" using Int_X_eq a_le_b by (rule conjI)
         qed
       qed
     qed
-    thus "\<Inter> X \<in> I\<^sub>R" unfolding I\<^sub>R_def by blast
+    thus "\<Inter> (Rep_range ` X) \<in> {range a b |a b. True} \<union> {UNIV}" proof auto
+      fix x y
+      assume eq: "\<Inter> (Rep_range ` X) = Rep_range \<bottom>"
+        and x_mem: "x \<in> X"
+      have "X = {\<bottom>}" using eq unfolding Rep_range_bot
+        by (metis Diff_eq_empty_iff INT_E Rep_range_inverse UNIV_I UNIV_eq_I bot_range_def directed directed_nemptyE insertI1 po_bot_class.directed_minusI subsetI)
+      hence x_eq: "x = \<bottom>" using x_mem by blast
+      show "y \<in> Rep_range x" unfolding x_eq Rep_range_bot by (rule UNIV_I)
+    qed
   qed
-  show "\<exists>x\<in>I\<^sub>R. supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X x" proof
-    show "supremum_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X (\<Inter>X)" proof (rule supremum_onI)
-      show "upper_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X (\<Inter>X)" proof (rule upper_onI)
-        have "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> \<exists>z \<in> X. z \<subseteq> x \<and> z \<subseteq> y" using directed_on_exE[OF directed_on] unfolding less_eq_range_def by blast
-        show "\<Inter>X \<in> I\<^sub>R" by (rule In_X_mem)
-      next
-        show "X \<subseteq> I\<^sub>R" unfolding I\<^sub>R_def by (metis I\<^sub>R_def directed_on_subsetE[OF directed_on])
-      next
+  show "\<exists>d. supremum X d" proof
+    let ?x = "\<Inter> (Rep_range ` X)"
+    have eq: "Rep_range (Abs_range ?x) = ?x" unfolding eq by (rule HOL.refl)
+    show "supremum X (Abs_range ?x)" proof (rule supremumI)
+      show " X \<^sub>s\<sqsubseteq> Abs_range ?x" proof (rule upperI)
         fix x
         assume x_mem: "x \<in> X"
-        show "x \<sqsubseteq>\<^sub>r \<Inter>X" unfolding less_eq_range_def using x_mem by blast
+        show "x \<sqsubseteq> Abs_range ?x" unfolding le_range_def eq using x_mem by blast
       qed
     next
       fix a
-      assume upper_a: "upper_on I\<^sub>R (\<sqsubseteq>\<^sub>r) X a"
-      show "\<Inter>X \<sqsubseteq>\<^sub>r a" unfolding less_eq_range_def
-        by (meson Inter_greatest less_eq_range_def upper_a upper_on_def)
+      assume upper_a: "X \<^sub>s\<sqsubseteq> a"
+      show "Abs_range ?x \<sqsubseteq> a" unfolding le_range_def eq
+        by (meson INT_greatest le_range_def upperE upper_a)
     qed
-  next
-    show "\<Inter>X \<in> I\<^sub>R" by (rule In_X_mem)
   qed
-oops
+qed
+end
 
 
 text "また、I_\<real> の部分集合 I*_\<real> を"
 text   "I*_\<real> = {[a, b] | a \<le> b で a と b は有理数 }"
 text "と定義すると、"
-definition I\<^sub>R\<^sub>s :: "real set set"
-  where "I\<^sub>R\<^sub>s \<equiv> {range (real_of_rat a) (real_of_rat b) | a b :: rat. a \<le> b}"
+definition I\<^sub>R\<^sub>s :: "range set"
+  where "I\<^sub>R\<^sub>s \<equiv> {Abs_range (range (real_of_rat a) (real_of_rat b)) | a b :: rat. a \<le> b}"
 
-lemma I\<^sub>R\<^sub>s_subset_I\<^sub>R: "I\<^sub>R\<^sub>s \<subseteq> I\<^sub>R" unfolding I\<^sub>R\<^sub>s_def I\<^sub>R_def proof
-  fix x
-  assume "x \<in> {range (real_of_rat a) (real_of_rat b) |a b. a \<le> b}"
-  then obtain a b where x_eq: "x = range (real_of_rat a) (real_of_rat b)" and a_le_b: "a \<le> b" by blast
-  show "x \<in> {range a b |a b. a \<le> b} \<union> {UNIV}" proof
-    show "x \<in> {range a b |a b. a \<le> b} " proof
-      show "\<exists>a b. x = range a b \<and> a \<le> b" proof (intro exI conjI)
-        show "x = range (real_of_rat a) (real_of_rat b)" by (rule x_eq)
-      next
-        show "real_of_rat a \<le> real_of_rat b" using a_le_b by (simp add: of_rat_less_eq)
-      qed
-    qed
-  qed
-qed
 
 text "任意の [a, b] \<in> I_\<real> について、"
 text   "[a, b] = \<squnion>{[c, d] \<in> I*_\<real> | [c, d] \<sqsubseteq> [a, b]}"
@@ -772,16 +782,14 @@ fun a_3_1_12 :: "(nat \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a \<Rig
   where "a_3_1_12 x s 0 = x 0"
       | "a_3_1_12 x s (Suc n) = s (a_3_1_12 x s n) (x (Suc n))"
 
-lemma
-  fixes D :: "'a set"
-  assumes po: "partial_order_on D eq le"
-  shows "(\<forall>X. countable X \<longrightarrow> directed_on D eq le X \<longrightarrow> (\<exists>x. supremum_on D le X x)) \<longleftrightarrow> (\<forall>f. omega_chain_on D eq le f \<longrightarrow> (\<exists>x. supremum_on D le {f n|n. True} x))"
+lemma (in po)
+  shows "(\<forall>X. countable X \<longrightarrow> directed X \<longrightarrow> (\<exists>x. supremum X x)) \<longleftrightarrow> (\<forall>f. omega_chain f \<longrightarrow> (\<exists>x. supremum {f n|n. True} x))"
 proof (intro iffI allI impI)
   fix f :: "nat \<Rightarrow> 'a"
-  assume 1[rule_format]: "\<forall>X. countable X \<longrightarrow> directed_on D eq le X \<longrightarrow> (\<exists>x. supremum_on D le X x)"
-    and omega_chain_on: "omega_chain_on D eq le f"
-  have "\<And>i j. i \<le> j \<Longrightarrow> le (f i) (f j)" using omega_chain_on by (rule omega_chain_on_leE)
-  show "\<exists>x. supremum_on D le {f n|n. True} x" proof (rule 1)
+  assume 1[rule_format]: "\<forall>X. countable X \<longrightarrow> directed X \<longrightarrow> (\<exists>x. supremum X x)"
+    and omega_chain: "omega_chain f"
+  have "\<And>i j. i \<le> j \<Longrightarrow> le (f i) (f j)" using omega_chain by (rule omega_chain_leE)
+  show "\<exists>x. supremum {f n|n. True} x" proof (rule 1)
     show "countable {f n |n. True}" proof (rule countableI)
       show "inj_on (inv f) {f n |n. True}" proof (rule inj_onI)
         fix x y
@@ -793,9 +801,7 @@ proof (intro iffI allI impI)
       qed
     qed
   next
-    show "directed_on D eq le {f n |n. True}" using po proof (rule directed_onI)
-      show "{f n |n. True} \<subseteq> D" using omega_chain_on_ranE[OF omega_chain_on] by blast
-    next
+    show "directed {f n |n. True}" proof (rule directedI)
       show "{f n |n. True} \<noteq> {}" by blast
     next
       fix x y
@@ -803,12 +809,12 @@ proof (intro iffI allI impI)
         and "y \<in> {f n |n. True}"
       then obtain xn yn where x_eq: "x = f xn" and y_eq: "y = f yn" by blast
       let ?c = "f (max xn yn)"
-      show "\<exists>c\<in>{f n |n. True}. le x c \<and> le y c" unfolding x_eq y_eq proof (intro bexI conjI)
-        show "le (f xn) ?c" using omega_chain_on proof (rule omega_chain_on_leE)
+      show "\<exists>c\<in>{f n |n. True}. x \<sqsubseteq> c \<and> y \<sqsubseteq> c" unfolding x_eq y_eq proof (intro bexI conjI)
+        show "le (f xn) ?c" using omega_chain proof (rule omega_chain_leE)
           show "xn \<le> max xn yn" by linarith
         qed
       next
-        show "le (f yn) ?c" using omega_chain_on proof (rule omega_chain_on_leE)
+        show "le (f yn) ?c" using omega_chain proof (rule omega_chain_leE)
           show "yn \<le> max xn yn" by linarith
         qed
       next
@@ -818,13 +824,12 @@ proof (intro iffI allI impI)
   qed
 next
   fix X
-  assume ex_sup[rule_format]: "\<forall>f. omega_chain_on D eq le f \<longrightarrow> (\<exists>x. supremum_on D le {f n |n. True} x)"
+  assume ex_sup[rule_format]: "\<forall>f. omega_chain f \<longrightarrow> (\<exists>x. supremum {f n |n. True} x)"
     and countable: "countable X"
-    and directed_on: "directed_on D eq le X"
-  obtain x where x_mem_X: "\<And>n :: nat. x n \<in> X" and surj_on: "\<And>y. y \<in> X \<Longrightarrow> \<exists>n. x n = y" using directed_on_nemptyE[OF directed_on]
+    and directed: "directed X"
+  obtain x where x_mem_X: "\<And>n :: nat. x n \<in> X" and surj_on: "\<And>y. y \<in> X \<Longrightarrow> \<exists>n. x n = y" using directed_nemptyE[OF directed]
     by (metis countable from_nat_into from_nat_into_surj)
-  have x_mem_D: "\<And>n. x n \<in> D" using x_mem_X directed_on_subsetE[OF directed_on] by blast
-  have "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> \<exists>x3 \<in> X. le x1 x3 \<and> le x2 x3" using directed_on_exE[OF directed_on] by blast
+  have "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> \<exists>x3 \<in> X. le x1 x3 \<and> le x2 x3" using directed_exE[OF directed] by blast
   then obtain s
     where le_s1: "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> le x1 (s x1 x2)"
       and le_s2: "\<And>x1 x2. \<lbrakk> x1 \<in> X; x2 \<in> X \<rbrakk> \<Longrightarrow> le x2 (s x1 x2)"
@@ -842,11 +847,7 @@ next
       show ?case unfolding eq using Suc x_mem_X by (rule s_mem)
     qed
   qed
-  have a_mem_D: "\<And>n. ?a n \<in> D" using a_mem_X directed_on_subsetE[OF directed_on] by blast
-  have omega_chain_a: "omega_chain_on D eq le ?a" using po proof (rule omega_chain_onI)
-    fix n
-    show "?a n \<in> D" by (rule a_mem_D)
-  next
+  have omega_chain_a: "omega_chain ?a" proof (rule omega_chainI)
     fix i j :: nat
     have 1: "\<And>i. le (?a i) (?a (Suc i))" proof -
       fix i
@@ -862,26 +863,26 @@ next
     then obtain k where "i \<le> i + k" and j_eq: "j = i + k" using le_Suc_ex by blast
     show "le (?a i) (?a j)" unfolding j_eq proof (induct k)
       case 0
-      show ?case using po_reflE[OF po a_mem_D] by simp
+      show ?case using refl by simp
     next
       case (Suc k)
-      thus ?case by (metis 1 a_mem_D add_Suc add_Suc_shift po_transE[OF po])
+      thus ?case by (metis 1 add_Suc add_Suc_shift trans)
     qed
   qed
-  obtain as where sup_as: "supremum_on D le {?a n| n. True} as" using ex_sup[OF omega_chain_a] by blast
-  have "supremum_on D le X as" proof (rule supremum_onI)
-    show "upper_on D le X as" using supremum_on_memE[OF sup_as] directed_on_subsetE[OF directed_on] proof (rule upper_onI)
+  obtain as where sup_as: "supremum {?a n| n. True} as" using ex_sup[OF omega_chain_a] by blast
+  have "supremum X as" proof (rule supremumI)
+    show "X \<^sub>s\<sqsubseteq> as" proof (rule upperI)
       fix y
       assume "y \<in> X"
       then obtain n where y_eq: "y = x n" using surj_on by blast
       
-      show "le y as" unfolding y_eq using po x_mem_D a_mem_D supremum_on_memE[OF sup_as] proof (rule po_transE)
-        show "\<And>n. le (x n) (?a n)"
+      show "y \<sqsubseteq> as" unfolding y_eq  proof (rule trans)
+        show "\<And>n. x n \<sqsubseteq> ?a n"
         proof -
           fix n
-          show "le (x n) (?a n)" proof (induct n)
+          show "x n \<sqsubseteq> ?a n" proof (induct n)
             case 0
-            show ?case by (simp add: po_reflE[OF po x_mem_D])
+            show ?case by (simp add: refl)
           next
             case (Suc n)
             have eq: "?a (Suc n) = s (?a n) (x (Suc n))" by simp
@@ -889,28 +890,26 @@ next
           qed
         qed
       next
-        show "le (?a n) as" using sup_as proof (rule supremum_on_leE)
+        show "?a n \<sqsubseteq> as" using sup_as proof (rule supremum_leE)
           show "?a n \<in> {?a n | n. True}" by blast
         qed
       qed
     qed
   next
     fix a
-    assume upper_a: "upper_on D le X a"
-    show "le as a" using sup_as proof (rule supremum_on_leastE)
-      show "upper_on D le {?a n |n. True} a" using upper_on_memE[OF upper_a] proof (rule upper_onI)
-        show "{?a n| n. True} \<subseteq> D" using a_mem_D by blast
-      next
+    assume upper_a: "X \<^sub>s\<sqsubseteq> a"
+    show "as \<sqsubseteq> a" using sup_as proof (rule supremum_leastE)
+      show "{?a n |n. True} \<^sub>s\<sqsubseteq> a" proof (rule upperI)
         fix an
         assume "an \<in> {?a n |n. True}"
         then obtain n where an_eq: "an = ?a n" by blast
-        show "le an a" unfolding an_eq using upper_a proof (rule upper_on_leE)
+        show "le an a" unfolding an_eq using upper_a proof (rule upperE)
           show "?a n \<in> X" by (rule a_mem_X)
         qed
       qed
     qed
   qed
-  thus "\<exists>x. supremum_on D le X x" by blast
+  thus "\<exists>x. supremum X x" by blast
 qed
 
 
@@ -919,269 +918,213 @@ text "D を半順序集合、X を D の部分集合、d \<in> D とすると、
 text "(1) d = \<squnion>X （X の上限が存在して d に等しい）"
 text "(2) \<forall>a \<in> D (d \<sqsubseteq> a \<Leftrightarrow> X \<sqsubseteq> a)"
 
-lemma supremum_onI2:
-  assumes po: "partial_order_on D eq le"
-    and subset: "X \<subseteq> D"
-    and d_mem_D: "d \<in> D"
-    and le_iff_upper: "\<And>a. a \<in> D \<Longrightarrow> le d a \<longleftrightarrow> upper_on D le X a"
-  shows "supremum_on D le X d"
-proof (rule supremum_onI)
-  have d_le_d_iff: "le d d = True" using po_reflE[OF po d_mem_D] by blast
-  show "upper_on D le X d" using le_iff_upper[OF d_mem_D] unfolding d_le_d_iff by blast
+lemma (in po) supremum_onI2:
+  assumes le_iff_upper: "\<And>a. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a"
+  shows "supremum X d"
+proof (rule supremumI)
+  have d_le_d_iff: "d \<sqsubseteq> d = True" using refl by blast
+  show "X \<^sub>s\<sqsubseteq> d" using le_iff_upper d_le_d_iff by blast
 next
   fix a
-  assume upper_a: "upper_on D le X a"
-  have "le d a \<longleftrightarrow> upper_on D le X a" by (rule le_iff_upper[OF upper_on_memE[OF upper_a]])
+  assume upper_a: "X \<^sub>s\<sqsubseteq> a"
+  have "le d a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a" by (rule le_iff_upper)
   thus "le d a" using upper_a by blast
 qed
 
-lemma upper_onI2:
-  assumes po: "partial_order_on D eq le"
-    and sup_d: "supremum_on D le X d"
-    and c_mem: "c \<in> D"
-    and d_le_c: "le d c"
-  shows "upper_on D le X c"
-using c_mem proof (rule upper_onI)
-  show "X \<subseteq> D" using sup_d by (rule supremum_on_subsetE)
-next
+lemma (in po) upper_onI2:
+  assumes sup_d: "supremum X d"
+    and d_le_c: "d \<sqsubseteq> c"
+  shows "X \<^sub>s\<sqsubseteq> c"
+proof (rule upperI)
   fix x
   assume x_mem: "x \<in> X"
-  show "le x c" using po proof (rule po_transE)
-    show "x \<in> D" using x_mem supremum_on_subsetE[OF sup_d] by blast
+  show "x \<sqsubseteq> c" proof (rule trans)
+    show "x \<sqsubseteq> d" using sup_d x_mem by (rule supremum_leE)
   next
-    show "d \<in> D" using sup_d by (rule supremum_on_memE)
-  next
-    show "c \<in> D" by (rule c_mem)
-  next
-    show "le x d" using sup_d x_mem by (rule supremum_on_leE)
-  next
-    show "le d c" by (rule d_le_c)
+    show "d \<sqsubseteq> c" by (rule d_le_c)
   qed
 qed
 
-lemma sup_on_iff:
-  fixes "le" :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
-  assumes po: "partial_order_on D eq le"
-    and subset: "X \<subseteq> D"
-    and d_mem_D: "d \<in> D"
-  shows "(supremum_on D le X d) \<longleftrightarrow> (\<forall>a \<in> D. le d a \<longleftrightarrow> upper_on D le X a)"
+lemma (in po) sup_iff: "supremum X d \<longleftrightarrow> (\<forall>a. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a)"
 proof auto
   fix a
-  assume sup_d: "supremum_on D le X d"
-    and a_mem: "a \<in> D"
-    and d_le_a: "le d a"
-  show "upper_on D le X a" using po sup_d a_mem d_le_a by (rule upper_onI2)
+  assume sup_d: "supremum X d"
+    and d_le_a: "d \<sqsubseteq> a"
+  show "X \<^sub>s\<sqsubseteq> a" using sup_d d_le_a by (rule upper_onI2)
 next
   fix a
-  assume sup_d: "supremum_on D le X d"
-    and "upper_on D le X a"
-  thus "le d a" using supremum_on_leastE[OF sup_d] by blast
+  assume sup_d: "supremum X d"
+    and "X \<^sub>s\<sqsubseteq> a"
+  thus "d \<sqsubseteq> a" using supremum_leastE[OF sup_d] by blast
 next
-  assume "\<forall>a\<in>D. le d a \<longleftrightarrow> upper_on D le X a"
-  hence "\<And>a. a \<in> D \<Longrightarrow> le d a \<longleftrightarrow> upper_on D le X a" by blast
-  thus "supremum_on D le X d" by (rule supremum_onI2[OF po subset d_mem_D])
+  assume "\<forall>a. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a"
+  hence "\<And>a. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a" by blast
+  thus "supremum X d" by (rule supremum_onI2)
 qed
 
-lemma (in partial_order) sup_iff:
-  shows "((\<exists>d. supremum X d) \<and> d = \<^bold>\<squnion>X) \<longleftrightarrow> (\<forall>a. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a)"
-proof -
-  have 1: "(supremum X d) \<longleftrightarrow> (\<forall>a \<in> UNIV. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a)" using po subset_UNIV UNIV_I by (rule sup_on_iff)
-  show ?thesis proof
-    assume "(\<exists>d. supremum X d) \<and> d = \<^bold>\<squnion> X"
-    hence "supremum X d" using Sup_eq by blast
-    hence "\<forall>a \<in> UNIV. d \<sqsubseteq> a \<longleftrightarrow> X \<^sub>s\<sqsubseteq> a" using 1 by blast
-    thus " \<forall>a. (d \<sqsubseteq> a) = X \<^sub>s\<sqsubseteq> a" by blast
-  next
-    assume "\<forall>a. (d \<sqsubseteq> a) = X \<^sub>s\<sqsubseteq> a"
-    hence "supremum X d" using 1 by blast
-    thus "(\<exists>d. supremum X d) \<and> d = \<^bold>\<squnion> X" using Sup_eq by blast
-  qed
-qed
 
 subsection "命題 3.1.14"
 text "I を任意の集合、X_i (i \<in> I) を半順序集合 D の部分集合として、各 i \<in> I について a_i = \<squnion>X_i が存在したとする。"
 text "また、 X = \<Union>{X_i | i \<in> I} とおく。この時 a = \<squnion>{a_i | i \<in> I} が存在すれば、a = \<squnion>X が成り立つ。"
 text "逆に、b = \<squnion>X が存在すれば、b = \<squnion>{a_i | i \<in> I} が成り立つ。"
 
-lemma
-  assumes po: "partial_order_on D eq le"
-    and subsetI: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> D"
-    and sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum_on D le (x i) (a i)"
+lemma (in po)
+  assumes sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)"
     and X_def: "X = \<Union>{x i|i. i \<in> I}"
-  shows supremum_on_CollectE: "\<And>\<a>. supremum_on D le {a i|i. i \<in> I} \<a> \<Longrightarrow> supremum_on D le X \<a>"
-    and supremum_on_CollectI: "\<And>\<b>. supremum_on D le X \<b> \<Longrightarrow> supremum_on D le {a i|i. i \<in> I} \<b>"
+  shows supremum_CollectE: "\<And>\<a>. supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> supremum X \<a>"
+    and supremum_CollectI: "\<And>\<b>. supremum X \<b> \<Longrightarrow> supremum {a i|i. i \<in> I} \<b>"
 proof -
   fix \<a>
-  assume sup_a: "supremum_on D le {a i |i. i \<in> I} \<a>"
-  have subset: "X \<subseteq> D" unfolding X_def using subsetI by blast
-  have a_le_c_iff: "\<And>c. c \<in> D \<Longrightarrow> le \<a> c \<longleftrightarrow> upper_on D le X c" proof -
+  assume sup_a: "supremum {a i |i. i \<in> I} \<a>"
+  have a_le_c_iff: "\<And>c. \<a> \<sqsubseteq> c \<longleftrightarrow> X \<^sub>s\<sqsubseteq> c" proof -
     fix c
-    assume c_mem: "c \<in> D"
     have mem_X_iff: "\<And>y. (y \<in> X) \<longleftrightarrow> (\<exists>i \<in> I. y \<in> x i)" using X_def by blast
-    have "le \<a> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof
-      assume a_le_c: "le \<a> c"
-      show "\<forall>i\<in>I. le (a i) c" proof auto
+    have "\<a> \<sqsubseteq> c \<longleftrightarrow> (\<forall>i \<in> I. a i \<sqsubseteq> c)" proof
+      assume a_le_c: "\<a> \<sqsubseteq> c"
+      show "\<forall>i\<in>I. a i \<sqsubseteq> c" proof auto
         fix i
         assume i_mem: "i \<in> I"
-        have a_i_le_a: "le (a i) \<a>" using supremum_on_leE[OF sup_a] i_mem by blast
-        show "le (a i) c"
-          using po supremum_on_memE[OF sup_a_iI[OF i_mem]] supremum_on_memE[OF sup_a] c_mem a_i_le_a a_le_c by (rule po_transE)
+        have a_i_le_a: "le (a i) \<a>" using supremum_leE[OF sup_a] i_mem by blast
+        show "a i \<sqsubseteq> c" using a_i_le_a a_le_c by (rule trans)
       qed
     next
       assume a_i_le_c: "\<forall>i \<in> I. le (a i) c"
-      show "le \<a> c" using sup_a proof (rule supremum_on_leastE)
-        show "upper_on D le {a i |i. i \<in> I} c" using c_mem supremum_on_subsetE[OF sup_a] proof (rule upper_onI)
+      show "\<a> \<sqsubseteq> c" using sup_a proof (rule supremum_leastE)
+        show "{a i |i. i \<in> I} \<^sub>s\<sqsubseteq> c" proof (rule upperI)
           fix x
           assume "x \<in> {a i|i. i \<in> I}"
           thus "le x c" using a_i_le_c by blast
         qed
       qed
     qed
-    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_on D le (x i) c)" proof auto
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. x i \<^sub>s\<sqsubseteq> c)" proof auto
       fix i
-      assume a_i_le_c: "\<forall>i\<in>I. le (a i) c"
+      assume a_i_le_c: "\<forall>i\<in>I. a i \<sqsubseteq> c"
         and i_mem: "i \<in> I"
-      have sup_a_i: "supremum_on D le (x i) (a i)" by (rule sup_a_iI[OF i_mem])
-      show "upper_on D le (x i) c" using po sup_a_i c_mem proof (rule upper_onI2)
-        show "le (a i) c" using a_i_le_c i_mem by blast
+      have sup_a_i: "supremum (x i) (a i)" by (rule sup_a_iI[OF i_mem])
+      show "x i \<^sub>s\<sqsubseteq> c" using sup_a_i proof (rule upper_onI2)
+        show "a i \<sqsubseteq> c" using a_i_le_c i_mem by blast
       qed
     next
       fix i
-      assume upper_c: "\<forall>i\<in>I. upper_on D le (x i) c"
+      assume upper_c[rule_format]: "\<forall>i\<in>I. x i \<^sub>s\<sqsubseteq> c"
         and i_mem: "i \<in> I"
-      show "le (a i) c" using sup_a_iI[OF i_mem] proof (rule supremum_on_leastE)
-        show "upper_on D le (x i) c" using upper_c i_mem by blast
+      show "a i \<sqsubseteq> c" using sup_a_iI[OF i_mem] proof (rule supremum_leastE)
+        show "x i \<^sub>s\<sqsubseteq> c" using i_mem by (rule upper_c)
       qed
     qed                                                                                         
-    also have "... \<longleftrightarrow> upper_on D le X c" proof auto
-      assume upper_c: "\<forall>i\<in>I. upper_on D le (x i) c"
-      show "upper_on D le X c" using c_mem subset proof (rule upper_onI)
+    also have "... \<longleftrightarrow> X \<^sub>s\<sqsubseteq> c" proof auto
+      assume upper_c[rule_format]: "\<forall>i\<in>I. x i \<^sub>s\<sqsubseteq> c"
+      show "X \<^sub>s\<sqsubseteq> c" proof (rule upperI)
         fix \<chi>
         assume x_mem: "\<chi> \<in> X"
         then obtain i where i_mem: "i \<in> I" and x_mem: "\<chi> \<in> x i" using X_def by blast
-        have "upper_on D le (x i) c" using upper_c i_mem by blast
-        thus "le \<chi> c" using x_mem by (rule upper_on_leE)
+        have "x i \<^sub>s\<sqsubseteq> c" using upper_c i_mem by blast
+        thus "\<chi> \<sqsubseteq> c" using x_mem by (rule upperE)
       qed
     next
       fix i
-      assume upper_c: "upper_on D le X c"
+      assume upper_c: "X \<^sub>s\<sqsubseteq> c"
         and i_mem: "i \<in> I"
-      show "upper_on D le (x i) c" using c_mem subsetI[OF i_mem] proof (rule upper_onI)
+      show "x i \<^sub>s\<sqsubseteq> c" proof (rule upperI)
         fix \<chi>
         assume x_mem: "\<chi> \<in> x i"    
-        show "le \<chi> c" using upper_c proof (rule upper_on_leE)
+        show "\<chi> \<sqsubseteq> c" using upper_c proof (rule upperE)
           show "\<chi> \<in> X" unfolding X_def using i_mem x_mem by blast
         qed
       qed
     qed
-    ultimately show "le \<a> c \<longleftrightarrow> upper_on D le X c" by (rule trans)
+    ultimately show "\<a> \<sqsubseteq> c \<longleftrightarrow> X \<^sub>s\<sqsubseteq> c" by (rule HOL.trans)
   qed
-  have sup_on_iff: "supremum_on D le X \<a> \<longleftrightarrow> (\<forall>a \<in> D. le \<a> a \<longleftrightarrow> upper_on D le X a)"
-    using po subset supremum_on_memE[OF sup_a] by (rule sup_on_iff)
-  show "supremum_on D le X \<a>" unfolding sup_on_iff using a_le_c_iff by blast
+  show "supremum X \<a>" unfolding sup_iff using a_le_c_iff by blast
 next
   fix \<b>
-  assume sup_b: "supremum_on D le X \<b>"
-  have X_subset: "X \<subseteq> D" unfolding X_def using subsetI by blast
-  have a_i_subset: "{a i | i. i \<in> I} \<subseteq> D" using sup_a_iI supremum_on_memE by fastforce
-  have b_le_c_iff: "\<And>c. c \<in> D \<Longrightarrow> le \<b> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof -
+  assume sup_b: "supremum X \<b>"
+  have b_le_c_iff: "\<And>c. \<b> \<sqsubseteq> c \<longleftrightarrow> (\<forall>i \<in> I. a i \<sqsubseteq> c)" proof -
     fix c
-    assume c_mem: "c \<in> D"
-    have "le \<b> c \<longleftrightarrow> upper_on D le X c" proof
-      assume b_le_c: "le \<b> c"
-      show "upper_on D le X c" using po sup_b c_mem b_le_c by (rule upper_onI2)
+    have "\<b> \<sqsubseteq> c \<longleftrightarrow> X \<^sub>s\<sqsubseteq> c" proof
+      assume b_le_c: "\<b> \<sqsubseteq> c"
+      show "X \<^sub>s\<sqsubseteq> c" using sup_b b_le_c by (rule upper_onI2)
     next
-      assume upper_c: "upper_on D le X c"
-      show "le \<b> c" using sup_b upper_c by (rule supremum_on_leastE)
+      assume upper_c: "X \<^sub>s\<sqsubseteq> c"
+      show "\<b> \<sqsubseteq> c" using sup_b upper_c by (rule supremum_leastE)
     qed
-    also have "... \<longleftrightarrow> (\<forall>i \<in> I. upper_on D le (x i) c)" proof auto
+    also have "... \<longleftrightarrow> (\<forall>i \<in> I. x i \<^sub>s\<sqsubseteq> c)" proof auto
       fix i
-      assume upper_c: "upper_on D le X c"
+      assume upper_c: "X \<^sub>s\<sqsubseteq> c"
         and i_mem: "i \<in> I"
-      show "upper_on D le (x i) c" using c_mem subsetI[OF i_mem] proof (rule upper_onI)
+      show "x i \<^sub>s\<sqsubseteq> c" proof (rule upperI)
         fix \<chi>
         assume x_mem: "\<chi> \<in> x i"
-        show "le \<chi> c" using upper_c proof (rule upper_on_leE)
+        show "le \<chi> c" using upper_c proof (rule upperE)
           show "\<chi> \<in> X" unfolding X_def using x_mem i_mem by blast
         qed
       qed
     next
-      assume upper_c: "\<forall>i\<in>I. upper_on D le (x i) c"
-      show "upper_on D le X c" using c_mem X_subset proof (rule upper_onI)
+      assume upper_c[rule_format]: "\<forall>i\<in>I. x i \<^sub>s\<sqsubseteq> c"
+      show "X \<^sub>s\<sqsubseteq> c" proof (rule upperI)
         fix \<chi>
         assume "\<chi> \<in> X"
         then obtain i where i_mem: "i \<in> I" and x_mem: "\<chi> \<in> x i" unfolding X_def by blast
-        have upper_c: "upper_on D le (x i) c" using upper_c i_mem by blast
-        show "le \<chi> c" using upper_c x_mem by (rule upper_on_leE)
+        show "le \<chi> c" using upper_c[OF i_mem] x_mem by (rule upperE)
       qed
     qed
     also have "... \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" proof auto
       fix i
-      assume upper_c: "\<forall>i\<in>I. upper_on D le (x i) c"
+      assume upper_c[rule_format]: "\<forall>i\<in>I. x i \<^sub>s\<sqsubseteq> c"
         and i_mem: "i \<in> I"
-      hence upper_c: "upper_on D le (x i) c" by blast
-      show "le (a i) c" using sup_a_iI[OF i_mem] upper_c by (rule supremum_on_leastE)
+      show "le (a i) c" using sup_a_iI[OF i_mem] upper_c[OF i_mem] by (rule supremum_leastE)
     next
       fix i
-      assume a_i_le_c: "\<forall>i\<in>I. le (a i) c"
+      assume a_i_le_c[rule_format]: "\<forall>i\<in>I. a i \<sqsubseteq> c"
         and i_mem: "i \<in> I"
-      hence a_i_le_c: "le (a i) c" by blast
-      show "upper_on D le (x i) c" using po sup_a_iI[OF i_mem] c_mem a_i_le_c by (rule upper_onI2)
+      hence a_i_le_c: "a i \<sqsubseteq> c" by blast
+      show "x i \<^sub>s\<sqsubseteq> c" using sup_a_iI[OF i_mem] a_i_le_c by (rule upper_onI2)
     qed
-    ultimately show "le \<b> c \<longleftrightarrow> (\<forall>i \<in> I. le (a i) c)" by (rule trans)
+    ultimately show "\<b> \<sqsubseteq> c \<longleftrightarrow> (\<forall>i \<in> I. a i \<sqsubseteq> c)" by (rule HOL.trans)
   qed
-  have sup_on_iff: "supremum_on D le {a i |i. i \<in> I} \<b> \<longleftrightarrow> (\<forall>\<a> \<in> D. le \<b> \<a> = upper_on D le {a i |i. i \<in> I} \<a>)"
-    using po a_i_subset supremum_on_memE[OF sup_b] by (rule sup_on_iff)
-  show "supremum_on D le {a i |i. i \<in> I} \<b>" unfolding sup_on_iff proof auto
+  show "supremum {a i |i. i \<in> I} \<b>" unfolding sup_iff proof auto
     fix \<a>
-    assume a_mem: "\<a> \<in> D"
-      and b_le_c: "le \<b> \<a>"
-    hence a_i_le_a: "\<And>i. i \<in> I \<Longrightarrow> le (a i) \<a>" using b_le_c_iff[OF a_mem] by blast
-    show "upper_on D le {a i |i. i \<in> I} \<a>" using a_mem a_i_subset proof (rule upper_onI)
+    assume b_le_c: "\<b> \<sqsubseteq> \<a>"
+    hence a_i_le_a: "\<And>i. i \<in> I \<Longrightarrow> a i \<sqsubseteq> \<a>" using b_le_c_iff by blast
+    show "{a i |i. i \<in> I} \<^sub>s\<sqsubseteq> \<a>" proof (rule upperI)
       fix a2
       assume "a2 \<in> {a i | i. i \<in> I}"
       thus "le a2 \<a>" using a_i_le_a by blast
     qed
   next
     fix c
-    assume c_mem: "c \<in> D"
-      and upper_c: "upper_on D le {a i |i. i \<in> I} c"
-    show "le \<b> c" using b_le_c_iff[OF c_mem] upper_on_leE[OF upper_c] by fastforce
+    assume upper_c: "{a i |i. i \<in> I} \<^sub>s\<sqsubseteq> c"
+    show "\<b> \<sqsubseteq> c" using b_le_c_iff upperE[OF upper_c] by fastforce
   qed
 qed
 
-lemma (in partial_order)
+lemma (in po)
   assumes sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)"
   shows supremum_eq1: "supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> \<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})"
     and supremum_eq2: "supremum (\<Union>{x i|i. i \<in> I}) b \<Longrightarrow> b = \<^bold>\<squnion>{a i|i. i \<in> I}"
 proof -
   assume sup_a: "supremum {a i |i. i \<in> I} \<a>"
-  have subset: "\<And>i. i \<in> I \<Longrightarrow> x i \<subseteq> UNIV" by blast
-  have "supremum (\<Union>{x i|i. i \<in> I}) \<a>" proof (rule supremum_on_CollectE[OF po])
-    fix i
-    show "x i \<subseteq> UNIV" by (rule subset_UNIV)
-  next
+  have "supremum (\<Union>{x i|i. i \<in> I}) \<a>" proof (rule supremum_CollectE)
     show "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)" by (rule sup_a_iI)
   next
-    show "\<Union>{x i|i. i \<in> I} = \<Union>{x i|i. i \<in> I}" by (rule refl)
+    show "\<Union>{x i|i. i \<in> I} = \<Union>{x i|i. i \<in> I}" by (rule HOL.refl)
   next
     show "supremum {a i |i. i \<in> I} \<a> " by (rule sup_a)
   qed
   thus "\<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})" using Sup_eq by blast
 next
   assume sup_b: "supremum (\<Union>{x i|i. i \<in> I}) b"
-  have "supremum {a i |i. i \<in> I} b" proof (rule supremum_on_CollectI[OF po])
-    fix i
-    show "x i \<subseteq> UNIV" by (rule subset_UNIV)
-  next
+  have "supremum {a i |i. i \<in> I} b" proof (rule supremum_CollectI)
     show "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)" by (rule sup_a_iI)
   next
-    show "\<Union>{x i|i. i \<in> I} = \<Union>{x i|i. i \<in> I}" by (rule refl)
+    show "\<Union>{x i|i. i \<in> I} = \<Union>{x i|i. i \<in> I}" by (rule HOL.refl)
   next
     show "supremum (\<Union>{x i|i. i \<in> I}) b" by (rule sup_b)
   qed
   thus "b = \<^bold>\<squnion> {a i |i. i \<in> I}" using Sup_eq by blast
 qed
+
 
 subsection "命題 3.1.15"
 text "X を有向集合とする。X の元の組 (x, y) について、cpo D の元 a(x, y) が定められていて、"
@@ -1190,45 +1133,43 @@ text "このとき"
 text   "A = {a(x,y) | x,y \<in> X} と B = {a(z,z) | z \<in> X}"
 text "はともに有向集合で \<squnion>A = \<squnion>B が成り立つ。"
 
-lemma directed_onI1:
-  assumes directed_on: "directed_on Ddir eqdir ledir X"
-    and cpo_on: "cpo_on Dcpo eqcpo lecpo"
-    and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
-    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x z) (a y z)"
-    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a z x) (a z y)"
+lemma directedI1:
+  fixes X :: "('a :: po) set"
+    and a :: "'a \<Rightarrow> 'a \<Rightarrow> ('b :: cpo)"
+  assumes directed: "directed X"
+    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> a x z \<sqsubseteq> a y z"
+    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> a z x \<sqsubseteq> a z y"
     and A_def: "A = { a x y | x y. x \<in> X \<and> y \<in> X }"
-  shows "directed_on Dcpo eqcpo lecpo A"
-using cpo_on_poE[OF cpo_on] proof (rule directed_onI)
-  show "A \<subseteq> Dcpo" using a_mem unfolding A_def by blast
-next
-  show "A \<noteq> {}" using directed_on_nemptyE[OF directed_on] unfolding A_def by blast
+  shows "directed A"
+proof (rule directedI)
+  show "A \<noteq> {}" using directed_nemptyE[OF directed] unfolding A_def by blast
 next
   fix a1 a2
   assume a1_mem: "a1 \<in> A"
     and a2_mem: "a2 \<in> A"
   obtain x1 y1 where a1_eq: "a1 = a x1 y1" and x1_mem: "x1 \<in> X" and y1_mem: "y1 \<in> X" using a1_mem unfolding A_def by blast
   obtain x2 y2 where a2_eq: "a2 = a x2 y2" and x2_mem: "x2 \<in> X" and y2_mem: "y2 \<in> X" using a2_mem unfolding A_def by blast
-  obtain zx where x1_le_zx: "ledir x1 zx" and x2_le_zx: "ledir x2 zx" and zx_mem: "zx \<in> X" using directed_on_exE[OF directed_on x1_mem x2_mem] by blast
-  obtain zy where y1_le_zy: "ledir y1 zy" and y2_le_zy: "ledir y2 zy" and zy_mem: "zy \<in> X" using directed_on_exE[OF directed_on y1_mem y2_mem] by blast
-  obtain zz where zx_le_zz: "ledir zx zz" and zy_le_zz: "ledir zy zz" and zz_mem: "zz \<in> X" using directed_on_exE[OF directed_on zx_mem zy_mem] by blast
-  show "\<exists>c\<in>A. lecpo a1 c \<and> lecpo a2 c" unfolding a1_eq a2_eq proof (intro bexI conjI)
-    show "lecpo (a x1 y1) (a zz zz)" using cpo_on_poE[OF cpo_on] a_mem[OF x1_mem y1_mem] a_mem[OF x1_mem zz_mem] a_mem[OF zz_mem zz_mem] proof (rule po_transE)
-      show "lecpo (a x1 zz) (a zz zz)" using x1_mem zz_mem zz_mem proof (rule lecpoI1)
-        show "ledir x1 zz" using x1_le_zx zx_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] x1_mem zx_mem zz_mem by (meson subsetD)
+  obtain zx where x1_le_zx: "x1 \<sqsubseteq> zx" and x2_le_zx: "x2 \<sqsubseteq> zx" and zx_mem: "zx \<in> X" using directed_exE[OF directed x1_mem x2_mem] by blast
+  obtain zy where y1_le_zy: "y1 \<sqsubseteq> zy" and y2_le_zy: "y2 \<sqsubseteq> zy" and zy_mem: "zy \<in> X" using directed_exE[OF directed y1_mem y2_mem] by blast
+  obtain zz where zx_le_zz: "zx \<sqsubseteq> zz" and zy_le_zz: "zy \<sqsubseteq> zz" and zz_mem: "zz \<in> X" using directed_exE[OF directed zx_mem zy_mem] by blast
+  show "\<exists>c\<in>A. a1 \<sqsubseteq> c \<and> a2 \<sqsubseteq> c" unfolding a1_eq a2_eq proof (intro bexI conjI)
+    show "a x1 y1 \<sqsubseteq> a zz zz" proof (rule trans)
+      show "a x1 zz \<sqsubseteq> a zz zz" using x1_mem zz_mem zz_mem proof (rule lecpoI1)
+        show "x1 \<sqsubseteq> zz" using x1_le_zx zx_le_zz by (rule trans)
       qed
     next
-      show "lecpo (a x1 y1) (a x1 zz)" using y1_mem zz_mem x1_mem proof (rule lecpoI2)
-        show "ledir y1 zz" using y1_le_zy zy_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] y1_mem zy_mem zz_mem by (meson subsetD)
+      show "a x1 y1 \<sqsubseteq> a x1 zz" using y1_mem zz_mem x1_mem proof (rule lecpoI2)
+        show "y1 \<sqsubseteq> zz" using y1_le_zy zy_le_zz by (rule trans)
       qed
     qed
   next
-    show "lecpo (a x2 y2) (a zz zz)" using cpo_on_poE[OF cpo_on] a_mem[OF x2_mem y2_mem] a_mem[OF x2_mem zz_mem] a_mem[OF zz_mem zz_mem] proof (rule po_transE)
-      show "lecpo (a x2 zz) (a zz zz)" using x2_mem zz_mem zz_mem proof (rule lecpoI1)
-        show "ledir x2 zz" using x2_le_zx zx_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] x2_mem zx_mem zz_mem by (meson subsetD)
+    show "a x2 y2 \<sqsubseteq> a zz zz" proof (rule trans)
+      show "a x2 zz \<sqsubseteq> a zz zz" using x2_mem zz_mem zz_mem proof (rule lecpoI1)
+        show "x2 \<sqsubseteq> zz" using x2_le_zx zx_le_zz by (rule trans)
       qed
     next
-      show "lecpo (a x2 y2) (a x2 zz)" using y2_mem zz_mem x2_mem proof (rule lecpoI2)
-        show "ledir y2 zz" using y2_le_zy zy_le_zz po_transE[OF directed_on_poE[OF directed_on]] directed_on_subsetE[OF directed_on] y2_mem zy_mem zz_mem by (meson subsetD)
+      show "a x2 y2 \<sqsubseteq> a x2 zz" using y2_mem zz_mem x2_mem proof (rule lecpoI2)
+        show "y2 \<sqsubseteq> zz" using y2_le_zy zy_le_zz by (rule trans)
       qed
     qed
   next
@@ -1236,42 +1177,37 @@ next
   qed
 qed
 
-lemma directed_onI2:
-  fixes Ddir :: "'a set"
-    and Dcpo :: "'b set"
-    and a :: "'a \<Rightarrow> 'a \<Rightarrow> 'b"
-  assumes directed_on: "directed_on Ddir eqdir ledir X"
-    and cpo_on: "cpo_on Dcpo eqcpo lecpo"
-    and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
-    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x z) (a y z)"
-    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a z x) (a z y)"
+lemma directedI2:
+  fixes X :: "('a :: po) set"
+    and a :: "'a \<Rightarrow> 'a \<Rightarrow> ('b :: cpo)"
+  assumes directed: "directed X"
+    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> a x z \<sqsubseteq> a y z"
+    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> a z x \<sqsubseteq> a z y"
     and B_def: "B = { a z z | z. z \<in> X }"
-  shows "directed_on Dcpo eqcpo lecpo B"
+  shows "directed B"
 proof -
-  have lecpoI: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x x) (a y y)" proof -
+  have lecpoI: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> a x x \<sqsubseteq> a y y" proof -
     fix x y
     assume x_mem: "x \<in> X"
       and y_mem: "y \<in> X"
-      and x_le_y: "ledir x y"
-    have xy_le_yy: "lecpo (a x y) (a y y)" using x_mem y_mem y_mem x_le_y by (rule lecpoI1)
-    have xx_le_xy: "lecpo (a x x) (a x y)" using x_mem y_mem x_mem x_le_y by (rule lecpoI2)
-    show "lecpo (a x x) (a y y)" using cpo_on_poE[OF cpo_on] a_mem[OF x_mem x_mem] a_mem[OF x_mem y_mem] a_mem[OF y_mem y_mem] xx_le_xy xy_le_yy by (rule po_transE)
+      and x_le_y: "x \<sqsubseteq> y"
+    have xy_le_yy: "a x y \<sqsubseteq> a y y" using x_mem y_mem y_mem x_le_y by (rule lecpoI1)
+    have xx_le_xy: "a x x \<sqsubseteq> a x y" using x_mem y_mem x_mem x_le_y by (rule lecpoI2)
+    show "a x x \<sqsubseteq> a y y" using xx_le_xy xy_le_yy by (rule trans)
   qed
-  show "directed_on Dcpo eqcpo lecpo B" using cpo_on_poE[OF cpo_on] proof (rule directed_onI)
-    show "B \<subseteq> Dcpo" unfolding B_def using a_mem by blast
-  next
-    show "B \<noteq> {}" unfolding B_def using directed_on_nemptyE[OF directed_on] by blast
+  show "directed B" proof (rule directedI)
+    show "B \<noteq> {}" unfolding B_def using directed_nemptyE[OF directed] by blast
   next
     fix b1 b2
     assume b1_mem: "b1 \<in> B"
       and b2_mem: "b2 \<in> B"
     obtain x1 where b1_eq: "b1 = a x1 x1" and x1_mem: "x1 \<in> X" using b1_mem unfolding B_def by blast
     obtain x2 where b2_eq: "b2 = a x2 x2" and x2_mem: "x2 \<in> X" using b2_mem unfolding B_def by blast
-    obtain x3 where x1_le_x3: "ledir x1 x3" and x2_le_x3: "ledir x2 x3" and x3_mem: "x3 \<in> X" using directed_on_exE[OF directed_on x1_mem x2_mem] by blast
-    show "\<exists>c\<in>B. lecpo b1 c \<and> lecpo b2 c" unfolding b1_eq b2_eq proof (intro bexI conjI)
-      show "lecpo (a x1 x1) (a x3 x3)" using x1_mem x3_mem x1_le_x3 by (rule lecpoI)
+    obtain x3 where x1_le_x3: "x1 \<sqsubseteq> x3" and x2_le_x3: "x2 \<sqsubseteq> x3" and x3_mem: "x3 \<in> X" using directed_exE[OF directed x1_mem x2_mem] by blast
+    show "\<exists>c\<in>B. b1 \<sqsubseteq> c \<and> b2 \<sqsubseteq> c" unfolding b1_eq b2_eq proof (intro bexI conjI)
+      show "a x1 x1 \<sqsubseteq> a x3 x3" using x1_mem x3_mem x1_le_x3 by (rule lecpoI)
     next
-      show "lecpo (a x2 x2) (a x3 x3)" using x2_mem x3_mem x2_le_x3 by (rule lecpoI)
+      show "a x2 x2 \<sqsubseteq> a x3 x3" using x2_mem x3_mem x2_le_x3 by (rule lecpoI)
     next
       show "a x3 x3 \<in> B" unfolding B_def using x3_mem by blast
     qed
@@ -1279,64 +1215,52 @@ proof -
 qed
 
 lemma sup_eqI:
-  fixes Dcpo :: "'a set"
-    and Ddir :: "'b set"
-  assumes directed_on: "directed_on Ddir eqdir ledir X"
-    and cpo_on: "cpo_on Dcpo eqcpo lecpo"
-    and a_mem: "\<And>x y. \<lbrakk> x \<in> X; y \<in> X \<rbrakk> \<Longrightarrow> a x y \<in> Dcpo"
-    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a x z) (a y z)"
-    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x y \<rbrakk> \<Longrightarrow> lecpo (a z x) (a z y)"
+  fixes X :: "('a :: po) set"
+    and a :: "'a \<Rightarrow> 'a \<Rightarrow> ('b :: cpo)"
+  assumes directed: "directed X"
+    and lecpoI1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> a x z \<sqsubseteq> a y z"
+    and lecpoI2: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; x \<sqsubseteq> y \<rbrakk> \<Longrightarrow> a z x \<sqsubseteq> a z y"
     and A_def: "A = { a x y | x y. x \<in> X \<and> y \<in> X }"
     and B_def: "B = { a z z | z. z \<in> X }"
-    and sup_xa: "supremum_on Dcpo lecpo A xa"
-    and sup_xb: "supremum_on Dcpo lecpo B xb"
-  shows "eqcpo xa xb"
-using cpo_on_poE[OF cpo_on] supremum_on_memE[OF sup_xa] supremum_on_memE[OF sup_xb] proof (rule po_antisymE)
-  show xa_le_xb: "lecpo xb xa" proof -
-    show "lecpo xb xa" using sup_xb proof (rule supremum_on_leastE)
-      show "upper_on Dcpo lecpo B xa" using supremum_on_memE[OF sup_xa] proof (rule upper_onI)
-        show "B \<subseteq> Dcpo" unfolding B_def using a_mem by blast
-      next
+    and sup_xa: "supremum A xa"
+    and sup_xb: "supremum B xb"
+  shows "xa = xb"
+proof (rule antisym)
+  show xa_le_xb: "xb \<sqsubseteq> xa" proof -
+    show "xb \<sqsubseteq> xa" using sup_xb proof (rule supremum_leastE)
+      show "B \<^sub>s\<sqsubseteq> xa" proof (rule upperI)
         fix x
         assume "x \<in> B"
         hence x_mem_A: "x \<in> A" unfolding A_def B_def by blast
-        show "lecpo x xa" using sup_xa x_mem_A by (rule supremum_on_leE)
+        show "x \<sqsubseteq> xa" using sup_xa x_mem_A by (rule supremum_leE)
       qed
     qed
   qed
 next
-  show xa_le_xb: "lecpo xa xb" proof -
-    have 1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; ledir x z; ledir y z \<rbrakk> \<Longrightarrow> lecpo (a x y) (a z z)" proof -
+  show xa_le_xb: "xa \<sqsubseteq> xb" proof -
+    have 1: "\<And>x y z. \<lbrakk> x \<in> X; y \<in> X; z \<in> X; x \<sqsubseteq> z; y \<sqsubseteq> z \<rbrakk> \<Longrightarrow> a x y \<sqsubseteq> a z z" proof -
       fix x y z
       assume x_mem: "x \<in> X"
         and y_mem: "y \<in> X"
         and z_mem: "z \<in> X"
-        and x_le_z: "ledir x z"
-        and y_le_z: "ledir y z"
-      show "lecpo (a x y) (a z z)" using cpo_on_poE[OF cpo_on] a_mem[OF x_mem y_mem] a_mem[OF z_mem y_mem] a_mem[OF z_mem z_mem] proof (rule po_transE)
-        show "lecpo (a x y) (a z y)" using x_mem z_mem y_mem x_le_z by (rule lecpoI1)
+        and x_le_z: "x \<sqsubseteq> z"
+        and y_le_z: "y \<sqsubseteq> z"
+      show "a x y \<sqsubseteq> a z z" proof (rule trans)
+        show "a x y \<sqsubseteq> a z y" using x_mem z_mem y_mem x_le_z by (rule lecpoI1)
       next
-        show "lecpo (a z y) (a z z)" using y_mem z_mem z_mem y_le_z by (rule lecpoI2)
+        show "a z y \<sqsubseteq> a z z" using y_mem z_mem z_mem y_le_z by (rule lecpoI2)
       qed
     qed
-    show "lecpo xa xb" using sup_xa proof (rule supremum_on_leastE)
-      show "upper_on Dcpo lecpo A xb" using supremum_on_memE[OF sup_xb] proof (rule upper_onI)
-        show "A \<subseteq> Dcpo" unfolding A_def using a_mem by blast
-      next
+    show "xa \<sqsubseteq> xb" using sup_xa proof (rule supremum_leastE)
+      show "A \<^sub>s\<sqsubseteq> xb" proof (rule upperI)
         fix a_xy
         assume a_xy_mem: "a_xy \<in> A"
         then obtain x y where a1_eq: "a_xy = a x y" and x_mem: "x \<in> X" and y_mem: "y \<in> X" unfolding A_def by blast
-        obtain z where x_le_z: "ledir x z" and y_le_z: "ledir y z" and z_mem: "z \<in> X" using directed_on_exE[OF directed_on x_mem y_mem] by blast
-        show "lecpo a_xy xb" using cpo_on_poE[OF cpo_on] proof (rule po_transE)
-          show "a_xy \<in> Dcpo" using a_xy_mem unfolding A_def using a_mem by blast
+        obtain z where x_le_z: "x \<sqsubseteq> z" and y_le_z: "y \<sqsubseteq> z" and z_mem: "z \<in> X" using directed_exE[OF directed x_mem y_mem] by blast
+        show "a_xy \<sqsubseteq> xb" proof (rule trans)
+          show "a_xy \<sqsubseteq> a z z" unfolding a1_eq using x_mem y_mem z_mem x_le_z y_le_z by (rule 1)
         next
-          show "a z z \<in> Dcpo" using z_mem z_mem by (rule a_mem)
-        next
-          show "xb \<in> Dcpo" using sup_xb by (rule supremum_on_memE)
-        next
-          show "lecpo a_xy (a z z)" unfolding a1_eq using x_mem y_mem z_mem x_le_z y_le_z by (rule 1)
-        next
-          show "lecpo (a z z) xb" using sup_xb proof (rule supremum_on_leE)
+          show "a z z \<sqsubseteq> xb" using sup_xb proof (rule supremum_leE)
             show "a z z \<in> B" unfolding B_def using z_mem by blast
           qed
         qed
@@ -1351,19 +1275,21 @@ text "i \<le> j ならば a_ik \<sqsubseteq> a_jk かつ a_ki \<sqsubseteq> a_kj
 text   "A = {a_ij | i,j \<in> \<nat>} と B = {a_kk | k \<in> \<nat>}"
 text "はともに有向集合で、\<squnion>A = \<squnion>B が成り立つ。"
 
-lemma po_on_nat: "partial_order_on (UNIV :: nat set) (=) (\<le>)"
-proof (rule partial_order_onI)
-  show "\<And>a :: nat. a \<le> a" by (rule order.refl)
-next
-  show "\<And>a b :: nat. \<lbrakk> a \<le> b; b \<le> a \<rbrakk> \<Longrightarrow> a = b" by (rule order.antisym)
-next
-  show "\<And>a b c :: nat. \<lbrakk> a \<le> b; b \<le> c \<rbrakk> \<Longrightarrow> a \<le> c" by (rule order.trans)
-qed
+instantiation nat :: po
+begin
 
-lemma directed_on_nat:
+definition le_nat :: "nat \<Rightarrow> nat \<Rightarrow> bool"
+  where "((\<sqsubseteq>) :: (nat \<Rightarrow> nat \<Rightarrow> bool)) \<equiv> (\<le>)"
+
+instance by (standard, auto simp add: le_nat_def)
+
+end
+
+lemma directed_nat:
+  fixes X :: "nat set"
   assumes nempty: "X \<noteq> {}"
-  shows "directed_on (UNIV :: nat set) (=) (\<le>) X"
-using po_on_nat subset_UNIV nempty proof (rule directed_onI)
+  shows "directed X"
+using nempty proof (rule directedI, unfold le_nat_def)
   fix a b
   assume a_mem: "a \<in> X"
     and b_mem: "b \<in> X"
@@ -1376,85 +1302,67 @@ using po_on_nat subset_UNIV nempty proof (rule directed_onI)
   qed
 qed
 
-lemma directed_on_matrixI1:
-  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
-  assumes cpo_on: "cpo_on D eq le"
-    and a_mem: "\<And>i j. a i j \<in> D"
-    and leI1: "\<And>i j k. i \<le> j \<Longrightarrow> le (a i k) (a j k)"
-    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> le (a k i) (a k j)"
+lemma directed_matrixI1:
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> ('a :: cpo)"
+  assumes leI1: "\<And>i j k. i \<le> j \<Longrightarrow> a i k \<sqsubseteq> a j k"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> a k i \<sqsubseteq> a k j"
     and A_def: "A = {a i j| i j. True}"
-  shows "directed_on D eq le A"
-proof (rule directed_onI1)
-  show "directed_on (UNIV :: nat set) (=) (\<le>) (UNIV :: nat set)" proof (rule directed_on_nat)
+  shows "directed A"
+proof (rule directedI1)
+  show "directed (UNIV :: nat set)" proof (rule directed_nat)
     show "UNIV \<noteq> {}" by blast
   qed
 next
-  show "cpo_on D eq le" by (rule cpo_on)
+  show "\<And>i j k :: nat. i \<sqsubseteq> j \<Longrightarrow> a i k \<sqsubseteq> a j k" unfolding le_nat_def by (rule leI1)
 next
-  show "\<And>x y. a x y \<in> D" by (rule a_mem)
-next
-  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a i k) (a j k)" by (rule leI1)
-next
-  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a k i) (a k j)" by (rule leI2)
+  show "\<And>i j k :: nat. i \<sqsubseteq> j \<Longrightarrow> a k i \<sqsubseteq> a k j" unfolding le_nat_def by (rule leI2)
 next
   show "A = {a x y |x y. x \<in> UNIV \<and> y \<in> UNIV}" using A_def by blast
 qed
 
-lemma directed_on_matrixI2:
-  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
-  assumes cpo_on: "cpo_on D eq le"
-    and a_mem: "\<And>i j. a i j \<in> D"
-    and leI1: "\<And>i j k. i \<le> j \<Longrightarrow> le (a i k) (a j k)"
+lemma directed_matrixI2:
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> ('a :: cpo)"
+  assumes leI1: "\<And>i j k. i \<le> j \<Longrightarrow> le (a i k) (a j k)"
     and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> le (a k i) (a k j)"
     and B_def: "B = {a k k| k. True}"
-  shows "directed_on D eq le B"
-proof (rule directed_onI2)
-  show "directed_on (UNIV :: nat set) (=) (\<le>) (UNIV :: nat set)" proof (rule directed_on_nat)
+  shows "directed B"
+proof (rule directedI2)
+  show "directed (UNIV :: nat set)" proof (rule directed_nat)
     show "UNIV \<noteq> {}" by blast
   qed
 next
-  show "cpo_on D eq le" by (rule cpo_on)
+  show "\<And>i j k :: nat. i \<sqsubseteq> j \<Longrightarrow> a i k \<sqsubseteq> a j k" unfolding le_nat_def by (rule leI1)
 next
-  show "\<And>x y. a x y \<in> D" by (rule a_mem)
+  show "\<And>i j k :: nat. i \<sqsubseteq> j \<Longrightarrow> a k i \<sqsubseteq> a k j" unfolding le_nat_def by (rule leI2)
 next
-  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a i k) (a j k)" by (rule leI1)
-next
-  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a k i) (a k j)" by (rule leI2)
-next
-  show "B = {a z z |z. z \<in> UNIV }" using B_def by blast
+  show "B = {a z z |z. z \<in> UNIV}" using B_def by blast
 qed
 
 lemma sup_on_matrix_eqI:
-  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> 'a"
-  assumes cpo_on: "cpo_on D eq le"
-    and a_mem: "\<And>i j. a i j \<in> D"
-    and leI1: "\<And>i j k. i \<le> j \<Longrightarrow> le (a i k) (a j k)"
-    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> le (a k i) (a k j)"
+  fixes a :: "nat \<Rightarrow> nat \<Rightarrow> ('a :: cpo)"
+  assumes leI1: "\<And>i j k. i \<le> j \<Longrightarrow> a i k \<sqsubseteq> a j k"
+    and leI2: "\<And>i j k. i \<le> j \<Longrightarrow> a k i \<sqsubseteq> a k j"
     and A_def: "A = {a i j| i j. True}"
     and B_def: "B = {a k k| k. True}"
-    and sup_xa: "supremum_on D le A xa"
-    and sup_xb: "supremum_on D le B xb"
-  shows "eq xa xb"
+    and sup_xa: "supremum A xa"
+    and sup_xb: "supremum B xb"
+  shows "xa = xb"
 proof (rule sup_eqI[where ?a=a])
-  show "directed_on (UNIV :: nat set) (=) (\<le>) (UNIV :: nat set)" proof (rule directed_on_nat)
+  show "directed (UNIV :: nat set)" proof (rule directed_nat)
     show "UNIV \<noteq> {}" by blast
   qed
 next
-  show "cpo_on D eq le" by (rule cpo_on)
+  show "\<And>i j k :: nat. i \<sqsubseteq> j \<Longrightarrow> a i k \<sqsubseteq> a j k" unfolding le_nat_def by (rule leI1)
 next
-  show "\<And>x y. a x y \<in> D" by (rule a_mem)
-next
-  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a i k) (a j k)" by (rule leI1)
-next
-  show "\<And>i j k :: nat. i \<le> j \<Longrightarrow> le (a k i) (a k j)" by (rule leI2)
+  show "\<And>i j k :: nat. i \<sqsubseteq> j \<Longrightarrow> a k i \<sqsubseteq> a k j" unfolding le_nat_def by (rule leI2)
 next
   show "A = {a x y |x y. x \<in> UNIV \<and> y \<in> UNIV}" using A_def by blast
 next
   show "B = {a k k |k. k \<in> UNIV}" using B_def by blast
 next
-  show "supremum_on D le A xa" by (rule sup_xa)
+  show "supremum A xa" by (rule sup_xa)
 next
-  show "supremum_on D le B xb" by (rule sup_xb)
+  show "supremum B xb" by (rule sup_xb)
 qed
 
 
@@ -1463,27 +1371,20 @@ text "D と D' を半順序集合として、関数 f : D \<rightarrow> D' に�
 text   "\<forall>a \<in> D \<forall>b \<in> D (a \<sqsubseteq> b \<Rightarrow> f(a) \<sqsubseteq> f(b))"
 text "が成り立つとき、f を単調関数（monotone function）と呼ぶ。"
 
-definition mono_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'b set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool"
-  where "mono_on Da eqa lea Db eqb leb f \<equiv> partial_order_on Da eqa lea
-                                         \<and> partial_order_on Db eqb leb
-                                         \<and> (\<forall>a \<in> Da. f a \<in> Db)
-                                         \<and> (\<forall>a \<in> Da. \<forall>b \<in> Da. lea a b \<longrightarrow> leb (f a) (f b))"
+definition mono :: "('a :: po \<Rightarrow> 'b :: po) \<Rightarrow> bool"
+  where "mono f \<equiv> \<forall>a. \<forall>b. a \<sqsubseteq> b \<longrightarrow> f a \<sqsubseteq> f b"
 
-lemma mono_onI:
-  assumes "partial_order_on Da eqa lea"
-    and "partial_order_on Db eqb leb"
-    and "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db"
-    and "\<And>a b. \<lbrakk> a \<in> Da; b \<in> Da; lea a b \<rbrakk> \<Longrightarrow> leb (f a) (f b)"
-  shows "mono_on Da eqa lea Db eqb leb f"
-unfolding mono_on_def using assms by blast
+lemma monoI:
+  fixes f :: "'a :: po \<Rightarrow> 'b :: po"
+  assumes"\<And>a b. a \<sqsubseteq> b \<Longrightarrow> f a \<sqsubseteq> f b"
+  shows "mono f"
+unfolding mono_def using assms by blast
 
-lemma mono_onE:
-  assumes "mono_on Da eqa lea Db eqb leb f"
-  shows mono_on_dom_poE: "partial_order_on Da eqa lea"
-    and mono_on_ran_poE: "partial_order_on Db eqb leb"
-    and mono_on_ranE: "\<And>x. x \<in> Da \<Longrightarrow> f x \<in> Db"
-    and mono_on_leE: "\<And>a b. \<lbrakk> a \<in> Da; b \<in> Da; lea a b \<rbrakk> \<Longrightarrow> leb (f a) (f b)"
-using assms unfolding mono_on_def by blast+
+lemma monoE:
+  fixes f :: "'a :: po \<Rightarrow> 'b :: po"
+  assumes "mono f"
+  shows "\<And>a b. a \<sqsubseteq> b \<Longrightarrow> f a \<sqsubseteq> f b"
+using assms unfolding mono_def by blast
 
 subsection "定義 3.2.2"
 text "D と D' を cpo として、関数 f : D \<rightarrow> D' が連続（continuous）であるとは、任意の有向集合 X \<subseteq> D について、"
@@ -1491,128 +1392,95 @@ text "{f(x) | x \<in> X} の上限が存在して、"
 text   "f(\<squnion>X) = \<squnion>{f(x) | x \<in> X}"
 text "が成り立つことである。"
 
-definition cont_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'b set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool"
-  where "cont_on Da eqa lea Db eqb leb f \<equiv> cpo_on Da eqa lea
-                                 \<and> cpo_on Db eqb leb
-                                 \<and> (\<forall>a \<in> Da. f a \<in> Db)
-                                 \<and> (\<forall>Xa. directed_on Da eqa lea Xa \<longrightarrow> (\<exists>xb. supremum_on Db leb {f xa | xa. xa \<in> Xa} xb))
-                                 \<and> (\<forall>Xa xa xb. directed_on Da eqa lea Xa
-                                            \<longrightarrow> supremum_on Da lea Xa xa
-                                            \<longrightarrow> supremum_on Db leb {f xa | xa. xa \<in> Xa} xb
-                                            \<longrightarrow> eqb (f xa) xb)"
+definition cont :: "('a :: cpo \<Rightarrow> 'b :: cpo) \<Rightarrow> bool"
+  where "cont f \<equiv> (\<forall>Xa. directed Xa \<longrightarrow> (\<exists>xb. supremum {f xa | xa. xa \<in> Xa} xb))
+                \<and> (\<forall>Xa xa xb. directed Xa
+                   \<longrightarrow> supremum Xa xa
+                   \<longrightarrow> supremum {f xa | xa. xa \<in> Xa} xb
+                   \<longrightarrow> f xa = xb)"
 
-lemma cont_onI:
-  assumes "cpo_on Da eqa lea"
-    and "cpo_on Db eqb leb"
-    and "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db"
-    and "\<And>Xa. directed_on Da eqa lea Xa \<Longrightarrow> \<exists>xb. supremum_on Db leb {f xa | xa. xa \<in> Xa} xb"
-    and "\<And>Xa xa xb. \<lbrakk> directed_on Da eqa lea Xa; supremum_on Da lea Xa xa; supremum_on Db leb {f xa | xa. xa \<in> Xa} xb \<rbrakk> \<Longrightarrow> eqb (f xa) xb"
-  shows "cont_on Da eqa lea Db eqb leb f"
-unfolding cont_on_def using assms by blast
+lemma contI:
+  assumes "\<And>Xa. directed Xa \<Longrightarrow> \<exists>xb. supremum {f xa | xa. xa \<in> Xa} xb"
+    and "\<And>Xa xa xb. \<lbrakk> directed Xa; supremum Xa xa; supremum {f xa | xa. xa \<in> Xa} xb \<rbrakk> \<Longrightarrow> f xa = xb"
+  shows "cont f"
+unfolding cont_def using assms by blast
 
-lemma cont_onE:
-  assumes "cont_on Da eqa lea Db eqb leb f"
-  shows cont_on_dom_cpoE: "cpo_on Da eqa lea"
-    and cont_on_ran_cpoE: "cpo_on Db eqb leb"
-    and cont_on_ranE: "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db"
-    and cont_on_exE: "\<And>Xa. directed_on Da eqa lea Xa \<Longrightarrow> \<exists>xb. supremum_on Db leb {f xa | xa. xa \<in> Xa} xb"
-    and cont_on_sup_eqE: "\<And>Xa xa xb. \<lbrakk> directed_on Da eqa lea Xa; supremum_on Da lea Xa xa; supremum_on Db leb {f xa | xa. xa \<in> Xa} xb \<rbrakk> \<Longrightarrow> eqb (f xa) xb"
-using assms unfolding cont_on_def by blast+
+lemma
+  assumes "cont f"
+  shows cont_exE: "\<And>Xa. directed Xa \<Longrightarrow> \<exists>xb. supremum {f xa | xa. xa \<in> Xa} xb"
+    and cont_sup_eqE: "\<And>Xa xa xb. \<lbrakk> directed Xa; supremum Xa xa; supremum {f xa | xa. xa \<in> Xa} xb \<rbrakk> \<Longrightarrow> f xa = xb"
+using assms unfolding cont_def by blast+
 
-lemma cont_on_is_mono_on:
-  assumes cont_on: "cont_on Da eqa lea Db eqb leb f"
-    and eq_on: "eq_on Db eqb"
-  shows "mono_on Da eqa lea Db eqb leb f"
-proof -
-  have po_on_Da: "partial_order_on Da eqa lea" using cont_on_dom_cpoE[OF cont_on] by (rule cpo_on_poE)
-  show ?thesis using po_on_Da proof (rule mono_onI)
+lemma cont_is_mono:
+  fixes f :: "'a :: cpo \<Rightarrow> 'b :: cpo"
+  assumes cont: "cont f"
+  shows "mono f"
+proof (rule monoI)
+  fix a b :: 'a
+  assume a_le_b: "a \<sqsubseteq> b"
+  have directed_a: "directed {a, b}" proof (rule directedI)
+    show "{a, b} \<noteq> {}" by blast
   next
-    show "partial_order_on Db eqb leb" using cont_on_ran_cpoE[OF cont_on] by (rule cpo_on_poE)
-  next
-    show "\<And>a. a \<in> Da \<Longrightarrow> f a \<in> Db" using cont_on by (rule cont_on_ranE)
-  next
-    fix a b
-    assume a_mem: "a \<in> Da"
-      and b_mem: "b \<in> Da"
-      and a_le_b: "lea a b"
-    have directed_on_a: "directed_on Da eqa lea {a, b}" using po_on_Da proof (rule directed_onI)
-      show "{a, b} \<subseteq> Da" using a_mem b_mem by blast
+    fix x y
+    assume x_mem: "x \<in> {a, b}"
+      and y_mem: "y \<in> {a, b}"
+    hence "x = a \<and> y = a \<or> x = a \<and> y = b \<or> x = b \<and> y = a \<or> x = b \<and> y = b" by blast
+    thus "\<exists>z\<in>{a, b}. x \<sqsubseteq> z \<and> y \<sqsubseteq> z" proof (elim disjE conjE)
+      assume eq: "x = a" "y = a"
+      show "\<exists>z\<in>{a, b}. x \<sqsubseteq> z \<and> y \<sqsubseteq> z" unfolding eq using refl by blast
     next
-      show "{a, b} \<noteq> {}" by blast
+      assume eq: "x = a" "y = b"
+      show "\<exists>z\<in>{a, b}. x \<sqsubseteq> z \<and> y \<sqsubseteq> z" unfolding eq using refl a_le_b by blast
     next
-      fix x y
-      assume x_mem: "x \<in> {a, b}"
-        and y_mem: "y \<in> {a, b}"
-      hence "x = a \<and> y = a \<or> x = a \<and> y = b \<or> x = b \<and> y = a \<or> x = b \<and> y = b" by blast
-      thus "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" proof (elim disjE conjE)
-        assume eq: "x = a" "y = a"
-        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da a_mem] by blast
-      next
-        assume eq: "x = a" "y = b"
-        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da b_mem] a_le_b by blast
-      next
-        assume eq: "x = b" "y = a"
-        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da b_mem] a_le_b by blast
-      next
-        assume eq: "x = b" "y = b"
-        show "\<exists>z\<in>{a, b}. lea x z \<and> lea y z" unfolding eq using po_reflE[OF po_on_Da b_mem] by blast
-      qed
-    qed
-    have sup_b: "supremum_on Da lea {a, b} b" proof (rule supremum_onI)
-      show "upper_on Da lea {a, b} b" using b_mem proof (rule upper_onI)
-        show "{a, b} \<subseteq> Da" using a_mem b_mem by blast
-      next
-        fix x
-        show "\<And>x. x \<in> {a, b} \<Longrightarrow> lea x b" using po_reflE[OF po_on_Da b_mem] a_le_b by blast
-      qed
+      assume eq: "x = b" "y = a"
+      show "\<exists>z\<in>{a, b}. x \<sqsubseteq> z \<and> y \<sqsubseteq> z" unfolding eq using refl a_le_b by blast
     next
-      fix c
-      assume upper_c: "upper_on Da lea {a, b} c"
-      have "\<And>x. x \<in> {a, b} \<Longrightarrow> lea x c" using upper_c by (rule upper_on_leE)
-      thus "lea b c" by blast
-    qed
-    obtain fc where sup_fc: "supremum_on Db leb {f x|x. x \<in> {a, b}} fc" using cont_on_exE[OF cont_on directed_on_a] by blast
-    have eq: "eqb (f b) fc" using cont_on directed_on_a sup_b using sup_fc by (rule cont_on_sup_eqE)
-    have eq: "f b = fc" using eq_on cont_on_ranE[OF cont_on b_mem] supremum_on_memE[OF sup_fc] eq by (rule eq_onE)
-    show "leb (f a) (f b)" unfolding eq using sup_fc proof (rule supremum_on_leE)
-      show "f a \<in> {f x |x. x \<in> {a, b}}" by blast
+      assume eq: "x = b" "y = b"
+      show "\<exists>z\<in>{a, b}. x \<sqsubseteq> z \<and> y \<sqsubseteq> z" unfolding eq using refl by blast
     qed
   qed
+  have sup_b: "supremum {a, b} b" proof (rule supremumI)
+    show "{a, b} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
+      fix x
+      show "\<And>x. x \<in> {a, b} \<Longrightarrow> x \<sqsubseteq> b" using refl a_le_b by blast
+    qed
+  next
+    fix c
+    assume upper_c: "{a, b} \<^sub>s\<sqsubseteq> c"
+    have "\<And>x. x \<in> {a, b} \<Longrightarrow> x \<sqsubseteq> c" using upper_c by (rule upperE)
+    thus "b \<sqsubseteq> c" by blast
+  qed
+  obtain fb where sup_fb: "supremum {f x|x. x \<in> {a, b}} fb" using cont_exE[OF cont directed_a] by blast
+  have eq: "f b = fb" using cont directed_a sup_b sup_fb by (rule cont_sup_eqE)
+  show "f a \<sqsubseteq> f b" unfolding eq using sup_fb proof (rule supremum_leE)
+    show "f a \<in> {f x |x. x \<in> {a, b}}" by blast
+  qed
 qed
+
 
 subsection "命題 3.2.3"
 text "D と D' を cpo として、D は狭義の無限上昇列を含まないとすると、すべての単調関数 f : D \<rightarrow> D' は連続である。"
 text "ただし、狭義の無限上昇列とは a_0 \<sqsubseteq> a_1 \<sqsubseteq> a_2 \<sqsubseteq> \<dots> で a_i \<noteq> a_i+1 (i = 0, 1, 2, \<dots>) を満たす列 a_0, a_1, a_2, \<dots> のことである。"
 
-lemma mono_on_directed_onE:
-  assumes directed_on: "directed_on D eq le X"
-    and mono_on: "mono_on D eq le D' eq' le' f"
-  shows "directed_on D' eq' le' {f x|x. x \<in> X}"
-using mono_on_ran_poE[OF mono_on] proof (rule directed_onI)
-  show "{f x |x. x \<in> X} \<subseteq> D'" using mono_on_ranE[OF mono_on] directed_on_subsetE[OF directed_on] by blast
-next
-  show "{f x |x. x \<in> X} \<noteq> {}" using directed_on_nemptyE[OF directed_on] by blast
+lemma mono_directedE:
+  assumes directed: "directed X"
+    and mono_on: "mono f"
+  shows "directed {f x|x. x \<in> X}"
+proof (rule directedI)
+  show "{f x |x. x \<in> X} \<noteq> {}" using directed_nemptyE[OF directed] by blast
 next
   fix fa fb
   assume a_mem: "fa \<in> {f x |x. x \<in> X}" and b_mem: "fb \<in> {f x |x. x \<in> X}"
   obtain a where fa_eq: "fa = f a" and a_mem: "a \<in> X" using a_mem by blast
   obtain b where fb_eq: "fb = f b" and b_mem: "b \<in> X" using b_mem by blast
-  obtain c where a_le_c: "le a c" and b_le_c: "le b c" and c_mem: "c \<in> X" using directed_on_exE[OF directed_on a_mem b_mem] by blast
-  show "\<exists>c\<in>{f x |x. x \<in> X}. le' fa c \<and> le' fb c" unfolding fa_eq fb_eq proof (intro bexI conjI)
-    show "le' (f a) (f c)" using mono_on proof (rule mono_on_leE)
-      show "a \<in> D" using a_mem directed_on_subsetE[OF directed_on] by blast
-    next
-      show "c \<in> D" using c_mem directed_on_subsetE[OF directed_on] by blast
-    next
-      show "le a c" by (rule a_le_c)
+  obtain c where a_le_c: "le a c" and b_le_c: "le b c" and c_mem: "c \<in> X" using directed_exE[OF directed a_mem b_mem] by blast
+  show "\<exists>c\<in>{f x |x. x \<in> X}. fa \<sqsubseteq> c \<and> fb \<sqsubseteq> c" unfolding fa_eq fb_eq proof (intro bexI conjI)
+    show "f a \<sqsubseteq> f c" using mono_on proof (rule monoE)
+      show "a \<sqsubseteq> c" by (rule a_le_c)
     qed
   next
-    show "le' (f b) (f c)" using mono_on proof (rule mono_on_leE)
-      show "b \<in> D" using b_mem directed_on_subsetE[OF directed_on] by blast
-    next
-      show "c \<in> D" using c_mem directed_on_subsetE[OF directed_on] by blast
-    next
-      show "le b c" by (rule b_le_c)
+    show "f b \<sqsubseteq> f c" using mono_on proof (rule monoE)
+      show "b \<sqsubseteq> c" by (rule b_le_c)
     qed
   next
     show "f c \<in> {f x |x. x \<in> X}" using c_mem by blast
@@ -1624,57 +1492,40 @@ fun a_3_2_3 :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Right
       | "a_3_2_3 a0 b c (Suc n) = c (a_3_2_3 a0 b c n) (b (a_3_2_3 a0 b c n))"
 
 lemma
-  fixes D :: "'a set"
-    and D' :: "'b set"
-    and f :: "'a \<Rightarrow> 'b"
-  assumes cpo_on: "cpo_on D eq le"
-    and cpo_on': "cpo_on D' eq' le'"
-    and no_infinite: "\<nexists>a. (\<forall>i :: nat. a i \<in> D) \<and> (\<forall>i. a i \<noteq> a (Suc i) \<and> le (a i) (a (Suc i)))"
-    and mono_on: "mono_on D eq le D' eq' le' f"
-    and eq_on: "eq_on D le"
-  shows "cont_on D eq le D' eq' le' f"
+  fixes f :: "'a :: cpo \<Rightarrow> 'b :: cpo"
+  assumes no_infinite: "\<nexists>a :: nat \<Rightarrow> 'a. \<forall>i. a i \<noteq> a (Suc i) \<and> a i \<sqsubseteq> a (Suc i)"
+    and mono: "mono f"
+  shows "cont f"
 proof -
-  have 1: "\<And>fx. \<lbrakk> \<And>X x. \<lbrakk> directed_on D eq le X; supremum_on D le X x \<rbrakk> \<Longrightarrow> x \<in> X \<rbrakk> \<Longrightarrow> cont_on D eq le D' eq' le' f" proof -
-    assume x_mem: "\<And>X x. \<lbrakk> directed_on D eq le X; supremum_on D le X x \<rbrakk> \<Longrightarrow> x \<in> X"
-    show "cont_on D eq le D' eq' le' f" using cpo_on cpo_on' proof (rule cont_onI)
-      show "\<And>a. a \<in> D \<Longrightarrow> f a \<in> D'" by (rule mono_on_ranE[OF mono_on])
-    next
-      fix Xa
-      assume directed_on: "directed_on D eq le Xa"
-      show "\<exists>xb. supremum_on D' le' {f xa |xa. xa \<in> Xa} xb" using cpo_on_exE[OF cpo_on' mono_on_directed_onE[OF directed_on mono_on]] by blast
+  have 1: "\<And>fx. \<lbrakk> \<And>(X :: 'a set) x. \<lbrakk> directed X; supremum X x \<rbrakk> \<Longrightarrow> x \<in> X \<rbrakk> \<Longrightarrow> cont f" proof -
+    assume x_mem: "\<And>(X :: 'a set) x. \<lbrakk> directed X; supremum X x \<rbrakk> \<Longrightarrow> x \<in> X"
+    show "cont f" proof (rule contI)
+      fix Xa :: "'a set"
+      assume directed: "directed Xa"
+      show "\<exists>xb. supremum {f xa |xa. xa \<in> Xa} xb" using ex_sup[OF mono_directedE[OF directed mono]] by blast
     next
       fix Xa xa xb
-      assume directed_on: "directed_on D eq le Xa"
-        and sup_xa: "supremum_on D le Xa xa"
-        and sup_xb: "supremum_on D' le' {f xa |xa. xa \<in> Xa} xb"
-      have x_mem: "xa \<in> Xa" using directed_on sup_xa by (rule x_mem)
-      show "eq' (f xa) xb" using cpo_on_poE[OF cpo_on'] mono_on_ranE[OF mono_on supremum_on_memE[OF sup_xa]] supremum_on_memE[OF sup_xb] proof (rule po_antisymE)
-        show f_x_le_fx: "le' (f xa) xb" using sup_xb proof (rule supremum_on_leE)
+      assume directed: "directed Xa"
+        and sup_xa: "supremum Xa xa"
+        and sup_xb: "supremum {f xa |xa. xa \<in> Xa} xb"
+      have x_mem: "xa \<in> Xa" using directed sup_xa by (rule x_mem)
+      show "f xa = xb" proof (rule antisym)
+        show f_x_le_fx: "f xa \<sqsubseteq> xb" using sup_xb proof (rule supremum_leE)
           show "f xa \<in> {f x |x. x \<in> Xa}" using x_mem by blast
         qed
       next
-        have "\<And>y. y \<in> Xa \<Longrightarrow> le' (f y) (f xa)" using mono_on proof (rule mono_on_leE)
-          show "\<And>y. y \<in> Xa \<Longrightarrow> y \<in> D" using directed_on_subsetE[OF directed_on] by blast
-        next
-          show "xa \<in> D" using sup_xa by (rule supremum_on_memE)
-        next
+        have "\<And>y. y \<in> Xa \<Longrightarrow> f y \<sqsubseteq> f xa" using mono proof (rule monoE)
           fix y
           assume y_mem: "y \<in> Xa"
-          show "le y xa" using sup_xa y_mem by (rule supremum_on_leE)
+          show "y \<sqsubseteq> xa" using sup_xa y_mem by (rule supremum_leE)
         qed
-        show "le' xb (f xa)" using sup_xb proof (rule supremum_on_leastE)
-          show "upper_on D' le' {f x |x. x \<in> Xa} (f xa)" using mono_on_ranE[OF mono_on supremum_on_memE[OF sup_xa]] proof (rule upper_onI)
-            show "{f x |x. x \<in> Xa} \<subseteq> D'" using mono_on_ranE[OF mono_on] directed_on_subsetE[OF directed_on] by blast
-          next
+        show "xb \<sqsubseteq> f xa" using sup_xb proof (rule supremum_leastE)
+          show "{f x |x. x \<in> Xa} \<^sub>s\<sqsubseteq> f xa" proof (rule upperI)
             fix y
             assume "y \<in> {f x |x. x \<in> Xa}"
             then obtain z where y_eq: "y = f z" and z_mem: "z \<in> Xa" by blast
-            show "le' y (f xa)" unfolding y_eq using mono_on proof (rule mono_on_leE)
-              show "z \<in> D" using z_mem directed_on_subsetE[OF directed_on] by blast
-            next
-              show "xa \<in> D" using sup_xa by (rule supremum_on_memE)
-            next
-              show "le z xa" using sup_xa z_mem by (rule supremum_on_leE)
+            show "y \<sqsubseteq> f xa" unfolding y_eq using mono proof (rule monoE)
+              show "z \<sqsubseteq> xa" using sup_xa z_mem by (rule supremum_leE)
             qed
           qed
         qed
@@ -1682,20 +1533,19 @@ proof -
     qed
   qed
   show ?thesis proof (rule 1)
-    fix X x
-    assume directed_on: "directed_on D eq le X"
-      and sup_x: "supremum_on D le X x"
+    fix X :: "'a set" and x
+    assume directed: "directed X"
+      and sup_x: "supremum X x"
     show "x \<in> X" using no_infinite proof (rule contrapos_np)
       assume nmem: "x \<notin> X"
-      obtain a0 where a0_mem: "a0 \<in> X" using directed_on_nemptyE[OF directed_on] by blast
-      have "\<And>an. an \<in> X \<Longrightarrow> \<exists>b \<in> X. \<not>le b an"
-        by (metis (mono_tags, lifting) eq_onE[OF eq_on] directed_on_subsetE[OF directed_on] in_mono nmem supremum_on_leE[OF sup_x] supremum_on_memE[OF sup_x])
-      then obtain b where not_le: "\<And>an. an \<in> X \<Longrightarrow> \<not>le (b an) an"
+      obtain a0 where a0_mem: "a0 \<in> X" using directed_nemptyE[OF directed] by blast
+      have "\<And>an. an \<in> X \<Longrightarrow> \<exists>b \<in> X. \<not> b \<sqsubseteq> an" by (metis nmem antisym sup_x supremum_def supremum_leE upperI)
+      then obtain b where not_le: "\<And>an. an \<in> X \<Longrightarrow> \<not> b an \<sqsubseteq> an"
         and b_mem: "\<And>an. an \<in> X \<Longrightarrow> b an \<in> X" by metis
       then obtain c where an_le: "\<And>an. an \<in> X \<Longrightarrow> le an (c an (b an))"
         and b_le: "\<And>an. an \<in> X \<Longrightarrow> le (b an) (c an (b an))"
         and c_mem: "\<And>an. an \<in> X \<Longrightarrow> c an (b an) \<in> X"
-        using directed_on_exE[OF directed_on] b_mem by metis
+        using directed_exE[OF directed] b_mem by metis
       let ?a = "a_3_2_3 a0 b c"
       have a_mem: "\<And>n. ?a n \<in> X" proof -
         fix n
@@ -1707,18 +1557,15 @@ proof -
           then show ?case by (simp add: c_mem)
         qed
       qed
-      show "\<exists>a. (\<forall>i. a i \<in> D) \<and> (\<forall>i. a i \<noteq> a (Suc i) \<and> le (a i) (a (Suc i)))" proof (intro exI conjI allI impI)
-        fix n
-        show "?a n \<in> D" using a_mem directed_on_subsetE[OF directed_on] by blast
-      next
-        fix n :: nat
+      show "\<exists>a :: nat \<Rightarrow> 'a. \<forall>i. a i \<noteq> a (Suc i) \<and> a i \<sqsubseteq> a (Suc i)" proof (rule exI, rule allI, rule conjI)
+        fix n :: nat                                                            
         have neq: "?a n \<noteq> x" using a_mem nmem by blast
         have eq: "?a (Suc n) = c (?a n) (b (?a n))" by simp
         show "?a n \<noteq> ?a (Suc n)" unfolding eq using not_le[OF a_mem] b_le[OF a_mem] by metis
       next
         fix n
         have eq: "?a (Suc n) = c (?a n) (b (?a n))" by simp
-        show "le (?a n) (?a (Suc n))" unfolding eq using a_mem by (rule an_le)
+        show "?a n \<sqsubseteq> ?a (Suc n)" unfolding eq using a_mem by (rule an_le)
       qed
     qed
   qed
@@ -1726,35 +1573,43 @@ qed
 
 
 subsection "定理 3.2.4"
-text "D と D' を cpo としたとき、D から D' への連続関数の全体を [D \<rightarrow> D'] と表し、次のような半順序 \<sqsubseteq> を導入する。"
+text "D と D' を cpo としたとき、D から D' への連続関数の全体を [D \<rightarrow> D'] と表し、"
+typedef (overloaded) ('a, 'b) cfun = "{f::('a::cpo) \<Rightarrow> ('b::cpo). cont f}"
+proof (rule exI)
+  show "(\<lambda> _. \<bottom>) \<in> {f. cont f}" proof simp
+    show "cont (\<lambda> _. \<bottom>)" proof (rule contI)
+      fix Xa :: "'a set"
+      assume "directed Xa"
+      show "\<exists>xb. supremum {(\<lambda>_. \<bottom>) xa | xa. xa \<in> Xa} xb"
+
+    
+
+
+text "次のような半順序 \<sqsubseteq> を導入する。"
 text   "f \<sqsubseteq> g \<Leftrightarrow> \<forall>x \<in> D (f(x) \<sqsubseteq> g(x))"
 text "ここで左辺の \<sqsubseteq> は[D \<rightarrow> D'] の半順序を表し、右辺の \<sqsubseteq> は D' の半順序を表す。"
 text "このとき、[D \<rightarrow> D'] は cpo となる。"
-definition cont_set_on :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) \<Rightarrow> 'b set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) set"
-  where "cont_set_on D eq le D' eq' le' \<equiv> {f. cpo_on D eq le \<and> cpo_on D' eq' le' \<and> cont_on D eq le D' eq' le' f}"
 
-definition eq_cont_on :: "'a set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool"
-  where "eq_cont_on D eq f g \<equiv> \<forall>x \<in> D. eq (f x) (g x)"
 
-definition less_eq_cont_on :: "'a set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool"
-  where "less_eq_cont_on D le f g \<equiv> \<forall>x \<in> D. le (f x) (g x)"
+definition le_cont_on :: "'a set \<Rightarrow> ('b \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool"
+  where "le_cont_on D le f g \<equiv> \<forall>x \<in> D. le (f x) (g x)"
 
 lemma po_on_cont:
   assumes cpo_on: "cpo_on D eq le"
     and cpo_on': "cpo_on D' eq' le'"
     and cont_set: "C = cont_set_on D eq le D' eq' le'"
-  shows "partial_order_on C (eq_cont_on C eq') (less_eq_cont_on D le')"
+  shows "partial_order_on C (eq_cont_on C eq') (le_cont_on D le')"
 unfolding cont_set_on_def proof (rule partial_order_onI)
   fix a
   assume "a \<in> {f. cpo_on D le \<and> cpo_on D' le' \<and> cont_on D le D' le' f}"
   then obtain f where a_eq: "a = f" and cont_on: "cont_on D le D' le' f" by blast
-  show "less_eq_cont_on D le' a a" unfolding a_eq less_eq_cont_on_def using po_reflE[OF cpo_on_poE[OF cpo_on']] cont_on_ranE[OF cont_on] by blast
+  show "le_cont_on D le' a a" unfolding a_eq le_cont_on_def using po_reflE[OF cpo_on_poE[OF cpo_on']] cont_on_ranE[OF cont_on] by blast
 next
   fix a b
   assume a_mem: "a \<in> {f. cpo_on D le \<and> cpo_on D' le' \<and> cont_on D le D' le' f}"
     and b_mem: "b \<in> {f. cpo_on D le \<and> cpo_on D' le' \<and> cont_on D le D' le' f}"
-    and a_le_b: "less_eq_cont_on D le' a b"
-    and b_le_a: "less_eq_cont_on D le' b a"
+    and a_le_b: "le_cont_on D le' a b"
+    and b_le_a: "le_cont_on D le' b a"
   obtain f g
     where a_eq: "a = f" and cont_on: "cont_on D le D' le' f"
     and b_eq: "b = g" and cont_on: "cont_on D le D' le' g" using a_mem b_mem by blast
@@ -1762,15 +1617,15 @@ next
     fix x
     show "f x = g x"
 
-abbreviation less_eq_cont :: "('a \<Rightarrow> ('b :: partial_order)) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>r" 53)
-  where "less_eq_cont \<equiv> less_eq_cont_on UNIV (\<sqsubseteq>)"
+abbreviation le_cont :: "('a \<Rightarrow> ('b :: partial_order)) \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" (infix "\<sqsubseteq>\<^sub>r" 53)
+  where "le_cont \<equiv> le_cont_on UNIV (\<sqsubseteq>)"
 
 theorem cpo_on_cont:
   assumes cpo_on: "cpo_on D le"
     and cpo_on': "cpo_on D' le'"
-  shows "cpo_on (cont_set_on D le D' le') (less_eq_cont_on D le')"
+  shows "cpo_on (cont_set_on D le D' le') (le_cont_on D le')"
 using assms proof (simp add: cont_set_on_def)
-  show "cpo_on {f. cont_on D le D' le' f} (less_eq_cont_on D le')" proof (rule cpo_onI)
+  show "cpo_on {f. cont_on D le D' le' f} (le_cont_on D le')" proof (rule cpo_onI)
 
 
 
