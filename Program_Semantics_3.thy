@@ -118,6 +118,12 @@ lemma (in po)
     and infimum_greatestE: "\<And>a. a \<sqsubseteq>\<^sub>s X \<Longrightarrow> a \<sqsubseteq> d"
 using assms unfolding infimum_def by blast+
 
+lemma (in po) infimum_leE:
+  assumes inf_d: "infimum X d"
+    and x_mem: "x \<in> X"
+  shows "d \<sqsubseteq> x"
+using infimum_lowerE[OF inf_d] x_mem by (rule lowerE)
+
 
 text "半順序集合 D の部分集合 X について、常に X の上限が存在するとは限らないが、存在するとすれば唯一である。その元を \<squnion>X で表す。"
 
@@ -214,7 +220,7 @@ lemma least_Sup:
 text "完備束の定義で X = \<emptyset> とすると、\<squnion>X は D の最小元になり、X = D とすると \<squnion>X は D の最大限になる。"
 text "すなわち、完備束は常に最小元と最大元を持つことがわかる。"
 definition bot :: 'a
-  where "bot \<equiv> Sup {}"
+  where "bot \<equiv> \<^bold>\<squnion> {}"
 
 sublocale po_bot "(\<sqsubseteq>)" bot
 proof standard
@@ -227,7 +233,7 @@ proof standard
 qed
 
 definition top
-  where "top \<equiv> Sup UNIV"
+  where "top \<equiv> \<^bold>\<squnion> UNIV"
 
 sublocale po_top "(\<sqsubseteq>)" top
 proof standard
@@ -384,7 +390,7 @@ proof (rule Abs_graph_inverse, rule CollectI)
   qed
 qed
 
-lemma supremum_Un:
+lemma supremum_graph:
   fixes F :: "('a, 'b) graph set"
   assumes directed: "directed F"
   shows "supremum F (Abs_graph (\<Union> (Rep_graph ` F)))"
@@ -411,7 +417,7 @@ begin
 instance proof
   fix X :: "('a, 'b) graph set"
   assume directed: "directed X"
-  show "\<exists>d. supremum X d" by (rule exI, rule supremum_Un[OF directed])
+  show "\<exists>d. supremum X d" by (rule exI, rule supremum_graph[OF directed])
 qed
 end
 
