@@ -369,4 +369,295 @@ proof -
   ultimately show "\<^bold>\<squnion> {a i j |i j. True} = \<^bold>\<squnion> {a k k |k. True}" by (rule HOL.trans)
 qed
 
+subsection "練習問題 3.2"
+subsubsection "1"
+text "一般に X を空でない集合、\<O> を X の部分集合の集まりで、次の条件を満たすものとする。"
+text   "(1) \<emptyset> \<in> \<O>, X \<in> \<O>"
+text   "(2) U, V \<in> \<O> ならば U \<inter> V \<in> \<O>"
+text   "(3) U_i \<in> \<O> ならば \<union>{U_i | i \<in> I} \<in> \<O>"
+text "このとき、(X, \<O>) を移送空間（topological space）, \<O> を位相（topology）、"
+text "各 U \<in> \<O> を開集合（open set）と呼ぶ。"
+
+class "open" =
+  fixes "open" :: "'a set \<Rightarrow> bool" \<comment> \<open>\<lambda>X. X \<in> \<O> の意味。\<close>
+
+class topo = "open" +
+  assumes open_UNIV: "open UNIV"
+    and open_empty: "open {}"
+    and open_Int: "\<lbrakk> open U; open V \<rbrakk> \<Longrightarrow> open (U \<inter> V)"
+    and open_Un: "(\<And>Xi. Xi \<in> X \<Longrightarrow> open Xi) \<Longrightarrow> open (\<Union>X)"
+
+lemma (in topo) open_Un2:
+  assumes "open U"
+    and "open V"
+  shows "open (U \<union> V)"
+proof -
+  let ?X = "{U, V}"
+  have eq: "U \<union> V = \<Union>?X" by blast
+  show "open (U \<union> V)" unfolding eq proof (rule open_Un)
+    fix Xi
+    assume "Xi \<in> {U, V}"
+    thus "open Xi" using assms by blast
+  qed
+qed
+
+
+text "また、f を位相空間（X, \<O>） から (X', \<O>') への関数として、任意の U \<in> \<O>' について、{x \<in> X | f(x) \<in> U} \<in> \<O>"
+text "f は連続であると呼ぶ。"
+
+definition topo_cont :: "(('a::topo) \<Rightarrow> ('b::topo)) \<Rightarrow> bool"
+  where "topo_cont f \<equiv> \<forall>U. open U \<longrightarrow> open {x. f x \<in> U}"
+
+lemma topo_contI:
+  fixes f :: "(('a::topo) \<Rightarrow> ('b::topo))"
+  assumes "\<And>U. open U \<Longrightarrow> open {x. f x \<in> U}"
+  shows "topo_cont f"
+unfolding topo_cont_def using assms by blast
+
+lemma topo_contE:
+  fixes f :: "(('a::topo) \<Rightarrow> ('b::topo))"
+  assumes "topo_cont f"
+    and "open U"
+  shows "open {x. f x \<in> U}"
+using assms unfolding topo_cont_def by blast
+
+
+text "さて、 cpo D について、次の 2 つの条件を満たす U \<subseteq> D を開集合とする位相 \<O> を導入する。"
+text   "(a) a \<in> U かつ a \<sqsubseteq> b ならば b \<in> U"
+text   "(b) 任意の有向集合 X \<subseteq> D について、\<squnion>X \<in> U ならば X \<inter> U \<noteq> \<emptyset>"
+
+definition (in cpo) open_cpo :: "'a set \<Rightarrow> bool"
+  where "open_cpo U \<equiv> (\<forall>a \<in> U. \<forall>b. a \<sqsubseteq> b \<longrightarrow> b \<in> U) \<and> (\<forall>X. directed X \<longrightarrow> (\<exists>x \<in> U. supremum X x) \<longrightarrow> X \<inter> U \<noteq> {})"
+
+lemma (in cpo) open_cpoI:
+  assumes 1: "\<And>a b. \<lbrakk> a \<in> U; a \<sqsubseteq> b \<rbrakk> \<Longrightarrow> b \<in> U"
+    and 2: "\<And>X x. \<lbrakk> directed X; supremum X x; x \<in> U \<rbrakk> \<Longrightarrow> X \<inter> U \<noteq> {}"
+  shows "open_cpo U"
+using assms unfolding open_cpo_def by blast
+
+lemma (in cpo)
+  assumes "open_cpo U"
+  shows open_cpo_memE: "\<And>a b. \<lbrakk> a \<in> U; a \<sqsubseteq> b \<rbrakk> \<Longrightarrow> b \<in> U"
+    and open_cpo_Int_nemptyE: "\<And>X x. \<lbrakk> directed X; supremum X x; x \<in> U \<rbrakk> \<Longrightarrow> X \<inter> U \<noteq> {}"
+using assms unfolding open_cpo_def by blast+
+
+
+text "このとき、次の2つを示せ。"
+text   "(i) (D, \<O>) は位相空間である。（この位相は、発案者の名前をとってスコット位相（Scott topology）と呼ばれている。）"
+
+class topo_cpo = cpo + "open" +
+  assumes open_def: "open = open_cpo"
+begin
+
+subclass topo
+proof (standard, unfold open_def)
+  show "open_cpo (UNIV :: 'a set)" unfolding open_cpo_def proof auto
+    fix x
+    assume directed: "directed {}"
+    show False using directed_nemptyE[OF directed] by blast
+  qed
+next
+  show "open_cpo ({} :: 'a set)" unfolding open_cpo_def by blast
+next
+  fix U V :: "'a set"
+  assume open_cpo_U: "open_cpo U"
+    and open_cpo_V: "open_cpo V"
+  show "open_cpo (U \<inter> V)" proof (rule open_cpoI)
+    fix a b
+    assume a_mem_Int: "a \<in> U \<inter> V"
+      and a_le_b: "a \<sqsubseteq> b"
+    have a_mem_U: "a \<in> U" and a_mem_V: "a \<in> V" using a_mem_Int by blast+
+    show "b \<in> U \<inter> V" proof (rule IntI)
+      show "b \<in> U" using open_cpo_U a_mem_U a_le_b by (rule open_cpo_memE)
+    next
+      show "b \<in> V" using open_cpo_V a_mem_V a_le_b by (rule open_cpo_memE)
+    qed
+  next
+    fix X x
+    assume directed: "directed X"
+      and sup_x: "supremum X x"
+      and x_mem_Int: "x \<in> U \<inter> V"
+    have x_mem_U: "x \<in> U" and x_mem_V: "x \<in> V" using x_mem_Int by blast+
+    obtain u where u_mem_X: "u \<in> X" and u_mem_U: "u \<in> U" using open_cpo_Int_nemptyE[OF open_cpo_U directed sup_x x_mem_U] by blast
+    obtain v where v_mem_X: "v \<in> X" and v_mem_V: "v \<in> V" using open_cpo_Int_nemptyE[OF open_cpo_V directed sup_x x_mem_V] by blast
+    obtain y where u_le_y: "u \<sqsubseteq> y" and v_le_y: "v \<sqsubseteq> y" and y_mem_X: "y \<in> X" using directed_exE[OF directed u_mem_X v_mem_X] by blast
+    have y_mem_U: "y \<in> U" using open_cpo_U u_mem_U u_le_y by (rule open_cpo_memE)
+    have y_mem_V: "y \<in> V" using open_cpo_V v_mem_V v_le_y by (rule open_cpo_memE)
+    show "X \<inter> (U \<inter> V) \<noteq> {}" using y_mem_X y_mem_U y_mem_V by blast
+  qed
+next
+  fix X
+  assume 3: "\<And>Xi. Xi \<in> X \<Longrightarrow> open_cpo Xi"
+  show "open_cpo (\<Union> X)" proof (rule open_cpoI)
+    fix a b
+    assume a_mem_Un: "a \<in> \<Union>X"
+      and a_le_b: "a \<sqsubseteq> b"
+    obtain Xi where a_mem_Xi: "a \<in> Xi" and Xi_mem: "Xi \<in> X" using a_mem_Un by blast
+    have open_cpo_Xi: "open_cpo Xi" using Xi_mem by (rule 3)
+    have b_mem_Xi: "b \<in> Xi" using open_cpo_Xi a_mem_Xi a_le_b by (rule open_cpo_memE)
+    show "b \<in> \<Union>X" using b_mem_Xi Xi_mem by blast
+  next
+    fix Y y
+    assume directed: "directed Y"
+      and sup_y: "supremum Y y"
+      and y_mem_Un: "y \<in> \<Union>X"
+    obtain Xi where y_mem_Xi: "y \<in> Xi" and Xi_mem: "Xi \<in> X" using y_mem_Un by blast
+    have open_cpo_Xi: "open_cpo Xi" using Xi_mem by (rule 3)
+    have Int_nempty: "Y \<inter> Xi \<noteq> {}" using open_cpo_Xi directed sup_y y_mem_Xi by (rule open_cpo_Int_nemptyE)
+    thus "Y \<inter> \<Union> X \<noteq> {}" using Xi_mem by blast
+  qed
+qed
+end
+
+
+text   "(ii) D と D' を cpo として、f : D \<rightarrow> D' が cpo の意味で連続であることと、スコット位相に関して連続であることは同値である。"
+
+lemma directed_CollectI:
+  fixes f :: "('a::cpo) \<Rightarrow> ('b::cpo)"
+  assumes mono: "mono f"
+    and directed: "directed X"
+  shows "directed {f x |x. x \<in> X}" 
+proof (rule directedI)
+  show "{f x |x. x \<in> X} \<noteq> {}" using directed_nemptyE[OF directed] by blast
+next
+  fix a b
+  assume a_mem: "a \<in> {f x |x. x \<in> X}"
+    and b_mem: "b \<in> {f x |x. x \<in> X}"
+  obtain xa where a_eq: "a = f xa" and xa_mem: "xa \<in> X" using a_mem by blast
+  obtain xb where b_eq: "b = f xb" and xb_mem: "xb \<in> X" using b_mem by blast
+  obtain xc where xa_le_xc: "xa \<sqsubseteq> xc" and xb_le_xc: "xb \<sqsubseteq> xc" and xc_mem: "xc \<in> X" using directed_exE[OF directed xa_mem xb_mem] by blast
+  show "\<exists>c\<in>{f x |x. x \<in> X}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c" proof (intro bexI conjI CollectI exI)
+    show "a \<sqsubseteq> f xc" unfolding a_eq using mono xa_le_xc by (rule monoE)
+  next
+    show "b \<sqsubseteq> f xc" unfolding b_eq using mono xb_le_xc by (rule monoE)
+  next
+    show "f xc = f xc" by (rule HOL.refl)
+  next
+    show "xc \<in> X" by (rule xc_mem)
+  qed
+qed
+
+lemma (in topo_cpo) open_Collect_not_le:
+  fixes fx :: 'a
+  shows "open {fy. \<not> fy \<sqsubseteq> fx}"
+unfolding open_def proof (rule open_cpoI)
+  fix fc fd x
+  assume a_mem: "fc \<in> {fy. \<not> fy \<sqsubseteq> fx}"
+    and fc_le_fd: "fc \<sqsubseteq> fd"
+  have not_fc_le_fb: "\<not> fc \<sqsubseteq> fx" using a_mem by blast
+  show "fd \<in> {fy. \<not> fy \<sqsubseteq> fx}" proof (intro CollectI exI conjI)
+    show "\<not>fd \<sqsubseteq> fx" proof (rule notI)
+      assume fd_le_fb: "fd \<sqsubseteq> fx"
+      have fc_le_fb: "fc \<sqsubseteq> fx" using fc_le_fd fd_le_fb by (rule trans)
+      show False using not_fc_le_fb fc_le_fb by (rule notE)
+    qed
+  qed
+next
+  fix X :: "'a set" and x fy
+  assume directed: "directed X"
+    and sup_fy: "supremum X fy"
+    and fy_mem_Collect: "fy \<in> {fy. \<not> fy \<sqsubseteq> fx}"
+  have not_fx_le_fb: "\<not> fy \<sqsubseteq> fx" using fy_mem_Collect by blast
+  show "X \<inter> {fy. \<not> fy \<sqsubseteq> fx} \<noteq> {}" using not_fx_le_fb proof (rule contrapos_nn)
+    assume Int_empty: "X \<inter> {fy. \<not> fy \<sqsubseteq> fx} = {}"
+    show "fy \<sqsubseteq> fx" using sup_fy proof (rule supremum_leastE)
+      show "X \<^sub>s\<sqsubseteq> fx" proof (rule upperI)
+        fix y
+        assume y_mem: "y \<in> X"
+        show "y \<sqsubseteq> fx" using Int_empty y_mem by blast
+      qed
+    qed
+  qed
+qed
+
+lemma open_Collect_inv_not_le:
+  fixes f :: "('a::topo_cpo) \<Rightarrow> ('b::topo_cpo)"
+  assumes topo_cont: "topo_cont f"
+  shows "open {y. \<not>f y \<sqsubseteq> fx}"
+proof -
+  fix fx
+  have eq: "{y. \<not>f y \<sqsubseteq> fx} = {y. f y \<in> {f y|y. \<not> f y \<sqsubseteq> fx}}" by fastforce
+  show "open {y. \<not>f y \<sqsubseteq> fx}" using topo_contE[OF topo_cont open_Collect_not_le] by simp
+qed
+
+theorem cont_iff_topo_cont:
+  fixes f :: "('a::topo_cpo) \<Rightarrow> ('b::topo_cpo)"
+  shows "cont f \<longleftrightarrow> topo_cont f"
+proof (rule iffI)
+  assume cont: "cont f"
+  show "topo_cont f" proof (rule topo_contI, unfold open_def)
+    fix U :: "'b set"
+    assume open_cpo: "open_cpo U"
+    show "open_cpo {x. f x \<in> U}" proof (rule open_cpoI)
+      fix a b
+      assume a_mem_Collect: "a \<in> {x. f x \<in> U}"
+        and a_le_b: "a \<sqsubseteq> b"
+      obtain x where a_eq: "a = x" and f_x_mem: "f x \<in> U" using a_mem_Collect by blast
+      have f_b_mem: "f b \<in> U" using open_cpo f_x_mem proof (rule open_cpo_memE)
+        show "f x \<sqsubseteq> f b" unfolding a_eq[symmetric] using cont_is_mono[OF cont] a_le_b by (rule monoE)
+      qed
+      show "b \<in> {x. f x \<in> U}" using f_b_mem by blast
+    next
+      fix X x
+      assume directed: "directed X"
+        and sup_x: "supremum X x"
+        and x_mem_Un: "x \<in> {x. f x \<in> U}"
+      obtain fx where sup_fx: "supremum {f x |x. x \<in> X} fx" using cont_exE[OF cont directed] by blast
+      have eq: "f x = fx" using cont directed sup_x sup_fx by (rule cont_sup_eqE)
+      have fx_mem_U: "fx \<in> U" unfolding eq[symmetric] using x_mem_Un by blast
+      have directed_Collect: "directed {f x |x. x \<in> X}" using cont_is_mono[OF cont] directed by (rule directed_CollectI)
+      have "{f x |x. x \<in> X} \<inter> U \<noteq> {}" using open_cpo directed_Collect sup_fx fx_mem_U by (rule open_cpo_Int_nemptyE)
+      thus "X \<inter> {x. f x \<in> U} \<noteq> {}" by blast
+    qed
+  qed
+next
+  assume topo_cont: "topo_cont f"
+  have mono: "mono f" proof (rule ccontr)
+    assume "\<not>mono f"
+    then obtain a b where a_le_b: "a \<sqsubseteq> b" and not_fa_le_fb: "\<not> f a \<sqsubseteq> f b" unfolding mono_def by blast
+    have a_mem: "a \<in> {x. \<not>f x \<sqsubseteq> f b}" using not_fa_le_fb by blast
+    have b_mem: "b \<in> {x. \<not>f x \<sqsubseteq> f b}" using open_Collect_inv_not_le[OF topo_cont] a_mem a_le_b unfolding open_def by (rule open_cpo_memE)
+    thus False using refl[where ?a="f b"] by blast
+  qed
+  show "cont f" proof (rule contI)
+    fix X :: "'a set"
+    assume directed: "directed X"
+    obtain x where sup_x: "supremum {f x |x. x \<in> X} x" using ex_supremum[OF directed_CollectI[OF mono directed]] by blast
+    show "\<exists>fx. supremum {f x |x. x \<in> X} fx" using sup_x by (rule exI)
+  next
+    fix X :: "'a set" and x fx
+    assume directed: "directed X"
+      and sup_x: "supremum X x"
+      and sup_fx: "supremum {f x |x. x \<in> X} fx"
+    show "f x = fx" proof (rule antisym)
+      show "fx \<sqsubseteq> f x" using sup_fx proof (rule supremum_leastE)
+        show "{f x |x. x \<in> X} \<^sub>s\<sqsubseteq> f x" proof (rule upperI)
+          fix fa
+          assume "fa \<in> {f x |x. x \<in> X}"
+          then obtain a where fa_eq: "fa = f a" and a_mem: "a \<in> X" by blast
+          show "fa \<sqsubseteq> f x" unfolding fa_eq using mono proof (rule monoE)
+            show "a \<sqsubseteq> x" using sup_x a_mem by (rule supremum_leE)
+          qed
+        qed
+      qed
+    next
+      show "f x \<sqsubseteq> fx" proof (rule ccontr)
+        assume not_fx_le_fx: "\<not> f x \<sqsubseteq> fx"
+        have "X \<inter> {y. \<not> f y \<sqsubseteq> fx} \<noteq> {}" using open_Collect_inv_not_le[OF topo_cont] directed sup_x unfolding open_def proof (rule open_cpo_Int_nemptyE)
+          show "x \<in> {y. \<not> f y \<sqsubseteq> fx}" using not_fx_le_fx by blast
+        qed
+        then obtain a where a_mem: "a \<in> X \<inter> {y. \<not> f y \<sqsubseteq> fx}" by blast
+        thus False proof auto
+          assume a_mem: "a \<in> X"
+            and not_fa_le_fx: "\<not>f a \<sqsubseteq> fx"
+          have fa_le_fx: "f a \<sqsubseteq> fx" using sup_fx proof (rule supremum_leE)
+            show "f a \<in> {f x |x. x \<in> X}" using a_mem by blast
+          qed
+          show False using not_fa_le_fx fa_le_fx by (rule notE)
+        qed
+      qed
+    qed
+  qed
+qed
+
 end
