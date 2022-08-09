@@ -1,6 +1,8 @@
 theory Program_Semantics_3_Test
-  imports Program_Semantics_3_Exercise HOL.Topological_Spaces
+  imports Program_Semantics_3 Program_Semantics_3_Exercise HOL.Topological_Spaces
 begin
+
+hide_const Sup Inf
 
 abbreviation (in po) less :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubset>" 53)
   where "a \<sqsubset> b \<equiv> a \<noteq> b \<and> a \<sqsubseteq> b"
@@ -26,21 +28,19 @@ end
 
 context complete_lattice
 begin
-lemma Sup_singleton: "\<^bold>\<squnion> {a} = a"
+
+lemma Sup_singleton: "\<Squnion> {a} = a"
 proof -
   show ?thesis proof (rule antisym)
-    show "\<^bold>\<squnion> {a} \<sqsubseteq> a" proof (rule least_Sup)
+    show "\<Squnion> {a} \<sqsubseteq> a" proof (rule least_Sup)
       show "{a} \<^sub>s\<sqsubseteq> a" unfolding upper_def using refl by simp
     qed
   next
-    show "a \<sqsubseteq> \<^bold>\<squnion> {a}" proof (rule le_Sup)
+    show "a \<sqsubseteq> \<Squnion> {a}" proof (rule le_Sup)
       show "a \<in> {a}" by simp
     qed
   qed
 qed
-
-definition sup :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infix "\<squnion>" 54)
-  where "sup a b \<equiv> \<^bold>\<squnion> {a, b}"
 
 lemma sup_commute: "a \<squnion> b = b \<squnion> a"
   unfolding sup_def insert_commute by simp
@@ -127,38 +127,35 @@ qed
 
 lemma Inf_le:
   assumes "x \<in> X"
-  shows "\<^bold>\<sqinter> X \<sqsubseteq> x"
+  shows "\<Sqinter> X \<sqsubseteq> x"
 proof -
   obtain y where 1: "infimum X y" using ex_infimum .
-  have Inf_eq: "\<^bold>\<sqinter> X = y" using 1 by (rule Inf_eq)
+  have Inf_eq: "\<Sqinter> X = y" using 1 by (rule Inf_eq)
   have 2: "y \<sqsubseteq> x" using infimum_leE 1 assms .
-  show "\<^bold>\<sqinter> X \<sqsubseteq> x" unfolding Inf_eq by (rule 2)
+  show "\<Sqinter> X \<sqsubseteq> x" unfolding Inf_eq by (rule 2)
 qed
 
 lemma Inf_greatest:
   assumes "x \<sqsubseteq>\<^sub>s X"
-  shows "x \<sqsubseteq> \<^bold>\<sqinter> X"
+  shows "x \<sqsubseteq> \<Sqinter> X"
 proof -
   obtain y where 1: "infimum X y" using ex_infimum .
-  have Inf_eq: "\<^bold>\<sqinter> X = y" using 1 by (rule Inf_eq)
-  show "x \<sqsubseteq> \<^bold>\<sqinter> X" unfolding Inf_eq using 1 proof (rule infimum_greatestE)
+  have Inf_eq: "\<Sqinter> X = y" using 1 by (rule Inf_eq)
+  show "x \<sqsubseteq> \<Sqinter> X" unfolding Inf_eq using 1 proof (rule infimum_greatestE)
     show "x \<sqsubseteq>\<^sub>s X" using assms .
   qed
 qed
 
-lemma Inf_singleton: "\<^bold>\<sqinter> {a} = a"
+lemma Inf_singleton: "\<Sqinter> {a} = a"
 proof (rule antisym)
-  show "\<^bold>\<sqinter> {a} \<sqsubseteq> a" proof (rule Inf_le)
+  show "\<Sqinter> {a} \<sqsubseteq> a" proof (rule Inf_le)
     show "a \<in> {a}" by blast
   qed
 next
-  show "a \<sqsubseteq> \<^bold>\<sqinter> {a}" proof (rule Inf_greatest)
+  show "a \<sqsubseteq> \<Sqinter> {a}" proof (rule Inf_greatest)
     show "a \<sqsubseteq>\<^sub>s {a}" by (rule lowerI; blast)
   qed
 qed
-
-definition inf :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infix "\<sqinter>" 54)
-  where "inf a b \<equiv> Inf {a, b}"
 
 lemma inf_commute: "a \<sqinter> b = b \<sqinter> a"
   unfolding inf_def insert_commute by simp
@@ -245,29 +242,29 @@ next
   thus "x \<sqsubseteq> y \<sqinter> z" using le_inf by blast
 qed
 
-sublocale lattice inf "(\<sqsubseteq>)" "(\<sqsubset>)" sup by standard
+sublocale lattice "(\<sqinter>)" "(\<sqsubseteq>)" "(\<sqsubset>)" "(\<squnion>)" by standard
 
-sublocale complete_lattice : Complete_Lattices.complete_lattice Inf Sup inf le less sup bot top
+sublocale complete_lattice : Complete_Lattices.complete_lattice "Inf" "Sup" "(\<sqinter>)" le less "(\<squnion>)" "\<bottom>" "\<top>"
 proof standard
   fix x :: 'a and A
   assume "x \<in> A"
-  thus "\<^bold>\<sqinter> A \<sqsubseteq> x" using Inf_le by presburger
+  thus "\<Sqinter> A \<sqsubseteq> x" using Inf_le by presburger
 next
   fix z :: 'a and A
   assume "\<And>x. x \<in> A \<Longrightarrow> z \<sqsubseteq> x"
-  thus "z \<sqsubseteq> \<^bold>\<sqinter> A" by (simp add: Inf_greatest lower_def)
+  thus "z \<sqsubseteq> \<Sqinter> A" by (simp add: Inf_greatest lower_def)
 next
   fix x :: 'a and A
   assume "x \<in> A"
-  thus "x \<sqsubseteq> \<^bold>\<squnion> A" using le_Sup by presburger
+  thus "x \<sqsubseteq> \<Squnion> A" using le_Sup by presburger
 next
   fix z :: 'a and A
   assume "\<And>x. x \<in> A \<Longrightarrow> x \<sqsubseteq> z"
-  thus "\<^bold>\<squnion> A \<sqsubseteq> z" by (simp add: least_Sup upper_def)
+  thus "\<Squnion> A \<sqsubseteq> z" by (simp add: least_Sup upper_def)
 next
-  show "\<^bold>\<sqinter> {} = top" by (meson emptyE Inf_greatest le_top lowerI order.antisym_conv)
+  show "\<Sqinter> {} = top" by (meson emptyE Inf_greatest le_top lowerI order.antisym_conv)
 next
-  show "\<^bold>\<squnion> {} = bot" by (simp add: bot_def)
+  show "\<Squnion> {} = bot" by (simp add: bot_def)
 qed
 
 end

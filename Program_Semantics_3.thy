@@ -25,16 +25,20 @@ subsection "定義 3.1.2"
 text "半順序集合 D 上の最小元（least element あるいは bottom）とは、次の条件を満たす元 \<bottom> \<in> D のことである。"
 text   "\<forall>a \<in> D (\<bottom> \<sqsubseteq> a)"
 
-class po_bot = po +
+class bot =
   fixes bot :: 'a ("\<bottom>")
+
+class po_bot = po + bot +
   assumes bot_le: "\<And>a. \<bottom> \<sqsubseteq> a"
 
 
 text "最小元と対になる概念として、半順序集合 D の最大元（greatest element あるいは top）とは、次の条件を満たす元 \<top> \<in> D である。"
 text   "\<forall>a \<in> D (a \<sqsubseteq> \<top>)"
 
-class po_top = po +
+class top =
   fixes top :: 'a ("\<top>")
+
+class po_top = po + top +
   assumes le_top: "\<And>a. a \<sqsubseteq> \<top>"
 
 
@@ -144,12 +148,12 @@ proof -
   qed
 qed
 
-definition (in po) Sup :: "'a set \<Rightarrow> 'a" ("\<^bold>\<squnion> _" [54] 54)
-  where "\<^bold>\<squnion>X \<equiv> (THE x. supremum X x)"
+definition (in po) Sup :: "'a set \<Rightarrow> 'a" ("\<Squnion> _" [54] 54)
+  where "\<Squnion>X \<equiv> (THE x. supremum X x)"
 
 lemma (in po) Sup_eq:
   assumes "supremum X a"
-  shows "\<^bold>\<squnion>X = a"
+  shows "\<Squnion>X = a"
 unfolding Sup_def using assms proof (rule the_equality)
   show "\<And>d. supremum X d \<Longrightarrow> d = a" by (rule supremum_uniq[OF assms])
 qed
@@ -157,18 +161,18 @@ qed
 lemma (in po) le_SupI:
   assumes sup_x: "supremum X x"
     and a_mem: "a \<in> X"
-  shows "a \<sqsubseteq> \<^bold>\<squnion>X"
+  shows "a \<sqsubseteq> \<Squnion>X"
 unfolding Sup_eq[OF sup_x] using sup_x a_mem by (rule supremum_leE)
 
 lemma (in po) Sup_leI:
   assumes sup_x: "supremum X x"
     and upper_a: "X \<^sub>s\<sqsubseteq> a"
-  shows "\<^bold>\<squnion>X \<sqsubseteq> a"
+  shows "\<Squnion>X \<sqsubseteq> a"
 unfolding Sup_eq[OF sup_x] using sup_x upper_a by (rule supremum_leastE)
 
 lemma (in po) supremum_SupI:
   assumes sup_x: "supremum X x"
-  shows "supremum X (\<^bold>\<squnion>X)"
+  shows "supremum X (\<Squnion>X)"
 unfolding Sup_eq[OF sup_x] by (rule sup_x)
 
 
@@ -189,60 +193,61 @@ next
   qed
 qed
 
-definition (in po) Inf :: "'a set \<Rightarrow> 'a" ("\<^bold>\<sqinter> _" [54] 54)
-  where "\<^bold>\<sqinter>X \<equiv> (THE x. infimum X x)"
+definition (in po) Inf :: "'a set \<Rightarrow> 'a" ("\<Sqinter> _" [54] 54)
+  where "\<Sqinter>X \<equiv> (THE x. infimum X x)"
 
 lemma (in po) Inf_eq:
   assumes "infimum X a"
-  shows "\<^bold>\<sqinter>X = a"
+  shows "\<Sqinter>X = a"
 unfolding Inf_def using assms proof (rule the_equality)
   show "\<And>d. infimum X d \<Longrightarrow> d = a" using assms by (rule infimum_uniq)
 qed
 
+definition (in po) sup :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infix "\<squnion>" 54)
+  where "sup a b \<equiv> \<Squnion> {a, b}"
+
+definition (in po) inf :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infix "\<sqinter>" 54)
+  where "inf a b \<equiv> \<Sqinter> {a, b}"
+
 
 subsection "定義 3.1.4"
 text "半順序集合 D において、すべての部分集合 X \<subseteq> D について上限 \<squnion>X \<in> D が存在するとき、D を完備束（complete_lattice）と呼ぶ。"
-class complete_lattice = po +
+text "完備束の定義で X = \<emptyset> とすると、\<squnion>X は D の最小元になり、X = D とすると \<squnion>X は D の最大限になる。"
+text "すなわち、完備束は常に最小元と最大元を持つことがわかる。"
+
+class complete_lattice = po + bot + top +
   assumes ex_supremum: "\<And>X. \<exists>d. supremum X d"
+    and bot_def: "\<bottom> = \<Squnion> {}"
+    and top_def: "\<top> = \<Squnion> UNIV"
 begin
 
 lemma le_Sup:
   assumes "x \<in> X"
-  shows "x \<sqsubseteq> \<^bold>\<squnion>X"
+  shows "x \<sqsubseteq> \<Squnion>X"
   using Sup_eq assms ex_supremum supremum_upperE upperE by metis
 
 lemma least_Sup:
   assumes "X \<^sub>s\<sqsubseteq> b"
-  shows "\<^bold>\<squnion>X \<sqsubseteq> b"
+  shows "\<Squnion>X \<sqsubseteq> b"
   using Sup_eq assms ex_supremum supremum_leastE by metis
 
-
-text "完備束の定義で X = \<emptyset> とすると、\<squnion>X は D の最小元になり、X = D とすると \<squnion>X は D の最大限になる。"
-text "すなわち、完備束は常に最小元と最大元を持つことがわかる。"
-definition bot :: 'a
-  where "bot \<equiv> \<^bold>\<squnion> {}"
-
-sublocale po_bot "(\<sqsubseteq>)" bot
+subclass po_bot
 proof standard
-  show "\<And>a. (bot :: 'a) \<sqsubseteq> a" unfolding bot_def proof -
+  show "\<And>a. \<bottom> \<sqsubseteq> a" unfolding bot_def proof -
     fix a
-    show "\<^bold>\<squnion> {} \<sqsubseteq> a" proof (rule least_Sup)
+    show "\<Squnion> {} \<sqsubseteq> a" proof (rule least_Sup)
       show "{} \<^sub>s\<sqsubseteq> a " unfolding upper_def by simp
     qed
   qed
 qed
 
-definition top
-  where "top \<equiv> \<^bold>\<squnion> UNIV"
-
-sublocale po_top "(\<sqsubseteq>)" top
+subclass po_top
 proof standard
-  fix a :: 'a
-  show "a \<sqsubseteq> (top :: 'a)" unfolding top_def proof (rule le_Sup)
-    show "a \<in> UNIV" by (rule UNIV_I)
-  qed
+  fix a
+  show "a \<sqsubseteq> \<top>" unfolding top_def using UNIV_I by (rule le_Sup)
 qed
 end
+
 
 subsection "定義 3.1.5"
 text "半順序集合 D の元の列 a0 \<sqsubseteq> a1 \<sqsubseteq> a2 \<sqsubseteq> \<dots> を \<omega> 鎖（\<omega>-chain）と呼ぶ。"
@@ -1124,8 +1129,8 @@ qed
 
 lemma (in po)
   assumes sup_a_iI: "\<And>i. i \<in> I \<Longrightarrow> supremum (x i) (a i)"
-  shows supremum_eq1: "supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> \<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})"
-    and supremum_eq2: "supremum (\<Union>{x i|i. i \<in> I}) b \<Longrightarrow> b = \<^bold>\<squnion>{a i|i. i \<in> I}"
+  shows supremum_eq1: "supremum {a i|i. i \<in> I} \<a> \<Longrightarrow> \<a> = \<Squnion>(\<Union>{x i|i. i \<in> I})"
+    and supremum_eq2: "supremum (\<Union>{x i|i. i \<in> I}) b \<Longrightarrow> b = \<Squnion>{a i|i. i \<in> I}"
 proof -
   assume sup_a: "supremum {a i |i. i \<in> I} \<a>"
   have "supremum (\<Union>{x i|i. i \<in> I}) \<a>" proof (rule supremum_CollectE)
@@ -1135,7 +1140,7 @@ proof -
   next
     show "supremum {a i |i. i \<in> I} \<a> " by (rule sup_a)
   qed
-  thus "\<a> = \<^bold>\<squnion>(\<Union>{x i|i. i \<in> I})" using Sup_eq by blast
+  thus "\<a> = \<Squnion>(\<Union>{x i|i. i \<in> I})" using Sup_eq by blast
 next
   assume sup_b: "supremum (\<Union>{x i|i. i \<in> I}) b"
   have "supremum {a i |i. i \<in> I} b" proof (rule supremum_CollectI)
@@ -1145,7 +1150,7 @@ next
   next
     show "supremum (\<Union>{x i|i. i \<in> I}) b" by (rule sup_b)
   qed
-  thus "b = \<^bold>\<squnion> {a i |i. i \<in> I}" using Sup_eq by blast
+  thus "b = \<Squnion> {a i |i. i \<in> I}" using Sup_eq by blast
 qed
 
 
@@ -1642,13 +1647,13 @@ lemma Rep_cfun_Sup_eq:
   fixes f :: "('a :: cpo, 'b :: cpo) cfun"
     and X :: "'a set"
   assumes directed: "directed X"
-  shows "Rep_cfun f (\<^bold>\<squnion>X) = \<^bold>\<squnion>{Rep_cfun f x |x. x \<in> X}"
+  shows "Rep_cfun f (\<Squnion>X) = \<Squnion>{Rep_cfun f x |x. x \<in> X}"
 proof -
   obtain x where sup_x: "supremum X x" using ex_supremum[OF directed] by blast
   have cont: "cont (Rep_cfun f)" using Rep_cfun by blast
   obtain fx where sup_fx: "supremum {Rep_cfun f x |x. x \<in> X} fx" using cont_exE[OF cont directed] by blast
   have Rep_cfun_f_x_eq: "Rep_cfun f x = fx" using cont directed sup_x sup_fx by (rule cont_sup_eqE)
-  show "Rep_cfun f (\<^bold>\<squnion>X) = \<^bold>\<squnion>{Rep_cfun f x |x. x \<in> X}" unfolding Sup_eq[OF sup_x] Rep_cfun_f_x_eq Sup_eq[OF sup_fx] by (rule HOL.refl)
+  show "Rep_cfun f (\<Squnion>X) = \<Squnion>{Rep_cfun f x |x. x \<in> X}" unfolding Sup_eq[OF sup_x] Rep_cfun_f_x_eq Sup_eq[OF sup_fx] by (rule HOL.refl)
 qed
 
 
@@ -1809,22 +1814,22 @@ qed
 lemma directed_Collect_Sup_Rep_cfun_memX_memFI:
   assumes directed_F: "directed F"
     and directed_X: "directed X"
-  shows "directed {\<^bold>\<squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}"
+  shows "directed {\<Squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}"
 proof (rule directedI)
-  show "{\<^bold>\<squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F} \<noteq> {}" using directed_nemptyE[OF directed_F] by blast
+  show "{\<Squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F} \<noteq> {}" using directed_nemptyE[OF directed_F] by blast
 next
   fix a b
-  assume a_mem: "a \<in> {\<^bold>\<squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}"
-    and b_mem: "b \<in> {\<^bold>\<squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}"
-  obtain f where a_eq: "a = \<^bold>\<squnion> {Rep_cfun f x |x. x \<in> X}" and f_mem: "f \<in> F" using a_mem by blast
-  obtain g where b_eq: "b = \<^bold>\<squnion> {Rep_cfun g x |x. x \<in> X}" and g_mem: "g \<in> F" using b_mem by blast
+  assume a_mem: "a \<in> {\<Squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}"
+    and b_mem: "b \<in> {\<Squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}"
+  obtain f where a_eq: "a = \<Squnion> {Rep_cfun f x |x. x \<in> X}" and f_mem: "f \<in> F" using a_mem by blast
+  obtain g where b_eq: "b = \<Squnion> {Rep_cfun g x |x. x \<in> X}" and g_mem: "g \<in> F" using b_mem by blast
   obtain h where f_le_h: "f \<sqsubseteq> h" and g_le_h: "g \<sqsubseteq> h" and h_mem: "h \<in> F" using directed_exE[OF directed_F f_mem g_mem] by blast
-  show "\<exists>c\<in>{\<^bold>\<squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c" proof (intro bexI conjI CollectI exI)
-    show "a \<sqsubseteq> \<^bold>\<squnion> {Rep_cfun h x |x. x \<in> X}" using f_le_h unfolding a_eq Rep_cfun_Sup_eq[OF directed_X, symmetric] le_cfun_def by blast
+  show "\<exists>c\<in>{\<Squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c" proof (intro bexI conjI CollectI exI)
+    show "a \<sqsubseteq> \<Squnion> {Rep_cfun h x |x. x \<in> X}" using f_le_h unfolding a_eq Rep_cfun_Sup_eq[OF directed_X, symmetric] le_cfun_def by blast
   next
-    show "b \<sqsubseteq> \<^bold>\<squnion> {Rep_cfun h x |x. x \<in> X}" using g_le_h unfolding b_eq Rep_cfun_Sup_eq[OF directed_X, symmetric] le_cfun_def by blast
+    show "b \<sqsubseteq> \<Squnion> {Rep_cfun h x |x. x \<in> X}" using g_le_h unfolding b_eq Rep_cfun_Sup_eq[OF directed_X, symmetric] le_cfun_def by blast
   next
-    show "\<^bold>\<squnion> {Rep_cfun h x |x. x \<in> X} = \<^bold>\<squnion> {Rep_cfun h x |x. x \<in> X}" by (rule HOL.refl)
+    show "\<Squnion> {Rep_cfun h x |x. x \<in> X} = \<Squnion> {Rep_cfun h x |x. x \<in> X}" by (rule HOL.refl)
   next
     show "h \<in> F" by (rule h_mem)
   qed
@@ -1835,21 +1840,21 @@ lemma directed_Collect_Sup_Rep_cfun_memF_memXI:
     and X :: "'a set"
   assumes directed_F: "directed F"
     and directed_X: "directed X"
-  shows "directed {\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}"
+  shows "directed {\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}"
 proof (rule directedI)
-  show "{\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X} \<noteq> {}" using directed_nemptyE[OF directed_X] by blast
+  show "{\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X} \<noteq> {}" using directed_nemptyE[OF directed_X] by blast
 next
   fix a b
-  assume a_mem: "a \<in> {\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}"
-    and b_mem: "b \<in> {\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}"
-  obtain x where a_eq: "a = \<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F}" and x_mem: "x \<in> X" using a_mem by blast
-  obtain y where b_eq: "b = \<^bold>\<squnion> {Rep_cfun f y |f. f \<in> F}" and y_mem: "y \<in> X" using b_mem by blast
+  assume a_mem: "a \<in> {\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}"
+    and b_mem: "b \<in> {\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}"
+  obtain x where a_eq: "a = \<Squnion> {Rep_cfun f x |f. f \<in> F}" and x_mem: "x \<in> X" using a_mem by blast
+  obtain y where b_eq: "b = \<Squnion> {Rep_cfun f y |f. f \<in> F}" and y_mem: "y \<in> X" using b_mem by blast
   obtain z where x_le_z: "x \<sqsubseteq> z" and y_le_z: "y \<sqsubseteq> z" and z_mem: "z \<in> X" using directed_exE[OF directed_X x_mem y_mem] by blast
-  show "\<exists>c\<in>{\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c" proof (intro bexI conjI CollectI exI)
+  show "\<exists>c\<in>{\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c" proof (intro bexI conjI CollectI exI)
     have "\<And>f. Rep_cfun f x \<sqsubseteq> Rep_cfun f z" using cont_is_mono[OF cont_Rep_cfun] using x_le_z by (rule monoE)
     obtain fx where sup_fx: "supremum {Rep_cfun f x |f. f \<in> F} fx" using ex_supremum[OF directed_Collect_Rep_cfun_memFI[OF directed_F]] by blast
     obtain fz where sup_fz: "supremum {Rep_cfun f z |f. f \<in> F} fz" using ex_supremum[OF directed_Collect_Rep_cfun_memFI[OF directed_F]] by blast
-    show "a \<sqsubseteq> \<^bold>\<squnion> {Rep_cfun f z |f. f \<in> F}" unfolding a_eq Sup_eq[OF sup_fx] Sup_eq[OF sup_fz] using sup_fx proof (rule supremum_leastE)
+    show "a \<sqsubseteq> \<Squnion> {Rep_cfun f z |f. f \<in> F}" unfolding a_eq Sup_eq[OF sup_fx] Sup_eq[OF sup_fz] using sup_fx proof (rule supremum_leastE)
       show "{Rep_cfun f x |f. f \<in> F} \<^sub>s\<sqsubseteq> fz" proof (rule upperI)
         fix fa
         assume "fa \<in> {Rep_cfun f x |f. f \<in> F}"
@@ -1867,7 +1872,7 @@ next
     have "\<And>f. Rep_cfun f y \<sqsubseteq> Rep_cfun f z" using cont_is_mono[OF cont_Rep_cfun] using y_le_z by (rule monoE)
     obtain fy where sup_fy: "supremum {Rep_cfun f y |f. f \<in> F} fy" using ex_supremum[OF directed_Collect_Rep_cfun_memFI[OF directed_F]] by blast
     obtain fz where sup_fz: "supremum {Rep_cfun f z |f. f \<in> F} fz" using ex_supremum[OF directed_Collect_Rep_cfun_memFI[OF directed_F]] by blast
-    show "b \<sqsubseteq> \<^bold>\<squnion> {Rep_cfun f z |f. f \<in> F}" unfolding b_eq Sup_eq[OF sup_fy] Sup_eq[OF sup_fz] using sup_fy proof (rule supremum_leastE)
+    show "b \<sqsubseteq> \<Squnion> {Rep_cfun f z |f. f \<in> F}" unfolding b_eq Sup_eq[OF sup_fy] Sup_eq[OF sup_fz] using sup_fy proof (rule supremum_leastE)
       show "{Rep_cfun f y |f. f \<in> F} \<^sub>s\<sqsubseteq> fz" proof (rule upperI)
         fix fa
         assume "fa \<in> {Rep_cfun f y |f. f \<in> F}"
@@ -1882,7 +1887,7 @@ next
       qed
     qed        
   next
-    show "\<^bold>\<squnion> {Rep_cfun f z |f. f \<in> F} = \<^bold>\<squnion> {Rep_cfun f z |f. f \<in> F}" by (rule HOL.refl)
+    show "\<Squnion> {Rep_cfun f z |f. f \<in> F} = \<Squnion> {Rep_cfun f z |f. f \<in> F}" by (rule HOL.refl)
   next
     show "z \<in> X" by (rule z_mem)
   qed
@@ -1891,57 +1896,57 @@ qed
 lemma Rep_cfun_Abs_cfun_Sup:
   fixes F :: "('a :: cpo, 'b :: cpo) cfun set"
   assumes directed_F: "directed F"
-  shows "Rep_cfun (Abs_cfun (\<lambda>x. \<^bold>\<squnion>{Rep_cfun f x| f. f \<in> F})) = (\<lambda>x. \<^bold>\<squnion>{Rep_cfun f x| f. f \<in> F})"
+  shows "Rep_cfun (Abs_cfun (\<lambda>x. \<Squnion>{Rep_cfun f x| f. f \<in> F})) = (\<lambda>x. \<Squnion>{Rep_cfun f x| f. f \<in> F})"
 proof -
-  let ?g = "\<lambda>x. \<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F}"
-  have eq: "\<And>X. directed X \<Longrightarrow> ?g (\<^bold>\<squnion>X) = \<^bold>\<squnion>{?g x |x. x \<in> X}" proof -
+  let ?g = "\<lambda>x. \<Squnion> {Rep_cfun f x |f. f \<in> F}"
+  have eq: "\<And>X. directed X \<Longrightarrow> ?g (\<Squnion>X) = \<Squnion>{?g x |x. x \<in> X}" proof -
     fix X :: "'a set"
     assume directed_X: "directed X"
-    have "?g (\<^bold>\<squnion>X) = \<^bold>\<squnion>{\<^bold>\<squnion>{Rep_cfun f x |x. x \<in> X} |f. f \<in> F}" unfolding Rep_cfun_Sup_eq[OF directed_X] by (rule HOL.refl)
-    also have "... = \<^bold>\<squnion>{Rep_cfun f x |x f. x \<in> X \<and> f \<in> F}" proof -
+    have "?g (\<Squnion>X) = \<Squnion>{\<Squnion>{Rep_cfun f x |x. x \<in> X} |f. f \<in> F}" unfolding Rep_cfun_Sup_eq[OF directed_X] by (rule HOL.refl)
+    also have "... = \<Squnion>{Rep_cfun f x |x f. x \<in> X \<and> f \<in> F}" proof -
       obtain fx where sup_fx: "supremum {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} fx" using ex_supremum[OF directed_Collect_Rep_cfun_mem_X_mem_FI[OF directed_X directed_F]] by blast
-      have sup: "supremum {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} (\<^bold>\<squnion> {\<^bold>\<squnion> {Rep_cfun f x |x. x \<in> X} |f. f \<in> F})" proof (rule supremum_CollectE)
+      have sup: "supremum {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} (\<Squnion> {\<Squnion> {Rep_cfun f x |x. x \<in> X} |f. f \<in> F})" proof (rule supremum_CollectE)
         fix f
         assume "f \<in> F"
         obtain fx where sup_fx: "supremum {Rep_cfun f x |x. x \<in> X} fx" using ex_supremum[OF directed_Collect_Rep_cfun_memXI[OF directed_X]] by blast
-        show "supremum {Rep_cfun f x |x. x \<in> X} (\<^bold>\<squnion> {Rep_cfun f x |x. x \<in> X})" using sup_fx by (rule supremum_SupI)
+        show "supremum {Rep_cfun f x |x. x \<in> X} (\<Squnion> {Rep_cfun f x |x. x \<in> X})" using sup_fx by (rule supremum_SupI)
       next
         show "{Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} = \<Union> {{Rep_cfun i x |x. x \<in> X} |i. i \<in> F}" by blast
       next
-        obtain fx where sup_fx: "supremum {\<^bold>\<squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F} fx" using ex_supremum[OF directed_Collect_Sup_Rep_cfun_memX_memFI[OF directed_F directed_X]] by blast
-        show "supremum {\<^bold>\<squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F} (\<^bold>\<squnion> {\<^bold>\<squnion> {Rep_cfun f x |x. x \<in> X} |f. f \<in> F})" using sup_fx by (rule supremum_SupI)
+        obtain fx where sup_fx: "supremum {\<Squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F} fx" using ex_supremum[OF directed_Collect_Sup_Rep_cfun_memX_memFI[OF directed_F directed_X]] by blast
+        show "supremum {\<Squnion> {Rep_cfun i x |x. x \<in> X} |i. i \<in> F} (\<Squnion> {\<Squnion> {Rep_cfun f x |x. x \<in> X} |f. f \<in> F})" using sup_fx by (rule supremum_SupI)
       qed
-      show "\<^bold>\<squnion> {\<^bold>\<squnion> {Rep_cfun f x |x. x \<in> X} |f. f \<in> F} = \<^bold>\<squnion> {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F}" unfolding Sup_eq[OF sup] by (rule HOL.refl)
+      show "\<Squnion> {\<Squnion> {Rep_cfun f x |x. x \<in> X} |f. f \<in> F} = \<Squnion> {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F}" unfolding Sup_eq[OF sup] by (rule HOL.refl)
     qed
-    also have "... = \<^bold>\<squnion>{\<^bold>\<squnion>{Rep_cfun f x |f. f \<in> F} |x. x \<in> X}" proof -
+    also have "... = \<Squnion>{\<Squnion>{Rep_cfun f x |f. f \<in> F} |x. x \<in> X}" proof -
       obtain fx where sup_fx: "supremum {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} fx" using ex_supremum[OF directed_Collect_Rep_cfun_mem_X_mem_FI[OF directed_X directed_F]] by blast
-      have sup: "supremum {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} (\<^bold>\<squnion> {\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X})" proof (rule supremum_CollectE)
+      have sup: "supremum {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} (\<Squnion> {\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X})" proof (rule supremum_CollectE)
         fix x
         assume "x \<in> X"
         obtain fx where sup_fx: "supremum {Rep_cfun f x |f. f \<in> F} fx" using ex_supremum[OF directed_Collect_Rep_cfun_memFI[OF directed_F]] by blast
-        show "supremum {Rep_cfun f x |f. f \<in> F} (\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F})" using sup_fx by (rule supremum_SupI)
+        show "supremum {Rep_cfun f x |f. f \<in> F} (\<Squnion> {Rep_cfun f x |f. f \<in> F})" using sup_fx by (rule supremum_SupI)
       next
         show "{Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} = \<Union> {{Rep_cfun f i |f. f \<in> F} |i. i \<in> X}" by blast
       next
-        obtain fx where sup_fx: "supremum {\<^bold>\<squnion> {Rep_cfun f i |f. f \<in> F} |i. i \<in> X} fx" using ex_supremum[OF directed_Collect_Sup_Rep_cfun_memF_memXI[OF directed_F directed_X]] by blast
-        show "supremum {\<^bold>\<squnion> {Rep_cfun f i |f. f \<in> F} |i. i \<in> X} (\<^bold>\<squnion> {\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X})" using sup_fx by (rule supremum_SupI)
+        obtain fx where sup_fx: "supremum {\<Squnion> {Rep_cfun f i |f. f \<in> F} |i. i \<in> X} fx" using ex_supremum[OF directed_Collect_Sup_Rep_cfun_memF_memXI[OF directed_F directed_X]] by blast
+        show "supremum {\<Squnion> {Rep_cfun f i |f. f \<in> F} |i. i \<in> X} (\<Squnion> {\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X})" using sup_fx by (rule supremum_SupI)
       qed
-      show "\<^bold>\<squnion> {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} = \<^bold>\<squnion> {\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}" unfolding Sup_eq[OF sup] by (rule HOL.refl)
+      show "\<Squnion> {Rep_cfun f x |x f. x \<in> X \<and> f \<in> F} = \<Squnion> {\<Squnion> {Rep_cfun f x |f. f \<in> F} |x. x \<in> X}" unfolding Sup_eq[OF sup] by (rule HOL.refl)
     qed
-    ultimately show "?g (\<^bold>\<squnion>X) = \<^bold>\<squnion>{?g x| x. x \<in> X}" by (rule HOL.trans)
+    ultimately show "?g (\<Squnion>X) = \<Squnion>{?g x| x. x \<in> X}" by (rule HOL.trans)
   qed
   show ?thesis proof (rule Abs_cfun_inverse, rule CollectI, rule contI)
     fix X :: "'a set"
     assume directed_X: "directed X"
     show "\<exists>xb. supremum {?g xa |xa. xa \<in> X} xb" proof (rule exI)
-      obtain fx where sup_fx: "supremum {\<^bold>\<squnion> {Rep_cfun f xa |f. f \<in> F} |xa. xa \<in> X} fx" using ex_supremum[OF directed_Collect_Sup_Rep_cfun_memF_memXI[OF directed_F directed_X]] by blast
-      show "supremum {?g xa |xa. xa \<in> X} (?g (\<^bold>\<squnion> X))" unfolding eq[OF directed_X] using sup_fx by (rule supremum_SupI)
+      obtain fx where sup_fx: "supremum {\<Squnion> {Rep_cfun f xa |f. f \<in> F} |xa. xa \<in> X} fx" using ex_supremum[OF directed_Collect_Sup_Rep_cfun_memF_memXI[OF directed_F directed_X]] by blast
+      show "supremum {?g xa |xa. xa \<in> X} (?g (\<Squnion> X))" unfolding eq[OF directed_X] using sup_fx by (rule supremum_SupI)
     qed
   next
     fix X :: "'a set" and x fx
     assume directed_X: "directed X"
       and sup_x: "supremum X x"
-      and sup_fx: "supremum {\<^bold>\<squnion> {Rep_cfun f xa |f. f \<in> F} |xa. xa \<in> X} fx"
+      and sup_fx: "supremum {\<Squnion> {Rep_cfun f xa |f. f \<in> F} |xa. xa \<in> X} fx"
     show "?g x = fx" using eq[OF directed_X] unfolding Sup_eq[OF sup_x] Sup_eq[OF sup_fx] .
   qed
 qed
@@ -1949,15 +1954,15 @@ qed
 lemma supremum_cfun:
   fixes F :: "('a :: cpo, 'b :: cpo) cfun set"
   assumes directed_F: "directed F"
-  shows "supremum F (Abs_cfun (\<lambda>x. \<^bold>\<squnion>{Rep_cfun f x| f. f \<in> F}))"
+  shows "supremum F (Abs_cfun (\<lambda>x. \<Squnion>{Rep_cfun f x| f. f \<in> F}))"
 proof (rule supremumI)
-  show "F \<^sub>s\<sqsubseteq> Abs_cfun (\<lambda>x. \<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F})" proof (rule upperI)
+  show "F \<^sub>s\<sqsubseteq> Abs_cfun (\<lambda>x. \<Squnion> {Rep_cfun f x |f. f \<in> F})" proof (rule upperI)
     fix f
     assume f_mem: "f \<in> F"
-    show "f \<sqsubseteq> Abs_cfun (\<lambda>x. \<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F})" unfolding le_cfun_def Rep_cfun_Abs_cfun_Sup[OF directed_F] proof (rule allI)
+    show "f \<sqsubseteq> Abs_cfun (\<lambda>x. \<Squnion> {Rep_cfun f x |f. f \<in> F})" unfolding le_cfun_def Rep_cfun_Abs_cfun_Sup[OF directed_F] proof (rule allI)
       fix y
       obtain fy where sup_fy: "supremum {Rep_cfun f y |f. f \<in> F} fy" using ex_supremum[OF directed_Collect_Rep_cfun_memFI[OF directed_F]] by blast
-      show "Rep_cfun f y \<sqsubseteq> \<^bold>\<squnion> {Rep_cfun f y |f. f \<in> F}" unfolding Sup_eq[OF sup_fy] using sup_fy proof (rule supremum_leE)
+      show "Rep_cfun f y \<sqsubseteq> \<Squnion> {Rep_cfun f y |f. f \<in> F}" unfolding Sup_eq[OF sup_fy] using sup_fy proof (rule supremum_leE)
         show " Rep_cfun f y \<in> {Rep_cfun f y |f. f \<in> F}" using f_mem by blast
       qed
     qed
@@ -1965,10 +1970,10 @@ proof (rule supremumI)
 next
   fix a
   assume upper_a: "F \<^sub>s\<sqsubseteq> a"
-  show "Abs_cfun (\<lambda>x. \<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F}) \<sqsubseteq> a" unfolding le_cfun_def Rep_cfun_Abs_cfun_Sup[OF directed_F] proof (rule allI)
+  show "Abs_cfun (\<lambda>x. \<Squnion> {Rep_cfun f x |f. f \<in> F}) \<sqsubseteq> a" unfolding le_cfun_def Rep_cfun_Abs_cfun_Sup[OF directed_F] proof (rule allI)
     fix x
     obtain fx where sup_fx: "supremum {Rep_cfun f x |f. f \<in> F} fx" using ex_supremum[OF directed_Collect_Rep_cfun_memFI[OF directed_F]] by blast
-    show "\<^bold>\<squnion> {Rep_cfun f x |f. f \<in> F} \<sqsubseteq> Rep_cfun a x" using sup_fx proof (rule Sup_leI)
+    show "\<Squnion> {Rep_cfun f x |f. f \<in> F} \<sqsubseteq> Rep_cfun a x" using sup_fx proof (rule Sup_leI)
       show "{Rep_cfun f x |f. f \<in> F} \<^sub>s\<sqsubseteq> Rep_cfun a x" proof (rule upperI)
         fix fx
         assume "fx \<in> {Rep_cfun f x |f. f \<in> F}"

@@ -263,16 +263,16 @@ theorem
     and B_def: "B = {a k k| k. True}"
     and sup_xa: "supremum A xa"
     and sup_xb: "supremum B xb"
-  shows "\<^bold>\<squnion>{a i j |i j. True} = \<^bold>\<squnion>{a k k |k. True}"
+  shows "\<Squnion>{a i j |i j. True} = \<Squnion>{a k k |k. True}"
 proof -
   have eq: "{a i j| i j. True} = {a i j| i j. i \<in> UNIV \<and> j \<in> UNIV}"
     "\<And>j. {a i j |i. True} = {a i j |i. i \<in> UNIV}"
     "\<And>i. {a i j |j. True} = {a i j |j. j \<in> UNIV}"
     "\<And>k. {a k k |k. True} = {a k k |k. k \<in> UNIV}"
-    "\<And>x. {\<^bold>\<squnion>{a i j |i. i \<in> UNIV} |j. True} = {\<^bold>\<squnion>{a i j |i. i \<in> UNIV}| j. j \<in> UNIV}"
-    "\<And>x. {\<^bold>\<squnion>{a i j |j. j \<in> UNIV} |i. True} = {\<^bold>\<squnion>{a i j |j. j \<in> UNIV}| i. i \<in> UNIV}"
+    "\<And>x. {\<Squnion>{a i j |i. i \<in> UNIV} |j. True} = {\<Squnion>{a i j |i. i \<in> UNIV}| j. j \<in> UNIV}"
+    "\<And>x. {\<Squnion>{a i j |j. j \<in> UNIV} |i. True} = {\<Squnion>{a i j |j. j \<in> UNIV}| i. i \<in> UNIV}"
     unfolding A_def by simp_all
-  have "\<^bold>\<squnion>{a i j |i j. True} = \<^bold>\<squnion>{\<^bold>\<squnion>{a i j |i. True} |j. True}" unfolding eq proof (rule supremum_eq2[where ?x="\<lambda>j. {a i j |i. i \<in> UNIV}"])
+  have "\<Squnion>{a i j |i j. True} = \<Squnion>{\<Squnion>{a i j |i. True} |j. True}" unfolding eq proof (rule supremum_eq2[where ?x="\<lambda>j. {a i j |i. i \<in> UNIV}"])
     fix j
     have directed: "directed {a i j |i. i \<in> UNIV}" proof (rule directedI)
       show "{a i j |i. i \<in> UNIV} \<noteq> {}" by blast
@@ -294,14 +294,14 @@ proof -
       qed
     qed
     obtain aij where sup_aij: "supremum {a i j |i. i \<in> UNIV} aij" using ex_supremum[OF directed] unfolding eq by blast
-    show "supremum {a i j |i. i \<in> UNIV} (\<^bold>\<squnion> {a i j |i. i \<in> UNIV})" using sup_aij by (rule supremum_SupI)
+    show "supremum {a i j |i. i \<in> UNIV} (\<Squnion> {a i j |i. i \<in> UNIV})" using sup_aij by (rule supremum_SupI)
   next
     have eq1: "\<Union> {{a i j |i. i \<in> UNIV} |j. j \<in> UNIV} = {a i j | i j. i \<in> UNIV \<and> j \<in> UNIV}" by blast
-    have eq2: "\<^bold>\<squnion> {a i j |i j. j \<in> UNIV} = \<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV}" using UNIV_I by metis
-    have eq3: "\<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV} = xa" using sup_xa unfolding A_def eq by (rule Sup_eq)
-    show "supremum (\<Union> {{a i j |i. i \<in> UNIV} |j. j \<in> UNIV}) (\<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV}) " unfolding eq1 eq2 eq3 unfolding eq[symmetric] A_def[symmetric] by (rule sup_xa)
+    have eq2: "\<Squnion> {a i j |i j. j \<in> UNIV} = \<Squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV}" using UNIV_I by metis
+    have eq3: "\<Squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV} = xa" using sup_xa unfolding A_def eq by (rule Sup_eq)
+    show "supremum (\<Union> {{a i j |i. i \<in> UNIV} |j. j \<in> UNIV}) (\<Squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV}) " unfolding eq1 eq2 eq3 unfolding eq[symmetric] A_def[symmetric] by (rule sup_xa)
   qed
-  also have "... = \<^bold>\<squnion>{\<^bold>\<squnion>{a i j |j. True} |i. True}" unfolding calculation[symmetric] unfolding eq proof (rule supremum_eq2[where ?x="\<lambda>i. {a i j |j. j \<in> UNIV}"])
+  also have "... = \<Squnion>{\<Squnion>{a i j |j. True} |i. True}" unfolding calculation[symmetric] unfolding eq proof (rule supremum_eq2[where ?x="\<lambda>i. {a i j |j. j \<in> UNIV}"])
     fix i
     have directed: "directed {a i j |j. j \<in> UNIV}" proof (rule directedI)
       show "{a i j |j. j \<in> UNIV} \<noteq> {}" by blast
@@ -323,13 +323,13 @@ proof -
       qed
     qed
     obtain aij where sup_aij: "supremum {a i j |j. j \<in> UNIV} aij" using ex_supremum[OF directed] unfolding eq by blast
-    show "supremum {a i j |j. j \<in> UNIV} (\<^bold>\<squnion> {a i j |j. j \<in> UNIV})" using sup_aij by (rule supremum_SupI)
+    show "supremum {a i j |j. j \<in> UNIV} (\<Squnion> {a i j |j. j \<in> UNIV})" using sup_aij by (rule supremum_SupI)
   next
     have eq1: "\<Union> {{a i j |j. j \<in> UNIV} |i. i \<in> UNIV} = {a i j | i j. i \<in> UNIV \<and> j \<in> UNIV}" by blast
-    show "supremum (\<Union> {{a i j |j. j \<in> UNIV} |i. i \<in> UNIV}) (\<^bold>\<squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV})"
+    show "supremum (\<Union> {{a i j |j. j \<in> UNIV} |i. i \<in> UNIV}) (\<Squnion> {a i j |i j. i \<in> UNIV \<and> j \<in> UNIV})"
       unfolding eq eq1 unfolding eq(1)[symmetric] A_def[symmetric] using sup_xa by (rule supremum_SupI)
   qed
-  also have "... = \<^bold>\<squnion> {a k k |k. True}" proof (rule sup_on_matrix_eqI[where ?a=a and ?A=A and ?B=B])
+  also have "... = \<Squnion> {a k k |k. True}" proof (rule sup_on_matrix_eqI[where ?a=a and ?A=A and ?B=B])
     show "\<And>i j k. i \<le> j \<Longrightarrow> a i k \<sqsubseteq> a j k" by (rule leI1)
   next
     show "\<And>i j k. i \<le> j \<Longrightarrow> a k i \<sqsubseteq> a k j" by (rule leI2)
@@ -350,7 +350,7 @@ proof -
       show "{a i j |i j. True} = {a x y |x y. x \<in> UNIV \<and> y \<in> UNIV}" by simp
     qed
     obtain x where sup_x: "supremum A x" using ex_supremum[OF directed_A] by blast
-    show "supremum A (\<^bold>\<squnion> {\<^bold>\<squnion> {a i j |j. True} |i. True})" unfolding A_def[symmetric] calculation[symmetric] using sup_x by (rule supremum_SupI)
+    show "supremum A (\<Squnion> {\<Squnion> {a i j |j. True} |i. True})" unfolding A_def[symmetric] calculation[symmetric] using sup_x by (rule supremum_SupI)
   next
     have directed_B: "directed B" unfolding B_def using directed_nat[OF UNIV_not_empty] proof (rule directedI2)
       fix x y z :: nat
@@ -364,9 +364,9 @@ proof -
       show "{a k k |k. True} = {a z z |z. z \<in> UNIV}" by simp
     qed
     obtain x where sup_x: "supremum B x" using ex_supremum[OF directed_B] by blast
-    show "supremum B (\<^bold>\<squnion> {a k k |k. True})" unfolding B_def[symmetric] using sup_x by (rule supremum_SupI)
+    show "supremum B (\<Squnion> {a k k |k. True})" unfolding B_def[symmetric] using sup_x by (rule supremum_SupI)
   qed
-  ultimately show "\<^bold>\<squnion> {a i j |i j. True} = \<^bold>\<squnion> {a k k |k. True}" by (rule HOL.trans)
+  ultimately show "\<Squnion> {a i j |i j. True} = \<Squnion> {a k k |k. True}" by (rule HOL.trans)
 qed
 
 subsection "練習問題 3.2"
