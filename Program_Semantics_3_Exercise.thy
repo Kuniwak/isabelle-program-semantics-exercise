@@ -379,46 +379,32 @@ text "このとき、(X, \<O>) を移送空間（topological space）, \<O> を�
 text "各 U \<in> \<O> を開集合（open set）と呼ぶ。"
 
 class "open" =
-  fixes "open" :: "'a set \<Rightarrow> bool" \<comment> \<open>\<lambda>X. X \<in> \<O> の意味。\<close>
+  fixes "open" :: "'a set \<Rightarrow> bool" ("_ \<in>\<O>" 40)
 
 class topo = "open" +
-  assumes open_UNIV: "open UNIV"
-    and open_empty: "open {}"
-    and open_Int: "\<lbrakk> open U; open V \<rbrakk> \<Longrightarrow> open (U \<inter> V)"
-    and open_Un: "(\<And>Xi. Xi \<in> X \<Longrightarrow> open Xi) \<Longrightarrow> open (\<Union>X)"
-
-lemma (in topo) open_Un2:
-  assumes "open U"
-    and "open V"
-  shows "open (U \<union> V)"
-proof -
-  let ?X = "{U, V}"
-  have eq: "U \<union> V = \<Union>?X" by blast
-  show "open (U \<union> V)" unfolding eq proof (rule open_Un)
-    fix Xi
-    assume "Xi \<in> {U, V}"
-    thus "open Xi" using assms by blast
-  qed
-qed
+  assumes open_UNIV: "UNIV \<in>\<O>"
+    and open_empty: "{} \<in>\<O>"
+    and open_Int: "\<lbrakk> U \<in>\<O>; V \<in>\<O> \<rbrakk> \<Longrightarrow> U \<inter> V \<in>\<O>"
+    and open_Un: "(\<And>Xi. Xi \<in> X \<Longrightarrow> Xi \<in>\<O>) \<Longrightarrow> \<Union>X \<in>\<O>"
 
 
 text "また、f を位相空間（X, \<O>） から (X', \<O>') への関数として、任意の U \<in> \<O>' について、{x \<in> X | f(x) \<in> U} \<in> \<O>"
 text "f は連続であると呼ぶ。"
 
 definition topo_cont :: "(('a::topo) \<Rightarrow> ('b::topo)) \<Rightarrow> bool"
-  where "topo_cont f \<equiv> \<forall>U. open U \<longrightarrow> open {x. f x \<in> U}"
+  where "topo_cont f \<equiv> \<forall>U. (U \<in>\<O>) \<longrightarrow> ({x. f x \<in> U} \<in>\<O>)"
 
 lemma topo_contI:
   fixes f :: "(('a::topo) \<Rightarrow> ('b::topo))"
-  assumes "\<And>U. open U \<Longrightarrow> open {x. f x \<in> U}"
+  assumes "\<And>U. U \<in>\<O> \<Longrightarrow> {x. f x \<in> U} \<in>\<O>"
   shows "topo_cont f"
 unfolding topo_cont_def using assms by blast
 
 lemma topo_contE:
   fixes f :: "(('a::topo) \<Rightarrow> ('b::topo))"
   assumes "topo_cont f"
-    and "open U"
-  shows "open {x. f x \<in> U}"
+    and "U \<in>\<O>"
+  shows "{x. f x \<in> U} \<in>\<O>"
 using assms unfolding topo_cont_def by blast
 
 
@@ -539,7 +525,7 @@ qed
 
 lemma (in topo_cpo) open_Collect_not_le:
   fixes fx :: 'a
-  shows "open {fy. \<not> fy \<sqsubseteq> fx}"
+  shows "{fy. \<not> fy \<sqsubseteq> fx} \<in>\<O>"
 unfolding open_def proof (rule open_cpoI)
   fix fc fd x
   assume a_mem: "fc \<in> {fy. \<not> fy \<sqsubseteq> fx}"
@@ -573,11 +559,11 @@ qed
 lemma open_Collect_inv_not_le:
   fixes f :: "('a::topo_cpo) \<Rightarrow> ('b::topo_cpo)"
   assumes topo_cont: "topo_cont f"
-  shows "open {y. \<not>f y \<sqsubseteq> fx}"
+  shows "{y. \<not>f y \<sqsubseteq> fx} \<in>\<O>"
 proof -
   fix fx
   have eq: "{y. \<not>f y \<sqsubseteq> fx} = {y. f y \<in> {f y|y. \<not> f y \<sqsubseteq> fx}}" by fastforce
-  show "open {y. \<not>f y \<sqsubseteq> fx}" using topo_contE[OF topo_cont open_Collect_not_le] by simp
+  show "{y. \<not>f y \<sqsubseteq> fx} \<in>\<O>" using topo_contE[OF topo_cont open_Collect_not_le] by simp
 qed
 
 theorem cont_iff_topo_cont:

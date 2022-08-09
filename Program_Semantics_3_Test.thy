@@ -1,5 +1,7 @@
-theory Program_Semantics_3_Test imports Program_Semantics_3_Exercise
+theory Program_Semantics_3_Test
+  imports Program_Semantics_3_Exercise HOL.Topological_Spaces
 begin
+
 abbreviation (in po) less :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubset>" 53)
   where "a \<sqsubset> b \<equiv> a \<noteq> b \<and> a \<sqsubseteq> b"
 
@@ -24,14 +26,14 @@ end
 
 context complete_lattice
 begin
-lemma Sup_singleton: "Sup {a} = a"
+lemma Sup_singleton: "\<^bold>\<squnion> {a} = a"
 proof -
   show ?thesis proof (rule antisym)
     show "\<^bold>\<squnion> {a} \<sqsubseteq> a" proof (rule least_Sup)
       show "{a} \<^sub>s\<sqsubseteq> a" unfolding upper_def using refl by simp
     qed
   next
-    show "a \<sqsubseteq> Sup {a}" proof (rule le_Sup)
+    show "a \<sqsubseteq> \<^bold>\<squnion> {a}" proof (rule le_Sup)
       show "a \<in> {a}" by simp
     qed
   qed
@@ -50,11 +52,11 @@ lemma sup1:
   assumes "a \<sqsubseteq> b"
   shows "a \<squnion> b = b"
 proof (rule antisym)
-  show "b \<sqsubseteq> sup a b" unfolding sup_def proof (rule le_Sup)
+  show "b \<sqsubseteq> a \<squnion> b" unfolding sup_def proof (rule le_Sup)
     show "b \<in> {a, b}" by blast
   qed
 next
-  show "sup a b \<sqsubseteq> b" unfolding sup_def proof (rule least_Sup)
+  show "a \<squnion> b \<sqsubseteq> b" unfolding sup_def proof (rule least_Sup)
     fix c
     show "{a, b} \<^sub>s\<sqsubseteq> b" unfolding upper_def proof (intro ballI)
       fix x
@@ -75,7 +77,7 @@ lemma sup2:
   assumes "b \<sqsubseteq> a"
   shows "a \<squnion> b = a"
 proof (subst sup_commute)
-  show "sup b a = a" using assms by (rule sup1)
+  show "b \<squnion> a = a" using assms by (rule sup1)
 qed
 
 lemma le_sup1:
@@ -91,7 +93,7 @@ lemma le_sup2:
   assumes "a \<sqsubseteq> b"
   shows "a \<sqsubseteq> c \<squnion> b"
 proof (subst sup_commute)
-  show "a \<sqsubseteq> sup b c" using assms by (rule le_sup1)
+  show "a \<sqsubseteq> b \<squnion> c" using assms by (rule le_sup1)
 qed
 
 lemma sup_le:
@@ -168,7 +170,7 @@ lemma inf1:
   assumes "a \<sqsubseteq> b"
   shows "a \<sqinter> b = a"
 proof (rule antisym)
-  show "inf a b \<sqsubseteq> a" unfolding inf_def proof (rule Inf_le)
+  show "a \<sqinter> b \<sqsubseteq> a" unfolding inf_def proof (rule Inf_le)
     show "a \<in> {a, b}" by blast
   qed
 next
@@ -269,4 +271,26 @@ next
 qed
 
 end
+
+context topo
+begin
+
+sublocale topological_space "open"
+proof standard
+  show "UNIV \<in>\<O>" by (rule open_UNIV)
+next
+  fix S T
+  assume "S \<in>\<O>" "T \<in>\<O>"
+  thus "S \<inter> T \<in>\<O>" by (rule open_Int)
+next
+  fix K
+  assume ball: "\<forall>k \<in> K. (k \<in>\<O>)"
+  show "\<Union> K \<in>\<O>" proof (rule open_Un)
+    fix Xi
+    assume "Xi \<in> K"
+    thus "Xi \<in>\<O>" using ball by blast
+  qed
+qed
+end
+
 end
