@@ -2,8 +2,6 @@ theory Program_Semantics_3_Test
   imports Program_Semantics_3 Program_Semantics_3_Exercise HOL.Topological_Spaces
 begin
 
-hide_const Sup Inf
-
 abbreviation (in po) less :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<sqsubset>" 53)
   where "a \<sqsubset> b \<equiv> a \<noteq> b \<and> a \<sqsubseteq> b"
 
@@ -25,6 +23,26 @@ next
   show "\<lbrakk>x \<sqsubseteq> y; y \<sqsubseteq> z\<rbrakk> \<Longrightarrow> x \<sqsubseteq> z" by (rule trans)
 qed
 end
+
+context order
+begin
+
+sublocale po: po "(\<le>)"
+proof standard
+  fix a
+  show "a \<le> a" by blast
+next
+  fix a b
+  assume "a \<le> b" "b \<le> a"
+  thus "a = b" by simp
+next
+  fix a b c
+  assume "a \<le> b" "b \<le> c"
+  thus "a \<le> c" by simp
+qed
+end
+
+hide_const Sup Inf
 
 context complete_lattice
 begin
@@ -266,8 +284,8 @@ next
 next
   show "\<Squnion> {} = bot" by (simp add: bot_def)
 qed
-
 end
+
 
 context topo
 begin
