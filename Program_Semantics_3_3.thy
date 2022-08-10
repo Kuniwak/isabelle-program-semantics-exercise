@@ -186,6 +186,65 @@ next
   qed
 qed
 
+abbreviation phi_fact_pfun :: "(nat option, nat) pfun \<Rightarrow> (nat option, nat) pfun"
+  where "phi_fact_pfun f \<equiv> Abs_pfun (phi_fact (Rep_pfun f))"
 
+lemma Rep_pfun_Abs_pfun: "Rep_pfun (Abs_pfun f) = f"
+  by (rule Abs_pfun_inverse, rule UNIV_I)
+
+lemma mono_phi_fact_pfun: "mono phi_fact_pfun"
+proof (rule monoI)
+  fix a b :: "(nat option, nat) pfun"
+  assume "a \<sqsubseteq> b"
+  hence 1: "\<And>x y. Rep_pfun a x = Some y \<Longrightarrow> Rep_pfun b x = Some y" unfolding le_pfun_def by blast
+  show "phi_fact_pfun a \<sqsubseteq> phi_fact_pfun b" unfolding le_pfun_def proof auto
+    fix x :: "nat option" and y :: nat
+    assume "Rep_pfun (phi_fact_pfun a) x = Some y"
+    hence 2: "phi_fact (Rep_pfun a) x = Some y" unfolding Rep_pfun_Abs_pfun .
+    show "Rep_pfun (phi_fact_pfun b) x = Some y" unfolding Rep_pfun_Abs_pfun proof (cases x)
+      case x_eq: None
+      have False using 2 unfolding x_eq phi_fact_def eq_def cond_def by simp
+      thus "phi_fact (Rep_pfun b) x = Some y" by (rule FalseE)
+    next
+      case x_eq: (Some n)
+      show "phi_fact (Rep_pfun b) x = Some y" unfolding x_eq proof (cases n)
+        case n_eq: 0
+        have "phi_fact (Rep_pfun a) x = cond (eq (Some 0) (Some 0)) (Some 1) (times (Some 0) (Rep_pfun a (minus (Some 0) (Some 1))))" unfolding x_eq n_eq phi_fact_def by (rule HOL.refl)
+        also have "... = Some 1" by (simp add: cond_def eq_def)
+        ultimately have "phi_fact (Rep_pfun a) x = Some 1" by (rule HOL.trans)
+        hence y_eq: "y = Suc 0" unfolding 2 by simp
+        show "phi_fact (Rep_pfun b) (Some n) = Some y" unfolding n_eq phi_fact_def y_eq by (simp add: cond_def eq_def)
+      next
+        case n_eq: (Suc m)
+        have "phi_fact (Rep_pfun a) x = cond (eq (Some (Suc m)) (Some 0)) (Some 1) (times (Some (Suc m)) (Rep_pfun a (minus (Some (Suc m)) (Some 1))))" unfolding x_eq n_eq phi_fact_def by (rule HOL.refl)
+        also have "... = times (Some (Suc m)) (Rep_pfun a (minus (Some (Suc m)) (Some 1)))" by (simp add: cond_def eq_def)
+        also have "... = times (Some (Suc m)) (Rep_pfun a (Some m))" by (simp add: minus_def)
+        ultimately have 3: "phi_fact (Rep_pfun a) x = times (Some (Suc m)) (Rep_pfun a (Some m))" by (rule HOL.trans)
+        have 4: "Some y = times (Some (Suc m)) (Rep_pfun a (Some m))" using 2 unfolding 3 by (rule HOL.sym)
+        hence neq: "Rep_pfun a (Some m) \<noteq> None" proof (rule contrapos_pn)
+          show "Rep_pfun a (Some m) = None \<Longrightarrow> Some y \<noteq> times (Some (Suc m)) (Rep_pfun a (Some m))" by (simp add: times_def)
+        qed
+        then obtain z where Rep_pfun_a_eq: "Rep_pfun a (Some m) = Some z" by blast
+        hence Rep_pfun_b_eq: "Rep_pfun b (Some m) = Some z" using 1 by blast
+        show "phi_fact (Rep_pfun b) (Some n) = Some y" unfolding n_eq 4 phi_fact_def by (auto simp add: cond_def eq_def minus_def Rep_pfun_a_eq Rep_pfun_b_eq)
+      qed
+    qed
+  qed
+qed
+
+lemma "cont phi_fact_pfun"
+proof (rule contI)
+  fix X :: "(nat option, nat) pfun set"
+  assume directed: "directed X"
+  have directed: "directed {phi_fact_pfun xa |xa. xa \<in> X}" using directed mono_phi_fact_pfun by (rule mono_directedE)
+  obtain xb where sup_xb: "supremum {phi_fact_pfun xa |xa. xa \<in> X} xb" using ex_supremum[OF directed] by blast
+  thus "\<exists>xb. supremum {phi_fact_pfun xa |xa. xa \<in> X} xb" by blast
+next
+  fix X x fx
+  assume directed: "directed X"
+    and sup_x: "supremum X x"
+    and sup_fx: "supremum {phi_fact_pfun x |x. x \<in> X} fx"
+  show "phi_fact_pfun x = fx"
+  
 
 end

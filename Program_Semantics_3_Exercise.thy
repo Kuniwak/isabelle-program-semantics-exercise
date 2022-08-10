@@ -498,31 +498,6 @@ end
 
 text   "(ii) D と D' を cpo として、f : D \<rightarrow> D' が cpo の意味で連続であることと、スコット位相に関して連続であることは同値である。"
 
-lemma directed_CollectI:
-  fixes f :: "('a::cpo) \<Rightarrow> ('b::cpo)"
-  assumes mono: "mono f"
-    and directed: "directed X"
-  shows "directed {f x |x. x \<in> X}" 
-proof (rule directedI)
-  show "{f x |x. x \<in> X} \<noteq> {}" using directed_nemptyE[OF directed] by blast
-next
-  fix a b
-  assume a_mem: "a \<in> {f x |x. x \<in> X}"
-    and b_mem: "b \<in> {f x |x. x \<in> X}"
-  obtain xa where a_eq: "a = f xa" and xa_mem: "xa \<in> X" using a_mem by blast
-  obtain xb where b_eq: "b = f xb" and xb_mem: "xb \<in> X" using b_mem by blast
-  obtain xc where xa_le_xc: "xa \<sqsubseteq> xc" and xb_le_xc: "xb \<sqsubseteq> xc" and xc_mem: "xc \<in> X" using directed_exE[OF directed xa_mem xb_mem] by blast
-  show "\<exists>c\<in>{f x |x. x \<in> X}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c" proof (intro bexI conjI CollectI exI)
-    show "a \<sqsubseteq> f xc" unfolding a_eq using mono xa_le_xc by (rule monoE)
-  next
-    show "b \<sqsubseteq> f xc" unfolding b_eq using mono xb_le_xc by (rule monoE)
-  next
-    show "f xc = f xc" by (rule HOL.refl)
-  next
-    show "xc \<in> X" by (rule xc_mem)
-  qed
-qed
-
 lemma (in topo_cpo) open_Collect_not_le:
   fixes fx :: 'a
   shows "{fy. \<not> fy \<sqsubseteq> fx} \<in>\<O>"
@@ -591,7 +566,7 @@ proof (rule iffI)
       obtain fx where sup_fx: "supremum {f x |x. x \<in> X} fx" using cont_exE[OF cont directed] by blast
       have eq: "f x = fx" using cont directed sup_x sup_fx by (rule cont_sup_eqE)
       have fx_mem_U: "fx \<in> U" unfolding eq[symmetric] using x_mem_Un by blast
-      have directed_Collect: "directed {f x |x. x \<in> X}" using cont_is_mono[OF cont] directed by (rule directed_CollectI)
+      have directed_Collect: "directed {f x |x. x \<in> X}" using directed cont_is_mono[OF cont] by (rule mono_directedE)
       have "{f x |x. x \<in> X} \<inter> U \<noteq> {}" using open_cpo directed_Collect sup_fx fx_mem_U by (rule open_cpo_Int_nemptyE)
       thus "X \<inter> {x. f x \<in> U} \<noteq> {}" by blast
     qed
@@ -608,7 +583,7 @@ next
   show "cont f" proof (rule contI)
     fix X :: "'a set"
     assume directed: "directed X"
-    obtain x where sup_x: "supremum {f x |x. x \<in> X} x" using ex_supremum[OF directed_CollectI[OF mono directed]] by blast
+    obtain x where sup_x: "supremum {f x |x. x \<in> X} x" using ex_supremum[OF mono_directedE[OF directed mono]] by blast
     show "\<exists>fx. supremum {f x |x. x \<in> X} fx" using sup_x by (rule exI)
   next
     fix X :: "'a set" and x fx
