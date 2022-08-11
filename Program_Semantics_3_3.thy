@@ -393,14 +393,13 @@ proof -
       have y_eq: "y = (fact x')" using 1 unfolding x_eq by fastforce
       show "Rep_pfun pfs x = Some y" unfolding x_eq y_eq proof -
         show "Rep_pfun pfs (Some x') = Some (fact x')" proof -
-          have "Rep_pfun pfs (Some x') = pow (Suc x') phi_fact \<emptyset> (Some x')" proof -
+          have Rep_pfun_pfs_eq: "Rep_pfun pfs (Some x') = pow (Suc x') phi_fact \<emptyset> (Some x')" proof -
             obtain y where pow_n_phi_fact: "pow (Suc x') phi_fact \<emptyset> (Some x') = Some y" unfolding pow_phi_fact_n by simp
             show "Rep_pfun pfs (Some x') = pow (Suc x') phi_fact \<emptyset> (Some x')" unfolding pow_n_phi_fact proof -
               have "Abs_pfun (pow (Suc x') phi_fact \<emptyset>) \<sqsubseteq> pfs" using sup_pfs by (rule supremum_leE, blast)
               thus "Rep_pfun pfs (Some x') = Some y" unfolding le_pfun_def Rep_pfun_Abs_pfun using pow_n_phi_fact by blast
             qed
           qed
-          hence Rep_pfun_pfs_eq: "Rep_pfun pfs (Some x') = pow (Suc x') phi_fact \<emptyset> (Some x')" by blast
           show "Rep_pfun pfs (Some x') = Some (fact x')" unfolding Rep_pfun_pfs_eq pow_phi_fact_n by simp
         qed
       qed
