@@ -161,34 +161,26 @@ proof (induct n arbitrary: x)
 next
   case (Suc n)
   assume step: "\<And>y. pow n phi_fact \<emptyset> (Some y) = (if y < n then Some (fact y) else None)"
-  then show ?case proof (simp only: pow.simps)
-    show "phi_fact (pow n phi_fact \<emptyset>) (Some x) = (if x < Suc n then Some (fact x) else None)" proof (subst phi_fact_def)
-      show "cond (eq (Some x) (Some 0)) (Some 1) (times (Some x) (pow n phi_fact \<emptyset> (minus (Some x) (Some 1)))) = (if x < Suc n then Some (fact x) else None)" proof (cases "x = 0")
-        case x_eq: True
-        have 1: "\<And>M N x. cond (eq (Some x) (Some x)) M N = M" by (simp add: cond_def eq_def)
-        show ?thesis proof (unfold x_eq, subst 1)
-          show "Some 1 = (if 0 < Suc n then Some (fact 0) else None)" by simp
-        qed
-      next
-        case False
-        then obtain y where x_eq: "x = Suc y" using not0_implies_Suc by presburger
-        have 1: "\<And>M N x. cond (eq (Some (Suc x)) (Some 0)) M N = N" by (simp add: cond_def eq_def)
-        then show ?thesis proof (unfold x_eq, subst 1)
-          have 2: "minus (Some (Suc y)) (Some 1) = Some y" by (simp add: minus_def)
-          show "times (Some (Suc y)) (pow n phi_fact \<emptyset> (minus (Some (Suc y)) (Some 1))) = (if Suc y < Suc n then Some (fact (Suc y)) else None)" proof (subst 2)
-            show "times (Some (Suc y)) (pow n phi_fact \<emptyset> (Some y)) = (if Suc y < Suc n then Some (fact (Suc y)) else None)" proof (subst step)
-              show "times (Some (Suc y)) (if y < n then Some (fact y) else None) = (if Suc y < Suc n then Some (fact (Suc y)) else None)" by (simp add: times_def)
-            qed
+  show ?case proof (simp only: pow.simps)
+    show "phi_fact (pow n phi_fact \<emptyset>) (Some x) = (if x < Suc n then Some (fact x) else None)" proof (cases "x = 0")
+      case x_eq: True
+      have 1: "\<And>M N x. cond (eq (Some x) (Some x)) M N = M" by (simp add: cond_def eq_def)
+      show "phi_fact (pow n phi_fact \<emptyset>) (Some x) = (if x < Suc n then Some (fact x) else None)" by (subst phi_fact_def, simp add: 1 x_eq)
+    next
+      case False
+      then obtain y where x_eq: "x = Suc y" using not0_implies_Suc by presburger
+      have 1: "\<And>M N x. cond (eq (Some (Suc x)) (Some 0)) M N = N" by (simp add: cond_def eq_def)
+      then show ?thesis proof (subst phi_fact_def, unfold x_eq, subst 1)
+        have 2: "minus (Some (Suc y)) (Some 1) = Some y" by (simp add: minus_def)
+        show "times (Some (Suc y)) (pow n phi_fact \<emptyset> (minus (Some (Suc y)) (Some 1))) = (if Suc y < Suc n then Some (fact (Suc y)) else None)" proof (subst 2)
+          show "times (Some (Suc y)) (pow n phi_fact \<emptyset> (Some y)) = (if Suc y < Suc n then Some (fact (Suc y)) else None)" proof (subst step)
+            show "times (Some (Suc y)) (if y < n then Some (fact y) else None) = (if Suc y < Suc n then Some (fact (Suc y)) else None)" by (simp add: times_def)
           qed
         qed
       qed
     qed
   qed
 qed
-
-lemma phi_fact_None: "phi_fact f None = None"
-  unfolding phi_fact_def by (simp add: cond_def eq_def)
-
 lemma pow_phi_fact_None: "pow n phi_fact \<emptyset> None = None"
 proof (cases n)
   case n_eq: 0
@@ -290,7 +282,7 @@ proof -
     have "phi_fact \<emptyset> x = Some y" using 0 unfolding eq .
     thus ?case proof (rule contrapos_pn)
       assume x_eq: "x = None"
-      show "phi_fact \<emptyset> x \<noteq> Some y" unfolding x_eq phi_fact_None by simp
+      show "phi_fact \<emptyset> x \<noteq> Some y" unfolding x_eq by (subst phi_fact_def, simp add: cond_def eq_def)
     qed
   next
     case (Suc n)
@@ -301,7 +293,6 @@ proof -
   qed
   thus "(\<And>x'. x = Some x' \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
 qed
-
 
 lemma mono_pow_phi_fact: "mono (\<lambda>n. Abs_pfun (pow n phi_fact \<emptyset>))"
 proof -
@@ -356,36 +347,6 @@ proof -
   qed
 qed
 
-lemma pow_phi_fact_None_eq_None: "pow n phi_fact \<emptyset> None = None" proof (cases n)
-  case n_eq: 0
-  show ?thesis unfolding n_eq by simp
-next
-  case n_eq: (Suc m)
-  show ?thesis unfolding n_eq pow.simps by (subst phi_fact_def, simp add: eq_def cond_def)
-qed
-
-lemma pow_n_eqE:
-  assumes sup_pfs: "supremum {Abs_pfun (pow n phi_fact \<emptyset>) |n. True} pfs"
-    and pow_n_eq: "pow n phi_fact \<emptyset> x = Some y"
-  shows "Rep_pfun pfs x = Some y"
-proof -
-  have "Abs_pfun (pow n phi_fact \<emptyset>) \<sqsubseteq> pfs" using sup_pfs by (rule supremum_leE, blast)
-  thus "Rep_pfun pfs x = Some y" unfolding le_pfun_def Rep_pfun_Abs_pfun using pow_n_eq by blast
-qed
-
-lemma ex_pow_n_phi_fact:
-  assumes sup_pfs: "supremum {Abs_pfun (pow n phi_fact \<emptyset>) |n. True} pfs"
-    and Rep_pfun_pfs_eq: "Rep_pfun pfs (Some x) = Some y"
-  obtains n where "pow n phi_fact \<emptyset> (Some x) = Some y"
-proof -
-  have "\<exists>n. pow n phi_fact \<emptyset> (Some x) = Some y" using Rep_pfun_pfs_eq proof (rule contrapos_pp)
-    assume 1: "\<nexists>n. pow n phi_fact \<emptyset> (Some x) = Some y"
-    have 2: "\<And>n x y. pow n phi_fact \<emptyset> x = Some y \<Longrightarrow> Rep_pfun pfs x = Some y" using pow_n_eqE sup_pfs by blast
-    show "Rep_pfun pfs (Some x) \<noteq> Some y" by (metis 1 2 lessI pow_phi_fact_n)
-  qed
-  thus "(\<And>n. pow n phi_fact \<emptyset> (Some x) = Some y \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
-qed
-
 lemma ex_phi_fact_star:
   obtains phi_fact_star where "supremum {Abs_pfun (pow n phi_fact \<emptyset>) |n. True} phi_fact_star"
 proof -
@@ -431,18 +392,16 @@ proof -
       then obtain x' where x_eq: "x = Some x'" by fastforce
       have y_eq: "y = (fact x')" using 1 unfolding x_eq by fastforce
       show "Rep_pfun pfs x = Some y" unfolding x_eq y_eq proof -
-        show "Rep_pfun pfs (Some x') = Some (fact x')" proof (induct x')
-          case 0
-          show ?case using sup_pfs proof (rule pow_n_eqE)
-            show "pow 1 phi_fact \<emptyset> (Some 0) = Some (fact 0)" unfolding One_nat_def pow.simps phi_fact_def by (simp add: cond_def eq_def)
+        show "Rep_pfun pfs (Some x') = Some (fact x')" proof -
+          have "Rep_pfun pfs (Some x') = pow (Suc x') phi_fact \<emptyset> (Some x')" proof -
+            obtain y where pow_n_phi_fact: "pow (Suc x') phi_fact \<emptyset> (Some x') = Some y" unfolding pow_phi_fact_n by simp
+            show "Rep_pfun pfs (Some x') = pow (Suc x') phi_fact \<emptyset> (Some x')" unfolding pow_n_phi_fact proof -
+              have "Abs_pfun (pow (Suc x') phi_fact \<emptyset>) \<sqsubseteq> pfs" using sup_pfs by (rule supremum_leE, blast)
+              thus "Rep_pfun pfs (Some x') = Some y" unfolding le_pfun_def Rep_pfun_Abs_pfun using pow_n_phi_fact by blast
+            qed
           qed
-        next
-          case (Suc x')
-          obtain n where pow_n_eq: "pow n phi_fact \<emptyset> (Some x') = Some (fact x')" using sup_pfs Suc by (rule ex_pow_n_phi_fact)
-          have n_le_x': "x' < n" using pow_n_eq unfolding pow_phi_fact_n by (meson option.distinct(1))
-          have 2: "pow (Suc n) phi_fact \<emptyset> (Some (Suc x')) = Some (fact (Suc x'))" unfolding pow_phi_fact_n by (simp add: n_le_x')
-          have "Abs_pfun (pow (Suc n) phi_fact \<emptyset>) \<sqsubseteq> pfs" using sup_pfs by (rule supremum_leE, blast)
-          thus "Rep_pfun pfs (Some (Suc x')) = Some (fact (Suc x'))" unfolding le_pfun_def Rep_pfun_Abs_pfun using 2 by blast
+          hence Rep_pfun_pfs_eq: "Rep_pfun pfs (Some x') = pow (Suc x') phi_fact \<emptyset> (Some x')" by blast
+          show "Rep_pfun pfs (Some x') = Some (fact x')" unfolding Rep_pfun_pfs_eq pow_phi_fact_n by simp
         qed
       qed
     qed
@@ -450,7 +409,7 @@ proof -
   thus "phi_fact_star = (\<lambda>x. case x of None \<Rightarrow> None | Some y \<Rightarrow> Some (fact y))" by (simp add: Abs_pfun_inject)
 qed
 
-lemma "phi_fact (phi_fact_star) = phi_fact_star"
+corollary phi_fact_star_is_fixpoint: "phi_fact (phi_fact_star) = phi_fact_star"
 unfolding phi_fact_star_eq phi_fact_def proof
   fix x
   show "cond (eq x (Some 0)) (Some 1) (times x (case minus x (Some 1) of None \<Rightarrow> None | Some y \<Rightarrow> Some (fact y))) = (case x of None \<Rightarrow> None | Some y \<Rightarrow> Some (fact y))" proof (cases x)
@@ -461,5 +420,4 @@ unfolding phi_fact_star_eq phi_fact_def proof
     show ?thesis unfolding x_eq by (cases a; simp add: cond_def eq_def minus_def times_def)
   qed
 qed
-
 end
