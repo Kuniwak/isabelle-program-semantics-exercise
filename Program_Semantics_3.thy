@@ -525,6 +525,9 @@ proof
   show "(\<lambda>_. undefined) \<in> (UNIV :: ('a \<Rightarrow> 'b option) set)" by (rule UNIV_I)
 qed
 
+lemma Rep_pfun_Abs_pfun[simp]: "Rep_pfun (Abs_pfun x) = x"
+  by (rule Abs_pfun_inverse, rule UNIV_I)
+
 
 text "すなわち、f \<in> [S \<rightharpoonup> T] は次の全関数 f^: S \<rightarrow> T_\<bottom> で表せる。"
 text   "f^(x) = { f(x) (f(x) が定義)"
