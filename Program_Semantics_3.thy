@@ -2035,7 +2035,7 @@ proof -
   show ?thesis unfolding eq using directed_nat[OF UNIV_not_empty] mono_pow[OF mono] by (rule mono_directedE)
 qed
 
-lemma ex_fixpoint:
+lemma ex_lfp:
   fixes f :: "'a :: cpo \<Rightarrow> 'a"
   assumes cont: "cont f"
   obtains a where "f a = a" and "\<And>b. f b = b \<Longrightarrow> a \<sqsubseteq> b"
