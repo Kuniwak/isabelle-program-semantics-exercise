@@ -3,7 +3,7 @@ theory Program_Semantics_3
 begin
 
 \<comment> \<open>理解を確認するため組み込みの定義は使いません。\<close>
-hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on range mono range
+hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_order_on range mono antimono range lfp
 
 \<comment> \<open>これから先の定義では、台集合 D や D' を UNIV と同一視します。これによって台集合が有限であった場合の帰納法が封印されますが、これによって解けなくなる問題はありませんでした。\<close>
 
@@ -2110,5 +2110,4 @@ proof -
     qed
   qed
 qed
-
 end
