@@ -2042,26 +2042,26 @@ lemma ex_lfp:
 proof -
   let ?A = "{ (f ^^ n) \<bottom> |n. True}"
   have directed_A: "directed ?A" using cont_is_mono[OF cont] by (rule directed_pow)
-  obtain a where sup_a: "supremum { (f ^^ n) \<bottom> |n. True} a" using ex_supremum[OF directed_A] by blast
+  obtain a where sup_a: "supremum ?A a" using ex_supremum[OF directed_A] by blast
   show "(\<And>a. \<lbrakk>f a = a; \<And>b. f b = b \<Longrightarrow> a \<sqsubseteq> b\<rbrakk> \<Longrightarrow> thesis) \<Longrightarrow> thesis" proof
     show "f a = a" using cont directed_A sup_a proof (rule cont_sup_eqE)
       have eq: "\<And>n. f ((f ^^ n) \<bottom>) = (f ^^ Suc n) \<bottom>" by simp
-      show "supremum {f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}} a" unfolding eq proof (rule supremumI)
-        show "{f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}} \<^sub>s\<sqsubseteq> a" proof (rule upperI, clarify)
+      show "supremum {f xa |xa. xa \<in> ?A} a" unfolding eq proof (rule supremumI)
+        show "{f xa |xa. xa \<in> ?A} \<^sub>s\<sqsubseteq> a" proof (rule upperI, clarify)
           fix n
           show "f ((f ^^ n) \<bottom>) \<sqsubseteq> a" using sup_a proof (rule supremum_leE)
-            show "f ((f ^^ n) \<bottom>) \<in> {(f ^^ n) \<bottom> |n. True}" proof (intro CollectI exI TrueI conjI)
+            show "f ((f ^^ n) \<bottom>) \<in> ?A" proof (intro CollectI exI TrueI conjI)
               show "f ((f ^^ n) \<bottom>) = (f ^^ Suc n) \<bottom> " by simp
             qed
           qed
         qed
       next
         fix b
-        assume upper_b: "{f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}} \<^sub>s\<sqsubseteq> b"
+        assume upper_b: "{f xa |xa. xa \<in> ?A} \<^sub>s\<sqsubseteq> b"
         show "a \<sqsubseteq> b" using sup_a proof (rule supremum_leastE)
           show "{(f ^^ n) \<bottom> |n. True} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
             fix x
-            assume "x \<in> {(f ^^ n) \<bottom> |n. True}"
+            assume "x \<in> ?A"
             then obtain n where x_eq: "x = (f ^^ n) \<bottom>" by blast
             show "x \<sqsubseteq> b" using upper_b proof (cases n)
               case n_eq: 0
@@ -2069,7 +2069,7 @@ proof -
             next
               case n_eq: (Suc m)
               show ?thesis unfolding x_eq n_eq funpow.simps comp_def using upper_b proof (rule upperE)
-                show "f ((f ^^ m) \<bottom>) \<in> {f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}}" by blast
+                show "f ((f ^^ m) \<bottom>) \<in> {f xa |xa. xa \<in> ?A}" by blast
               qed
             qed
           qed
@@ -2080,9 +2080,9 @@ proof -
     fix b
     assume fb_eq: "f b = b"
     show "a \<sqsubseteq> b" using sup_a proof (rule supremum_leastE)
-      show "{(f ^^ n) \<bottom> |n. True} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
+      show "?A \<^sub>s\<sqsubseteq> b" proof (rule upperI)
         fix x
-        assume "x \<in> {(f ^^ n) \<bottom> |n. True}"
+        assume "x \<in> ?A"
         then obtain n where x_eq: "x = (f ^^ n) \<bottom>" by blast
         have b_eq: "\<And>n. b = (f ^^ n) b" proof -
           fix n
