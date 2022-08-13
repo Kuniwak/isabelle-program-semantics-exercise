@@ -411,4 +411,37 @@ unfolding phi_fact_star_eq phi_fact_def proof
     show ?thesis unfolding x_eq by (cases a; simp add: cond_def eq_def minus_def times_def)
   qed
 qed
+
+datatype var = R | X
+datatype expr = Val nat | Not expr | Eq expr expr | Ref var | Minus expr expr | Times expr expr
+datatype stmt = Assign var expr | Seq stmt stmt | While expr stmt
+
+definition iter_fact :: "stmt"
+  where "iter_fact \<equiv> Seq
+    (Assign R (Val 1))
+    (While
+      (Not (Eq (Ref X) (Val 0)))
+      (Seq
+        (Assign R (Times (Ref R) (Ref X)))
+        (Assign X (Minus (Ref X) (Val 1)))
+      )
+    )"
+
+type_synonym env = "var \<Rightarrow> nat"
+type_synonym program = "(env, env) pfun"
+
+fun eval :: "expr \<Rightarrow> env \<Rightarrow> nat"
+  where "eval (Val n) \<phi> = n"
+      | "eval (Not e) \<phi> = (if eval e \<phi> > 0 then 0 else 1)"
+      | "eval (Eq e1 e2) \<phi> = (if eval e1 \<phi> = eval e2 \<phi> then 1 else 0)"
+      | "eval (Ref v) \<phi> = \<phi> v"
+      | "eval (Minus e1 e2) \<phi> = (eval e1 \<phi>) - (eval e2 \<phi>)"
+      | "eval (Times e1 e2) \<phi> = (eval e1 \<phi>) * (eval e2 \<phi>)"
+
+function sem_fun :: "stmt \<Rightarrow> env \<Rightarrow> env option"
+  where sem_fun_Assign: "sem_fun (Assign v e) \<phi> = Some (\<phi>(v := eval e \<phi>))"
+      | sem_fun_Seq: "sem_fun (Seq s1 s2) \<phi> = (case sem_fun s1 \<phi> of Some \<phi>' \<Rightarrow> sem_fun s2 \<phi>' | None \<Rightarrow> None)"
+      | sem_fun_While: "sem_fun (While e s) \<phi> = (if eval e \<phi> > 0 then case sem_fun s \<phi> of Some \<phi>' \<Rightarrow> sem_fun (While e s) \<phi>' | None \<Rightarrow> None else Some \<phi>)"
+oops \<comment> \<open>停止性しないプログラムをかけるので関数として認められない\<close>
+
 end
