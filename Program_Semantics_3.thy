@@ -7,7 +7,8 @@ hide_const less less_eq sup inf top bot Sup Inf refl_on trans antisym partial_or
 
 \<comment> \<open>これから先の定義では、台集合 D や D' を UNIV と同一視します。これによって台集合が有限であった場合の帰納法が封印されますが、これによって解けなくなる問題はありませんでした。\<close>
 
-section "第3章 領域理論の基礎"
+chapter "第3章 領域理論の基礎"
+section "3.1 データの近似と極限"
 subsection "定義3.1.1"
 text "集合 D 上の二項関係 \<sqsubseteq> で次の性質を満たすものを D 上の半順序（partial order）と呼ぶ。"
 text "(1) a \<sqsubseteq> a（反射律）"
@@ -521,9 +522,7 @@ end
 text "\<bottom> と未定義要素と考えると、S から T への部分関数は S から T_\<bottom> への全関数として表せる。"
 
 typedef ('a, 'b) pfun = "UNIV :: ('a \<Rightarrow> 'b option) set"
-proof
-  show "(\<lambda>_. undefined) \<in> (UNIV :: ('a \<Rightarrow> 'b option) set)" by (rule UNIV_I)
-qed
+ by (rule exI, rule UNIV_I)
 
 lemma Rep_pfun_Abs_pfun[simp]: "Rep_pfun (Abs_pfun x) = x"
   by (rule Abs_pfun_inverse, rule UNIV_I)
@@ -1397,6 +1396,7 @@ next
 qed
 
 
+section "3.2 連続関数"
 subsection "定義 3.2.1"
 text "D と D' を半順序集合として、関数 f : D \<rightarrow> D' について、"
 text   "\<forall>a \<in> D \<forall>b \<in> D (a \<sqsubseteq> b \<Rightarrow> f(a) \<sqsubseteq> f(b))"
@@ -1997,5 +1997,118 @@ instance proof
   show "\<exists>d. supremum X d" using supremum_cfun[OF directed] by (rule exI)
 qed
 end
+
+
+section "3.3 不動点意味論"
+\<comment> \<open>\<Phi>_fact については Program_Semantics_3_3.thy を参照。\<close>
+
+
+subsection "定理 3.3.1 （最小不動点定理）"
+
+text "D を cpo、f を D から D への連続関数とすると、ある a \<in> D が存在して次の2つの条件が成り立つ。"
+text   "(1) f(a) = a"
+text   "(2) f(b) = b ならば a \<sqsubseteq> b"
+
+lemma mono_pow:
+  fixes f :: "'a :: po_bot \<Rightarrow> 'a"
+  assumes mono: "mono f"
+  shows "mono (\<lambda>n. (f ^^ n) \<bottom>)"
+proof (rule monoI, unfold le_nat_def)
+  fix a b :: nat
+  assume a_le_b: "a \<le> b"
+  then obtain c where b_eq: "b = a + c" using le_Suc_ex by presburger
+  show "(f ^^ a) \<bottom> \<sqsubseteq> (f ^^ b) \<bottom>" unfolding b_eq proof (induct a arbitrary: c)
+    case 0
+    show ?case by (simp, rule bot_le)
+  next
+    case (Suc n)
+    show ?case unfolding funpow.simps comp_def add_Suc using mono Suc by (rule monoE)
+  qed
+qed
+
+lemma directed_pow:
+  fixes f :: "'a :: po_bot \<Rightarrow> 'a"
+  assumes mono: "mono f"
+  shows "directed {(f ^^ n) \<bottom> |n. True}"
+proof -
+  have eq: "directed {(f ^^ n) \<bottom> |n. True} = directed {(f ^^ n) \<bottom> |n. n \<in> UNIV}" by simp
+  show ?thesis unfolding eq using directed_nat[OF UNIV_not_empty] mono_pow[OF mono] by (rule mono_directedE)
+qed
+
+lemma ex_fixpoint:
+  fixes f :: "'a :: cpo \<Rightarrow> 'a"
+  assumes cont: "cont f"
+  obtains a where "f a = a" and "\<And>b. f b = b \<Longrightarrow> a \<sqsubseteq> b"
+proof -
+  let ?A = "{ (f ^^ n) \<bottom> |n. True}"
+  have directed_A: "directed ?A" using cont_is_mono[OF cont] by (rule directed_pow)
+  obtain a where sup_a: "supremum { (f ^^ n) \<bottom> |n. True} a" using ex_supremum[OF directed_A] by blast
+  show "(\<And>a. \<lbrakk>f a = a; \<And>b. f b = b \<Longrightarrow> a \<sqsubseteq> b\<rbrakk> \<Longrightarrow> thesis) \<Longrightarrow> thesis" proof
+    show "f a = a" using cont directed_A sup_a proof (rule cont_sup_eqE)
+      have eq: "\<And>n. f ((f ^^ n) \<bottom>) = (f ^^ Suc n) \<bottom>" by simp
+      show "supremum {f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}} a" unfolding eq proof (rule supremumI)
+        show "{f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}} \<^sub>s\<sqsubseteq> a" proof (rule upperI, clarify)
+          fix n
+          show "f ((f ^^ n) \<bottom>) \<sqsubseteq> a" using sup_a proof (rule supremum_leE)
+            show "f ((f ^^ n) \<bottom>) \<in> {(f ^^ n) \<bottom> |n. True}" proof (intro CollectI exI TrueI conjI)
+              show "f ((f ^^ n) \<bottom>) = (f ^^ Suc n) \<bottom> " by simp
+            qed
+          qed
+        qed
+      next
+        fix b
+        assume upper_b: "{f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}} \<^sub>s\<sqsubseteq> b"
+        show "a \<sqsubseteq> b" using sup_a proof (rule supremum_leastE)
+          show "{(f ^^ n) \<bottom> |n. True} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
+            fix x
+            assume "x \<in> {(f ^^ n) \<bottom> |n. True}"
+            then obtain n where x_eq: "x = (f ^^ n) \<bottom>" by blast
+            show "x \<sqsubseteq> b" using upper_b proof (cases n)
+              case n_eq: 0
+              show ?thesis unfolding x_eq n_eq funpow.simps id_def by (rule bot_le)
+            next
+              case n_eq: (Suc m)
+              show ?thesis unfolding x_eq n_eq funpow.simps comp_def using upper_b proof (rule upperE)
+                show "f ((f ^^ m) \<bottom>) \<in> {f xa |xa. xa \<in> {(f ^^ n) \<bottom> |n. True}}" by blast
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  next
+    fix b
+    assume fb_eq: "f b = b"
+    show "a \<sqsubseteq> b" using sup_a proof (rule supremum_leastE)
+      show "{(f ^^ n) \<bottom> |n. True} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
+        fix x
+        assume "x \<in> {(f ^^ n) \<bottom> |n. True}"
+        then obtain n where x_eq: "x = (f ^^ n) \<bottom>" by blast
+        have b_eq: "\<And>n. b = (f ^^ n) b" proof -
+          fix n
+          show "b = (f ^^ n) b" proof (induct n)
+            case 0
+            show ?case by simp
+          next
+            case (Suc n)
+            thus ?case by (simp add: fb_eq)
+          qed
+        qed
+        show "x \<sqsubseteq> b" unfolding x_eq proof (subst b_eq[where ?n=n])
+          show "(f ^^ n) \<bottom> \<sqsubseteq> (f ^^ n) b" proof -
+            fix n
+            show "(f ^^ n) \<bottom> \<sqsubseteq> (f ^^ n) b" proof (induct n)
+              case 0
+              show ?case by (simp, rule bot_le)
+            next
+              case (Suc n)
+              show ?case by (simp, rule monoE[OF cont_is_mono[OF cont]], rule Suc)
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
 
 end
