@@ -773,8 +773,9 @@ qed
 
 subsubsection "2"
 text "cpo D 上の連続関数 f: D \<rightarrow> D の不動点の全体を F として、F \<union> {\<bottom>} は [D \<rightarrow> D] の半順序に関して cpo をなすことを示せ。"
+
 \<comment> \<open>型が合わないので何を言っているのかわからない。 F \<subseteq> D と考えると、台集合 F \<union> {\<bottom>} の半順序は (\<sqsubseteq>): D \<rightarrow> D になるはずであるが、指示されている [D \<rightarrow> D] の半順序は (\<sqsubseteq>): [D \<rightarrow> D] \<rightarrow> [D \<rightarrow> D] であるから型が合わない。\<close>
-\<comment> \<open>一方、F \<subseteq> [D \<rightarrow> D] と考えると台集合の型は [D \<rightarrow> D] となるので不動点の型も [D \<rightarrow> D] となるべきであり、連続関数 f の型は [D \<rightarrow> D] \<rightarrow> [D \<rightarrow> D] になるべきであるが、連続関数 f　の型は D \<rightarrow> D であるから型が合わない。\<close>
+\<comment> \<open>一方、F \<subseteq> [D \<rightarrow> D] と考えると台集合の型は [D \<rightarrow> D] となるので不動点の型も [D \<rightarrow> D] となるべきであり、連続関数 f の型は [D \<rightarrow> D] \<rightarrow> [D \<rightarrow> D] になるべきであるが、連続関数 f の型は D \<rightarrow> D であるから型が合わない。\<close>
 
 
 subsubsection "3"
@@ -971,6 +972,50 @@ proof (rule antimonoI)
   qed
 qed
 
+lemma
+  assumes cont: "cont f"
+    and fp: "f fp = fp"
+  shows "{(f ^^ n) \<bottom> |n. True} \<^sub>s\<sqsubseteq> fp"
+proof (rule upperI)
+  fix x
+  assume "x \<in> {(f ^^ n) \<bottom> |n. True}"
+  then obtain n where x_eq: "x = (f ^^ n) \<bottom>" by blast
+  show "x \<sqsubseteq> fp" unfolding x_eq proof (induct n)
+    case 0
+    show ?case unfolding funpow.simps id_def by (rule bot_le)
+  next
+    case (Suc n)
+    show ?case unfolding funpow.simps comp_def proof (rule trans)
+      show "f ((f ^^ n) \<bottom>) \<sqsubseteq> f fp" using cont_is_mono[OF cont] Suc by (rule monoE)
+    next
+      show "f fp \<sqsubseteq> fp" by (subst fp, rule refl)
+    qed
+  qed
+qed
+
+lemma
+  assumes cont: "cont f"
+    and fp: "f fp = fp"
+    and a_le_fp: "a \<sqsubseteq> fp"
+  shows "{(f ^^ n) a |n. True} \<^sub>s\<sqsubseteq> fp"
+proof (rule upperI)
+  fix x
+  assume "x \<in> {(f ^^ n) a |n. True}"
+  then obtain n where x_eq: "x = (f ^^ n) a" by blast
+  show "x \<sqsubseteq> fp" unfolding x_eq proof (induct n)
+    case 0
+    show ?case unfolding funpow.simps id_def proof -
+      show "a \<sqsubseteq> fp" by (rule a_le_fp)
+    qed
+  next
+    case (Suc n)
+    show ?case unfolding funpow.simps comp_def proof (rule trans)
+      show "f ((f ^^ n) a) \<sqsubseteq> f fp" using cont_is_mono[OF cont] Suc by (rule monoE)
+    next
+      show "f fp \<sqsubseteq> fp" by (subst fp, rule refl)
+    qed
+  qed
+qed
 
 theorem
   fixes f :: "'a :: cpo \<Rightarrow> 'a"
@@ -981,17 +1026,6 @@ theorem
     and least_lfp: "\<And>b. f b = b \<Longrightarrow> lfp \<sqsubseteq> b"
   shows "lfp \<sqsubseteq> a"
 proof -
-  let ?A = "{(f ^^ n) a |n. True}"
-  have directed_A: "directed ?A" using antimono_pow[OF cont_is_mono[OF cont] fa_le_a] by (rule antimono_directedE)
-  have sup_a: "supremum ?A a" using maximum_powI[OF cont_is_mono[OF cont] fa_le_a] by (rule maximum_supremumE)
-  let ?A_plus = "\<lambda>n. {(f ^^ (m + n)) a |m. True}"
-  let ?f = "\<lambda>n. \<Squnion> (?A_plus n)"
-  have f_eq: "\<And>n. ?f n = (f ^^ n) a" unfolding Sup_pow_plus_eq[OF cont_is_mono[OF cont] fa_le_a] by (rule HOL.refl)
-  have sup_a2: "supremum {?f n |n. True} a" unfolding f_eq by (rule sup_a)
-  have "supremum {f xa |xa. xa \<in> {?f n |n. True}} (f a)" unfolding f_eq proof -
-    have eq: "{f xa |xa. xa \<in> {(f ^^ n) a |n. True}} = ?A_plus 1" by fastforce
-    show "supremum {f xa |xa. xa \<in> {(f ^^ n) a |n. True}} (f a)" unfolding eq using maximum_supremumE[OF maximum_pow_plusI[OF cont_is_mono[OF cont] fa_le_a], where ?m1=1] by fastforce
-  qed
 
 
 subsubsection "4"
