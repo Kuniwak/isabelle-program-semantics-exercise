@@ -160,11 +160,28 @@ qed
 definition (in po) maximum :: "'a set \<Rightarrow> 'a \<Rightarrow> bool"
   where "maximum X x \<equiv> x \<in> X \<and> X \<^sub>s\<sqsubseteq> x"
 
-lemma (in po) maximum_onE:
+lemma (in po) maximumI:
+  assumes "x \<in> X"
+    and "X \<^sub>s\<sqsubseteq> x"
+  shows "maximum X x"
+unfolding maximum_def using assms by blast
+
+lemma (in po)
   assumes "maximum X x"
   shows maximum_memE: "x \<in> X"
     and maximum_upperE: "X \<^sub>s\<sqsubseteq> x"
 using assms unfolding maximum_def by blast+
+
+lemma (in po) maximum_leE:
+  assumes maximum: "maximum X x"
+    and upper_y: "X \<^sub>s\<sqsubseteq> y"
+  shows "x \<sqsubseteq> y"
+using upper_y maximum_memE[OF maximum] by (rule upperE)
+
+lemma (in po) maximum_supremumE:
+  assumes maximum: "maximum X x"
+  shows "supremum X x"
+using maximum_upperE[OF maximum] maximum_leE[OF maximum] by (rule supremumI)
 
 theorem (in po) ex_maximum:
   assumes finite: "finite X"
@@ -620,5 +637,465 @@ next
     qed
   qed
 qed
+
+
+subsection "練習問題 3.3"
+subsubsection "1"
+text "D を cpo、f: D \<rightarrow> D を連続関数、a \<in> D として、 a \<sqsubseteq> f(a) ならば a 以上の f の不動点のうち最小のものが存在することを示せ。"
+
+lemma mono_pow:
+  assumes mono: "mono f"
+    and a_le_fa: "a \<sqsubseteq> f a"
+  shows "mono (\<lambda>n. (f ^^ n) a)"
+proof (rule monoI)
+  fix n m :: nat
+  assume "n \<sqsubseteq> m"
+  then obtain l where m_eq: "m = n + l" unfolding le_nat_def using le_Suc_ex by presburger
+  show "(f ^^ n) a \<sqsubseteq> (f ^^ m) a" unfolding m_eq proof (induct n arbitrary: l)
+    case 0
+    show ?case proof simp
+      show "a \<sqsubseteq> (f ^^ l) a" proof (induct l)
+        case 0
+        show ?case by (simp, rule refl)
+      next
+        case (Suc l)
+        show ?case proof simp
+          show "a \<sqsubseteq> f ((f ^^ l) a)" using a_le_fa proof (rule trans)
+            show "f a \<sqsubseteq> f ((f ^^ l) a)" using mono using Suc by (rule monoE)
+          qed
+        qed
+      qed
+    qed
+  next
+    case (Suc n)
+    show ?case proof (simp, rule monoE[OF mono])
+      show "(f ^^ n) a \<sqsubseteq> (f ^^ (n + l)) a" by (rule Suc)
+    qed
+  qed
+qed
+
+theorem
+  fixes f :: "'a :: cpo \<Rightarrow> 'a"
+    and a :: 'a
+  assumes cont: "cont f"
+    and a_le_fa: "a \<sqsubseteq> f a"
+  obtains x where "f x = x" and "\<And>b. \<lbrakk> a \<sqsubseteq> b; f b = b \<rbrakk> \<Longrightarrow> x \<sqsubseteq> b" and "a \<sqsubseteq> x"
+proof -
+  let ?A = "{(f ^^ n) a |n. True}"
+  have directed_A: "directed ?A" proof -
+    have eq: "?A = {(f ^^ n) a |n. n \<in> UNIV}" by simp
+    show "directed ?A" unfolding eq using directed_nat[OF UNIV_not_empty] proof (rule mono_directedE)
+      show "mono (\<lambda>x. (f ^^ x) a)" using cont_is_mono[OF cont] a_le_fa by (rule mono_pow)
+    qed
+  qed
+  obtain lfp_a where sup_lfp_a: "supremum ?A lfp_a" using ex_supremum[OF directed_A] by blast
+  show "(\<And>x. \<lbrakk>f x = x; \<And>b. \<lbrakk>a \<sqsubseteq> b; f b = b\<rbrakk> \<Longrightarrow> x \<sqsubseteq> b; a \<sqsubseteq> x\<rbrakk> \<Longrightarrow> thesis) \<Longrightarrow> thesis" proof
+    show "f lfp_a = lfp_a" using cont directed_A sup_lfp_a proof (rule cont_sup_eqE)
+      have eq: "{f xa |xa. xa \<in> {(f ^^ n) a |n. True}} = {f ((f ^^ n) a) |n. True}" by blast
+      show "supremum {f xa |xa. xa \<in> {(f ^^ n) a |n. True}} lfp_a" unfolding eq proof (rule supremumI)
+        show "{f ((f ^^ n) a) |n. True} \<^sub>s\<sqsubseteq> lfp_a" proof (rule upperI)
+          fix x
+          assume "x \<in> {f ((f ^^ n) a) |n. True}"
+          then obtain n where x_eq: "x = f ((f ^^ n) a)" by blast
+          show "x \<sqsubseteq> lfp_a" unfolding x_eq using sup_lfp_a proof (rule supremum_leE)
+            show "f ((f ^^ n) a) \<in> {(f ^^ n) a |n. True}" proof (simp, rule exI)
+              show " f ((f ^^ n) a) = (f ^^ (Suc n)) a" by simp
+            qed
+          qed
+        qed
+      next
+        fix b
+        assume upper_b: "{f ((f ^^ n) a) |n. True} \<^sub>s\<sqsubseteq> b"
+        show "lfp_a \<sqsubseteq> b" using sup_lfp_a proof (rule supremum_leastE)
+          show "{(f ^^ n) a |n. True} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
+            fix x
+            assume "x \<in> {(f ^^ n) a |n. True}"
+            then obtain n where x_eq: "x = (f ^^ n) a" by blast
+            show "x \<sqsubseteq> b" unfolding x_eq proof (cases n)
+              case n_eq: 0
+              show "(f ^^ n) a \<sqsubseteq> b" unfolding n_eq proof simp
+                show "a \<sqsubseteq> b" using a_le_fa proof (rule trans)
+                  show "f a \<sqsubseteq> b" using upper_b proof (rule upperE)
+                    show "f a \<in> {f ((f ^^ n) a) |n. True}" proof simp
+                      show "\<exists>n. f a = f ((f ^^ n) a)" proof (rule exI)
+                        show "f a = f ((f ^^ 0) a)" by simp
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            next
+              case n_eq: (Suc m)
+              show "(f ^^ n) a \<sqsubseteq> b" unfolding n_eq funpow.simps comp_def using upper_b by (rule upperE, blast)
+            qed
+          qed
+        qed
+      qed
+    qed
+  next
+    fix b
+    assume a_le_b: "a \<sqsubseteq> b"
+      and fb_eq: "f b = b"
+    show "lfp_a \<sqsubseteq> b" using sup_lfp_a proof (rule supremum_leastE)
+      show "{(f ^^ n) a |n. True} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
+        fix x
+        assume "x \<in> {(f ^^ n) a |n. True}"
+        then obtain n where x_eq: "x = (f ^^ n) a" by blast
+        have b_eq: "b = (f ^^ n) b" proof (induct n)
+          case 0
+          show ?case by simp
+        next
+          case b_eq: (Suc n)
+          show ?case proof simp
+            show "b = f ((f ^^ n) b)" by (subst b_eq[symmetric], rule fb_eq[symmetric])
+          qed
+        qed
+        show "x \<sqsubseteq> b" unfolding x_eq proof (subst b_eq)
+          show "(f ^^ n) a \<sqsubseteq> (f ^^ n) b" proof (induct n)
+            case 0
+            show ?case by (simp, rule a_le_b)
+          next
+            case (Suc n)
+            show ?case by (simp, rule monoE[OF cont_is_mono[OF cont]],rule Suc)
+          qed
+        qed
+      qed
+    qed
+  next
+    show "a \<sqsubseteq> lfp_a" using sup_lfp_a proof (rule supremum_leE)
+      show "a \<in> {(f ^^ n) a |n. True}" proof (intro CollectI exI conjI TrueI)
+        show "a = (f ^^ 0) a" by simp
+      qed
+    qed
+  qed
+qed
+
+
+subsubsection "2"
+text "cpo D 上の連続関数 f: D \<rightarrow> D の不動点の全体を F として、F \<union> {\<bottom>} は [D \<rightarrow> D] の半順序に関して cpo をなすことを示せ。"
+\<comment> \<open>型が合わないので何を言っているのかわからない。 F \<subseteq> D と考えると、台集合 F \<union> {\<bottom>} の半順序は (\<sqsubseteq>): D \<rightarrow> D になるはずであるが、指示されている [D \<rightarrow> D] の半順序は (\<sqsubseteq>): [D \<rightarrow> D] \<rightarrow> [D \<rightarrow> D] であるから型が合わない。\<close>
+\<comment> \<open>一方、F \<subseteq> [D \<rightarrow> D] と考えると台集合の型は [D \<rightarrow> D] となるので不動点の型も [D \<rightarrow> D] となるべきであり、連続関数 f の型は [D \<rightarrow> D] \<rightarrow> [D \<rightarrow> D] になるべきであるが、連続関数 f　の型は D \<rightarrow> D であるから型が合わない。\<close>
+
+
+subsubsection "3"
+text "D を cpo、f: D \<rightarrow> D を連続関数、 a \<in> D として、 f(a) \<sqsubseteq> a ならば f の最小不動点は a 以下であることを示せ。"
+
+lemma maximum_powI:
+  fixes f :: "'a :: cpo \<Rightarrow> 'a"
+    and a :: 'a
+  assumes mono: "mono f"
+    and fa_le_a: "f a \<sqsubseteq> a"
+  shows "maximum {(f ^^ n) a |n. True} a"
+proof (rule maximumI)
+  show "{(f ^^ n) a |n. True} \<^sub>s\<sqsubseteq> a" proof (rule upperI)
+    fix x
+    assume "x \<in> {(f ^^ n) a |n. True}"
+    then obtain n where x_eq: "x = (f ^^ n) a" by blast
+    show "x \<sqsubseteq> a" unfolding x_eq proof (induct n rule: nat_less_induct)
+      case (1 n)
+      then show ?case proof (cases n)
+        case n_eq: 0
+        show ?thesis unfolding n_eq by (simp, rule refl)
+      next
+        case (Suc m)
+        hence m_le_n: "m < n" by simp
+        have eq: "(f ^^ Suc m) a = (f ^^ m) (f a)" by (simp add: funpow_swap1)
+        show ?thesis proof (rule trans)
+          show "(f ^^ n) a \<sqsubseteq> (f ^^ m) a" unfolding Suc eq proof (induct m)
+            case 0
+            show ?case by (simp, rule fa_le_a)
+          next
+            case (Suc m)
+            show ?case by (simp, rule monoE[OF mono], rule Suc)
+          qed
+        next
+          show "(f ^^ m) a \<sqsubseteq> a" using 1 m_le_n by blast
+        qed
+      qed
+    qed
+  qed
+next
+  fix b
+  show "a \<in> {(f ^^ n) a |n. True}" proof (intro CollectI exI conjI TrueI)
+    show "a = (f ^^ 0) a" by simp
+  qed
+qed
+
+lemma
+  fixes f :: "'a :: cpo \<Rightarrow> 'a"
+    and a :: 'a
+  assumes mono: "mono f"
+    and fa_le_a: "f a \<sqsubseteq> a"
+  shows "maximum {(f ^^ (n + m)) a |n. True} ((f ^^ m) a)"
+proof (induct m)
+  case 0
+  show ?case unfolding add_0_right funpow.simps id_def using mono fa_le_a by (rule maximum_powI)
+next
+  case (Suc m)
+  show ?case unfolding funpow.simps comp_def add_Suc_right proof (rule maximumI)
+    show "f ((f ^^ m) a) \<in> {f ((f ^^ (n + m)) a) |n. True}" proof (intro CollectI conjI TrueI exI)
+      show " f ((f ^^ m) a) = f ((f ^^ (0 + m)) a)" by simp
+    qed
+  next
+    show "{f ((f ^^ (n + m)) a) |n. True} \<^sub>s\<sqsubseteq> f ((f ^^ m) a)" proof (rule upperI)
+      fix x
+      assume "x \<in> {f ((f ^^ (n + m)) a) |n. True}"
+      then obtain n where x_eq: "x = f ((f ^^ (n + m)) a)" by blast
+      show "x \<sqsubseteq> f ((f ^^ m) a)" unfolding x_eq using mono proof (rule monoE)
+        show "(f ^^ (n + m)) a \<sqsubseteq> (f ^^ m) a" using maximum_upperE[OF Suc] proof (rule upperE)
+          show "(f ^^ (n + m)) a \<in> {(f ^^ (n + m)) a |n. True}" by fastforce
+        qed
+      qed
+    qed
+  qed
+qed
+
+
+definition antimono :: "(('a :: po) \<Rightarrow> ('b :: po)) \<Rightarrow> bool"
+  where "antimono f \<equiv> \<forall>a b. a \<sqsubseteq> b \<longrightarrow> f b \<sqsubseteq> f a"
+
+lemma antimonoI:
+  assumes "\<And>a b. a \<sqsubseteq> b \<Longrightarrow> f b \<sqsubseteq> f a"
+  shows "antimono f"
+unfolding antimono_def using assms by blast
+
+lemma antimonoE:
+  assumes "antimono f"
+  shows "\<And>a b. a \<sqsubseteq> b \<Longrightarrow> f b \<sqsubseteq> f a"
+using assms unfolding antimono_def by blast
+
+lemma antimono_pow:
+  fixes f :: "'a :: po \<Rightarrow> 'a"
+  assumes mono: "mono f"
+    and fx_le_x: "f x \<sqsubseteq> x"
+  shows "antimono (\<lambda>n. (f ^^ n) x)"
+proof (rule antimonoI)
+  fix a b :: nat
+  assume "a \<sqsubseteq> b"
+  then obtain c where b_eq: "b = a + c" unfolding le_nat_def using le_Suc_ex by presburger
+  show "(f ^^ b) x \<sqsubseteq> (f ^^ a) x" unfolding b_eq proof (induct a)
+    case 0
+    show ?case proof (induct c)
+      case 0
+      show ?case by (simp, rule refl)
+    next
+      case (Suc c)
+      hence step: "(f ^^ c) x \<sqsubseteq> x" by simp
+      have eq: "(f ^^ (0 + Suc c)) x = (f ^^ c) (f x)" using funpow_swap1 by simp
+      show ?case proof (simp, rule trans)
+        show "f ((f ^^ c) x) \<sqsubseteq> f x" using mono step by (rule monoE)
+      next
+        show "f x \<sqsubseteq> x" by (rule fx_le_x)
+      qed
+    qed
+  next
+    case (Suc a)
+    show ?case by (simp, rule monoE[OF mono], rule Suc)
+  qed
+qed
+
+lemma antimono_directedE:
+  fixes f :: "nat \<Rightarrow> 'a :: po"
+  assumes antimono: "antimono f"
+  shows "directed {f x |x. True}"
+proof (rule directedI)
+  show "{f x |x. True} \<noteq> {}" by blast
+next
+  fix a b
+  assume a_mem: "a \<in> {f x |x. True}"
+    and b_mem: "b \<in> {f x |x. True}"
+  obtain xa where a_eq: "a = f xa" using a_mem by blast
+  obtain xb where b_eq: "b = f xb" using b_mem by blast
+  show "\<exists>c\<in>{f x |x. True}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c" unfolding a_eq b_eq proof (intro bexI conjI CollectI exI TrueI)
+    show "f xa \<sqsubseteq> f (min xa xb)" using antimono proof (rule antimonoE)
+      show "min xa xb \<sqsubseteq> xa" unfolding le_nat_def by linarith
+    qed
+  next
+    show "f xb \<sqsubseteq> f (min xa xb)" using antimono proof (rule antimonoE)
+      show "min xa xb \<sqsubseteq> xb" unfolding le_nat_def by linarith
+    qed
+  next
+    show "f (min xa xb) = f (min xa xb)" by (rule HOL.refl)
+  qed
+qed
+
+lemma antimono_pow_directedE:
+  fixes f :: "'a :: po \<Rightarrow> 'a"
+  assumes antimono: "antimono (\<lambda>n. (f ^^ n) a)"
+  shows "directed {(f ^^ (n + m)) a |n. True}"
+proof (induct m)
+  case 0
+  show ?case unfolding add_0_right using antimono by (rule antimono_directedE)
+next
+  case (Suc m)
+  show ?case proof (rule directedI)
+    show "{(f ^^ (n + Suc m)) a |n. True} \<noteq> {}" by blast
+  next
+    fix b c
+    assume b_mem: "b \<in> {(f ^^ (n + Suc m)) a |n. True}"
+      and c_mem: "c \<in> {(f ^^ (n + Suc m)) a |n. True}"
+    obtain nb where b_eq: "b = (f ^^ (nb + Suc m)) a" using b_mem by blast
+    obtain nc where c_eq: "c = (f ^^ (nc + Suc m)) a" using c_mem by blast
+    show "\<exists>d\<in>{(f ^^ (n + Suc m)) a |n. True}. b \<sqsubseteq> d \<and> c \<sqsubseteq> d" unfolding b_eq c_eq proof (intro bexI conjI CollectI exI TrueI)
+      show "(f ^^ (nb + Suc m)) a \<sqsubseteq> (f ^^ ((min nb nc) + Suc m)) a" using antimono proof (rule antimonoE)
+        show "min nb nc + Suc m \<sqsubseteq> nb + Suc m" unfolding le_nat_def by linarith
+      qed
+    next
+      show "(f ^^ (nc + Suc m)) a \<sqsubseteq> (f ^^ ((min nb nc) + Suc m)) a" using antimono proof (rule antimonoE)
+        show "min nb nc + Suc m \<sqsubseteq> nc + Suc m" unfolding le_nat_def by linarith
+      qed
+    next
+      show "(f ^^ (min nb nc + Suc m)) a = (f ^^ (min nb nc + Suc m)) a" by (rule HOL.refl)
+    qed
+  qed
+qed
+
+lemma antimono_SupI:
+  fixes f :: "'a :: cpo \<Rightarrow> 'a"
+    and X :: "nat \<Rightarrow> 'a"
+  assumes cont: "cont f"
+    and fa_le_a: "f a \<sqsubseteq> a"
+  shows "antimono (\<lambda>n. \<Squnion> {(f ^^ (m + n)) a |m. True})"
+proof (rule antimonoI)
+  let ?X = "\<lambda>n. \<Squnion> {(f ^^ (m + n)) a |m. True}"
+  fix n m :: nat
+  assume "n \<sqsubseteq> m" hence n_le_m: "n \<le> m" unfolding le_nat_def by simp
+  obtain l where m_eq: "m = n + l" using n_le_m le_Suc_ex by presburger
+  show "?X m \<sqsubseteq> ?X n" unfolding m_eq proof (induct l)
+    case 0
+    show ?case by (simp, rule refl)
+  next
+    case (Suc i)
+    show ?case proof (subst add_Suc_right, rule trans)
+      obtain j where j_eq: "j = n + i" by simp
+      show "?X (Suc (n + i)) \<sqsubseteq> ?X (n + i)" unfolding j_eq[symmetric] proof (induct j)
+        case 0
+        let ?A0 = "{(f ^^ m) a |m. True}"
+        have sup_a: "supremum ?A0 a" using maximum_powI[OF cont_is_mono[OF cont] fa_le_a] by (rule maximum_supremumE)
+        let ?A1 = "{(f ^^ (m + Suc 0)) a |m. True}"
+        obtain fa where sup_fa: "supremum ?A1 fa" proof -
+          have directed_A1: "directed ?A1" using antimono_pow[OF cont_is_mono[OF cont] fa_le_a] by (rule antimono_pow_directedE)
+          obtain fa where "supremum ?A1 fa" using ex_supremum[OF directed_A1] by blast
+          thus "(\<And>fa. supremum ?A1 fa \<Longrightarrow> thesis) \<Longrightarrow> thesis" by blast
+        qed
+        have X_0_eq: "?X 0 = a" by (subst add_0_right, rule Sup_eq[OF sup_a]) 
+        have X_Suc_0_eq: "?X (Suc 0) = fa" using sup_fa by (rule Sup_eq)
+        have f_fm_eq: "f a = fa" using cont proof (rule cont_sup_eqE)
+          show "directed ?A0" using antimono_pow[OF cont_is_mono[OF cont] fa_le_a] by (rule antimono_directedE)
+        next
+          show "supremum ?A0 a" by (rule sup_a)
+        next
+          have eq: "{f xa |xa. xa \<in> {(f ^^ m) a |m. True}} = ?A1" by fastforce
+          show "supremum {f xa |xa. xa \<in> {(f ^^ m) a |m. True}} fa" unfolding eq by (rule sup_fa)
+        qed
+        show "?X (Suc 0) \<sqsubseteq> ?X 0" unfolding X_0_eq X_Suc_0_eq f_fm_eq[symmetric] by (rule fa_le_a)
+      next
+        case (Suc n)
+        let ?A0 = "{(f ^^ (m + n)) a |m. True}"
+        have directed_A0: "directed ?A0" using antimono_pow[OF cont_is_mono[OF cont] fa_le_a] by (rule antimono_pow_directedE)      
+        obtain f0 where sup_f0: "supremum ?A0 f0" proof -
+          show "(\<And>f0. supremum ?A0 f0 \<Longrightarrow> thesis) \<Longrightarrow> thesis" using ex_supremum[OF directed_A0] by blast
+        qed
+        let ?A1 = "{(f ^^ (m + Suc n)) a |m. True}"
+        have directed_A1: "directed ?A1" using antimono_pow[OF cont_is_mono[OF cont] fa_le_a] by (rule antimono_pow_directedE)      
+        obtain f1 where sup_f1: "supremum ?A1 f1" proof -
+          show "(\<And>f1. supremum ?A1 f1 \<Longrightarrow> thesis) \<Longrightarrow> thesis" using ex_supremum[OF directed_A1] by blast
+        qed
+        let ?A2 = "{(f ^^ (m + Suc (Suc n))) a |m. True}"
+        have directed_A2: "directed ?A2" using antimono_pow[OF cont_is_mono[OF cont] fa_le_a] by (rule antimono_pow_directedE)
+        obtain f2 where sup_f2: "supremum ?A2 f2" proof -
+          show "(\<And>fSS. supremum ?A2 fSS \<Longrightarrow> thesis) \<Longrightarrow> thesis" using ex_supremum[OF directed_A2] by blast
+        qed
+        have X_eq: "?X n = f0" using sup_f0 by (rule Sup_eq)
+        have X_S_eq: "?X (Suc n) = f1" using sup_f1 by (rule Sup_eq)
+        have X_SS_eq: "?X (Suc (Suc n)) = f2" using sup_f2 by (rule Sup_eq)
+        have ff0_eq: "f f0 = f1" using cont directed_A0 sup_f0 proof (rule cont_sup_eqE)
+          have eq: "{f xa |xa. xa \<in> {(f ^^ (m + n)) a |m. True}} = ?A1" by fastforce
+          show "supremum {f xa |xa. xa \<in> {(f ^^ (m + n)) a |m. True}} f1" unfolding eq by (rule sup_f1)
+        qed
+        have ff1_eq: "f f1 = f2" using cont directed_A1 sup_f1 proof (rule cont_sup_eqE)
+          have eq: "{f xa |xa. xa \<in> {(f ^^ (m + Suc n)) a |m. True}} = ?A2" by fastforce
+          show "supremum {f xa |xa. xa \<in> {(f ^^ (m + Suc n)) a |m. True}} f2" unfolding eq by (rule sup_f2)
+        qed
+        show ?case unfolding X_S_eq X_SS_eq ff0_eq[symmetric] ff1_eq[symmetric] using cont_is_mono[OF cont] proof (rule monoE)
+          show "f f0 \<sqsubseteq> f0" using Suc unfolding X_S_eq X_eq ff0_eq[symmetric] .
+        qed
+      qed
+    next
+      show "?X (n + i) \<sqsubseteq> ?X n" by (rule Suc)
+    qed
+  qed
+qed
+
+theorem
+  fixes f :: "'a :: cpo \<Rightarrow> 'a"
+    and a :: 'a
+  assumes cont: "cont f"
+    and fa_le_a: "f a \<sqsubseteq> a"
+    and f_lfp_eq: "f lfp = lfp"
+    and least_lfp: "\<And>b. f b = b \<Longrightarrow> lfp \<sqsubseteq> b"
+  shows "lfp \<sqsubseteq> a"
+proof -
+  let ?A = "{(f ^^ n) a |n. True}"
+  have directed_A: "directed ?A" using antimono_pow[OF cont_is_mono[OF cont] fa_le_a] by (rule antimono_directedE)
+  have sup_a: "supremum ?A a" using maximum_powI[OF cont_is_mono[OF cont] fa_le_a] by (rule maximum_supremumE)
+  let ?A_plus = "\<lambda>n. {(f ^^ (m + n)) a |m. True}"
+  let ?f = "\<lambda>n. \<Squnion> (?A_plus n)"
+  obtain x where sup_x: "supremum {?f n |n. True} x" using ex_supremum[OF antimono_directedE[OF antimono_SupI[OF cont fa_le_a]]] by blast
+  have upper_x: "{f xa |xa. xa \<in> {?f n |n. True}} \<^sub>s\<sqsubseteq> x" proof (rule upperI)
+    fix fx
+    assume "fx \<in> {f xa |xa. xa \<in> {?f n |n. True}}"
+    then obtain n :: nat where fx_eq: "fx = f (?f n)" by blast
+    show "fx \<sqsubseteq> x" unfolding fx_eq proof (rule trans)
+      show "f (?f n) \<sqsubseteq> f (?f 0)" using cont_is_mono[OF cont] proof (rule monoE)
+        show "?f n \<sqsubseteq> ?f 0" using antimono_SupI[OF cont fa_le_a] proof (rule antimonoE)
+          show "0 \<sqsubseteq> n" unfolding le_nat_def by simp
+        qed
+      qed
+    next
+      show "f (?f 0) \<sqsubseteq> x" using sup_x proof (rule supremum_leE)
+        show "f (?f 0) \<in> {?f n |n. True}" proof (intro CollectI exI conjI TrueI)
+          show "f (?f 0) = ?f 1" unfolding add_0_right Sup_eq[OF sup_a] proof -
+            show "f a = ?f 1" using cont directed_A sup_a proof (rule cont_sup_eqE)
+              obtain f1 where sup_f1: "supremum (?A_plus 1) f1" using ex_supremum[OF antimono_pow_directedE[OF antimono_pow[OF cont_is_mono[OF cont] fa_le_a]]] by blast
+              show "supremum {f xa |xa. xa \<in> ?A} (?f 1)" proof (rule supremumI)
+                show "{f xa |xa. xa \<in> ?A} \<^sub>s\<sqsubseteq> ?f 1" proof (rule upperI)
+                  fix fy
+                  assume "fy \<in> {f xa |xa. xa \<in> ?A}"
+                  then obtain m where fy_eq: "fy = f ((f ^^ m) a)" by blast
+                  show "fy \<sqsubseteq> ?f 1" unfolding fy_eq Sup_eq[OF sup_f1] using sup_f1 proof (rule supremum_leE)
+                    show "f ((f ^^ m) a) \<in> {(f ^^ (m + 1)) a |m. True}" by fastforce
+                  qed
+                qed
+              next
+                fix b
+                assume upper_b: "{f xa |xa. xa \<in> ?A} \<^sub>s\<sqsubseteq> b"
+                show "\<Squnion> {(f ^^ (m + 1)) a |m. True} \<sqsubseteq> b" unfolding Sup_eq[OF sup_f1] using sup_f1 proof (rule supremum_leastE)
+                  show "{(f ^^ (m + 1)) a |m. True} \<^sub>s\<sqsubseteq> b" proof (rule upperI)
+                    fix x
+                    assume "x \<in> ?A_plus 1"
+                    then obtain m where x_eq: "x = (f ^^ (m + 1)) a" by blast
+                    show "x \<sqsubseteq> b" unfolding x_eq using upper_b proof (rule upperE)
+                      show "(f ^^ (m + 1)) a \<in> {f xa |xa. xa \<in> {(f ^^ n) a |n. True}}" by fastforce
+                    qed
+                  qed
+                qed
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+  
+
+
+subsubsection "4"
+text "\<Phi>: [\<nat> \<rightharpoonup> \<nat>] \<rightarrow> [\<nat> \<rightharpoonup> \<nat>] を"
+text   "\<Phi>(f)(x) = if x > 100 then x - 10 else f(f(x + 11))"
+text "と定義すると \<Phi> の最小不動点は、"
+text   " f_91(x) = if x > 100 then x - 10 else 91"
+text "と一致することを示せ。この関数は McCarghy の 91 関数と呼ばれている。"
+
 
 end
