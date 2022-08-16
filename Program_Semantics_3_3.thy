@@ -428,7 +428,6 @@ definition iter_fact :: "stmt"
     )"
 
 type_synonym env = "var \<Rightarrow> nat"
-type_synonym program = "(env, env) pfun"
 
 fun eval :: "expr \<Rightarrow> env \<Rightarrow> nat"
   where "eval (Val n) \<phi> = n"
@@ -442,7 +441,7 @@ function sem_fun :: "stmt \<Rightarrow> env \<Rightarrow> env option"
   where sem_fun_Assign: "sem_fun (Assign v e) \<phi> = Some (\<phi>(v := eval e \<phi>))"
       | sem_fun_Seq: "sem_fun (Seq s1 s2) \<phi> = (case sem_fun s1 \<phi> of Some \<phi>' \<Rightarrow> sem_fun s2 \<phi>' | None \<Rightarrow> None)"
       | sem_fun_While: "sem_fun (While e s) \<phi> = (if eval e \<phi> > 0 then case sem_fun s \<phi> of Some \<phi>' \<Rightarrow> sem_fun (While e s) \<phi>' | None \<Rightarrow> None else Some \<phi>)"
-oops \<comment> \<open>停止性しないプログラムをかけるので関数として認められない\<close>
+oops \<comment> \<open>停止性しないプログラムをかけるので関数として認められない。そこで再帰部分を引数に切り出して、単調関数にする。\<close>
 
 fun sem_pfun :: "(stmt \<times> env \<Rightarrow> env option) \<Rightarrow> stmt \<times> env \<Rightarrow> env option"
   where sem_pfun_Assign: "sem_pfun f ((Assign v e), \<phi>) = Some (\<phi>(v := eval e \<phi>))"
