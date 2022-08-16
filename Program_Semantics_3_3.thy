@@ -4,7 +4,7 @@ begin
 
 hide_const minus times
 
-abbreviation empty :: "nat option \<Rightarrow> nat option" ("\<emptyset>")
+abbreviation empty :: "'a \<Rightarrow> 'b option" ("\<emptyset>")
   where "empty \<equiv> (\<lambda>_. None)"
 
 definition eq :: "nat option \<Rightarrow> nat option \<Rightarrow> bool option"
@@ -343,7 +343,7 @@ lemma ex_phi_fact_star:
   obtains phi_fact_star where "supremum {Abs_pfun ((phi_fact ^^ n) \<emptyset>) |n. True} phi_fact_star"
 proof -
   have eq: "{Abs_pfun ((phi_fact ^^ n) \<emptyset>) |n. True} = {Abs_pfun ((phi_fact ^^ n) \<emptyset>) |n. n \<in> UNIV}" by simp
-  have directed: "directed {Abs_pfun ((phi_fact ^^ n) \<emptyset>) |n. True}" unfolding eq using directed_nat[OF UNIV_not_empty] mono_pow_phi_fact by (rule mono_directedE)
+  have directed: "directed {Abs_pfun ((phi_fact ^^ n) \<emptyset>) |n. True}" unfolding eq using directed_nat[OF UNIV_not_empty] mono_pow_phi_fact by (rule directed_Collect_monoI)
   show "(\<And>phi_fact_star. supremum {Abs_pfun ((phi_fact ^^ n) \<emptyset>) |n. True} phi_fact_star \<Longrightarrow> thesis) \<Longrightarrow> thesis" using ex_supremum[OF directed] by blast
 qed
 
@@ -443,5 +443,75 @@ function sem_fun :: "stmt \<Rightarrow> env \<Rightarrow> env option"
       | sem_fun_Seq: "sem_fun (Seq s1 s2) \<phi> = (case sem_fun s1 \<phi> of Some \<phi>' \<Rightarrow> sem_fun s2 \<phi>' | None \<Rightarrow> None)"
       | sem_fun_While: "sem_fun (While e s) \<phi> = (if eval e \<phi> > 0 then case sem_fun s \<phi> of Some \<phi>' \<Rightarrow> sem_fun (While e s) \<phi>' | None \<Rightarrow> None else Some \<phi>)"
 oops \<comment> \<open>停止性しないプログラムをかけるので関数として認められない\<close>
+
+fun sem_pfun :: "(stmt \<times> env \<Rightarrow> env option) \<Rightarrow> stmt \<times> env \<Rightarrow> env option"
+  where sem_pfun_Assign: "sem_pfun f ((Assign v e), \<phi>) = Some (\<phi>(v := eval e \<phi>))"
+      | sem_pfun_Seq: "sem_pfun f ((Seq s1 s2), \<phi>) = (case f (s1, \<phi>) of Some \<phi>' \<Rightarrow> f (s2, \<phi>') | None \<Rightarrow> None)"
+      | sem_pfun_While: "sem_pfun f ((While e s), \<phi>) = (if eval e \<phi> > 0 then case f (s, \<phi>) of Some \<phi>' \<Rightarrow> f ((While e s), \<phi>') | None \<Rightarrow> None else Some \<phi>)"
+
+lemma mono_sem_pfun: "mono (\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f)))"
+proof (rule monoI)
+  fix a b :: "(stmt \<times> env, env) pfun"
+  assume "a \<sqsubseteq> b"
+  hence 1: "\<And>stmt \<phi> \<phi>'. Rep_pfun a (stmt, \<phi>) = Some \<phi>' \<Longrightarrow> Rep_pfun b (stmt, \<phi>) = Some \<phi>'" unfolding le_pfun_def by blast
+  show "Abs_pfun (sem_pfun (Rep_pfun a)) \<sqsubseteq> Abs_pfun (sem_pfun (Rep_pfun b))" unfolding le_pfun_def proof auto
+    fix stmt \<phi> \<phi>''
+    assume sem_pfun_a_eq: "sem_pfun (Rep_pfun a) (stmt, \<phi>) = Some \<phi>''"
+    show "sem_pfun (Rep_pfun b) (stmt, \<phi>) = Some \<phi>''" proof (cases stmt)
+      case stmt_eq: (Assign var expr)
+      show ?thesis using sem_pfun_a_eq unfolding stmt_eq sem_pfun_Assign .
+    next
+      case stmt_eq: (Seq stmt1 stmt2)
+      show ?thesis using sem_pfun_a_eq unfolding stmt_eq sem_pfun_Seq proof (cases "Rep_pfun a (stmt1, \<phi>)", auto)
+        fix \<phi>'
+        assume Rep_pfun_a2_eq: "Rep_pfun a (stmt2, \<phi>') = Some \<phi>''"
+          and  Rep_pfun_a1_eq: "Rep_pfun a (stmt1, \<phi>) = Some \<phi>'"
+        have Rep_pfun_b2_eq: "Rep_pfun b (stmt2, \<phi>') = Some \<phi>''" using Rep_pfun_a2_eq by (rule 1)
+        have Rep_pfun_b1_eq: "Rep_pfun b (stmt1, \<phi>) = Some \<phi>'" using Rep_pfun_a1_eq by (rule 1)
+        show "(case Rep_pfun b (stmt1, \<phi>) of None \<Rightarrow> None | Some \<phi>' \<Rightarrow> Rep_pfun b (stmt2, \<phi>')) = Some \<phi>''" by (simp add: Rep_pfun_b1_eq Rep_pfun_b2_eq)
+      qed
+    next
+      case stmt_eq: (While expr stmt1)
+      show ?thesis using sem_pfun_a_eq unfolding stmt_eq sem_pfun_While proof (cases "0 < eval expr \<phi>", auto)
+        assume "(case Rep_pfun a (stmt1, \<phi>) of None \<Rightarrow> None | Some \<phi>' \<Rightarrow> Rep_pfun a (While expr stmt1, \<phi>')) = Some \<phi>''"
+        thus "(case Rep_pfun b (stmt1, \<phi>) of None \<Rightarrow> None | Some \<phi>' \<Rightarrow> Rep_pfun b (While expr stmt1, \<phi>')) = Some \<phi>''" proof (cases "Rep_pfun a (stmt1, \<phi>)", auto)
+          fix \<phi>'
+          assume Rep_pfun_a1_eq: "Rep_pfun a (While expr stmt1, \<phi>') = Some \<phi>''"
+            and Rep_pfun_a2_eq: "Rep_pfun a (stmt1, \<phi>) = Some \<phi>'"
+          have Rep_pfun_b1_eq: "Rep_pfun b (While expr stmt1, \<phi>') = Some \<phi>''" using Rep_pfun_a1_eq by (rule 1)
+          have Rep_pfun_b2_eq: "Rep_pfun b (stmt1, \<phi>) = Some \<phi>'" using Rep_pfun_a2_eq by (rule 1)
+          show "(case Rep_pfun b (stmt1, \<phi>) of None \<Rightarrow> None | Some \<phi>' \<Rightarrow> Rep_pfun b (While expr stmt1, \<phi>')) = Some \<phi>''" by (simp add: Rep_pfun_b1_eq Rep_pfun_b2_eq)
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma mono_pow_sem_pfun: "mono (\<lambda>n. (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)))"
+using mono_sem_pfun proof (rule mono_pow)
+  show "Abs_pfun \<emptyset> \<sqsubseteq> Abs_pfun (sem_pfun (Rep_pfun (Abs_pfun \<emptyset>)))" unfolding le_pfun_def by simp
+qed
+
+lemma sem_pfun_pow_eq: "(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) = Abs_pfun ((sem_pfun ^^ n) \<emptyset>)"
+proof (induct n)
+  case 0
+  show ?case by simp
+next
+  case (Suc n)
+  show ?case by (simp add: Suc)
+qed
+
+lemma ex_sem_fun:
+  obtains sem_fun where "supremum {(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True} sem_fun"
+proof -
+  have directed: "directed {(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True}" using mono_sem_pfun proof (rule directed_powI)
+    show "Abs_pfun \<emptyset> \<sqsubseteq> Abs_pfun (sem_pfun (Rep_pfun (Abs_pfun \<emptyset>)))" unfolding le_pfun_def by simp
+  qed
+  show "(\<And>sem_fun. supremum {(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True} sem_fun \<Longrightarrow> thesis) \<Longrightarrow> thesis" using ex_supremum[OF directed] by blast
+qed
+
+definition sem_fun :: "stmt \<times> env \<Rightarrow> env option"
+  where "sem_fun \<equiv> Rep_pfun (\<Squnion>{(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True})"
+  \<comment> \<open>部分関数の上限として定義することによって、直接は定義できなかった意味関数を定義できた！\<close>
 
 end
