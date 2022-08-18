@@ -604,12 +604,12 @@ lemma pfun_supremumI:
 unfolding supremum_def upper_def le_pfun_def using assms by blast
 
 lemma pfun_supremum_leE:
-  fixes s :: "('a, 'b) pfun"
-  assumes "supremum F s"
-    and "f \<in> F"
-    and "Rep_pfun f a = Some b"
-  shows "Rep_pfun s a = Some b"
-using assms unfolding supremum_def upper_def le_pfun_def by blast
+  fixes s :: "'a \<Rightarrow> 'b option"
+  assumes "supremum F (Abs_pfun s)"
+    and "f \<in> Rep_pfun ` F"
+    and "f a = Some b"
+  shows "s a = Some b"
+using assms unfolding supremum_def upper_def le_pfun_def Rep_pfun_Abs_pfun by blast
 
 lemma pfun_supremum_leastE:
   fixes s :: "('a, 'b) pfun"
