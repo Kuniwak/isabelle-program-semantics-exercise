@@ -2,7 +2,7 @@ theory Program_Semantics_3_3
   imports Program_Semantics_3
 begin
 
-hide_const minus times
+hide_const minus times Not
 
 abbreviation empty :: "'a \<Rightarrow> 'b option" ("\<emptyset>")
   where "empty \<equiv> (\<lambda>_. None)"
@@ -412,20 +412,9 @@ unfolding phi_fact_star_eq phi_fact_def proof
   qed
 qed
 
-datatype var = R | X
+type_synonym var = nat
 datatype expr = Val nat | Not expr | Eq expr expr | Ref var | Minus expr expr | Times expr expr
-datatype stmt = Assign var expr | Seq stmt stmt | While expr stmt
-
-definition iter_fact :: "stmt"
-  where "iter_fact \<equiv> Seq
-    (Assign R (Val 1))
-    (While
-      (Not (Eq (Ref X) (Val 0)))
-      (Seq
-        (Assign R (Times (Ref R) (Ref X)))
-        (Assign X (Minus (Ref X) (Val 1)))
-      )
-    )"
+datatype stmt = Assign var expr | Seq stmt stmt | While expr stmt | Empty
 
 type_synonym env = "var \<Rightarrow> nat"
 
@@ -441,12 +430,14 @@ function sem_fun :: "stmt \<Rightarrow> env \<Rightarrow> env option"
   where sem_fun_Assign: "sem_fun (Assign v e) \<phi> = Some (\<phi>(v := eval e \<phi>))"
       | sem_fun_Seq: "sem_fun (Seq s1 s2) \<phi> = (case sem_fun s1 \<phi> of Some \<phi>' \<Rightarrow> sem_fun s2 \<phi>' | None \<Rightarrow> None)"
       | sem_fun_While: "sem_fun (While e s) \<phi> = (if eval e \<phi> > 0 then case sem_fun s \<phi> of Some \<phi>' \<Rightarrow> sem_fun (While e s) \<phi>' | None \<Rightarrow> None else Some \<phi>)"
-oops \<comment> \<open>停止性しないプログラムをかけるので関数として認められない。そこで再帰部分を引数に切り出して、単調関数にする。\<close>
+      | sem_fun_Empty: "sem_fun Empty \<phi> = Some \<phi>"
+oops \<comment> \<open>停止しないプログラムをかけるので関数として認められない。そこで再帰部分を引数に切り出して、単調関数にする。\<close>
 
 fun sem_pfun :: "(stmt \<times> env \<Rightarrow> env option) \<Rightarrow> stmt \<times> env \<Rightarrow> env option"
   where sem_pfun_Assign: "sem_pfun f ((Assign v e), \<phi>) = Some (\<phi>(v := eval e \<phi>))"
       | sem_pfun_Seq: "sem_pfun f ((Seq s1 s2), \<phi>) = (case f (s1, \<phi>) of Some \<phi>' \<Rightarrow> f (s2, \<phi>') | None \<Rightarrow> None)"
       | sem_pfun_While: "sem_pfun f ((While e s), \<phi>) = (if eval e \<phi> > 0 then case f (s, \<phi>) of Some \<phi>' \<Rightarrow> f ((While e s), \<phi>') | None \<Rightarrow> None else Some \<phi>)"
+      | sem_pfun_Empty: "sem_pfun f (Empty, \<phi>) = Some \<phi>"
 
 lemma mono_sem_pfun: "mono (\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f)))"
 proof (rule monoI)
@@ -482,6 +473,9 @@ proof (rule monoI)
           show "(case Rep_pfun b (stmt1, \<phi>) of None \<Rightarrow> None | Some \<phi>' \<Rightarrow> Rep_pfun b (While expr stmt1, \<phi>')) = Some \<phi>''" by (simp add: Rep_pfun_b1_eq Rep_pfun_b2_eq)
         qed
       qed
+    next
+      case stmt_eq: Empty
+      show "sem_pfun (Rep_pfun b) (stmt, \<phi>) = Some \<phi>''" using sem_pfun_a_eq unfolding stmt_eq by simp
     qed
   qed
 qed
@@ -602,6 +596,43 @@ proof -
     qed
   qed
 qed
+
+definition infinite_loop :: "stmt"
+  where "infinite_loop \<equiv> While (Val 1) Empty"
+
+lemma sem_fun_infinite_loop: "sem_fun (infinite_loop, \<phi>) = None"
+proof (rule sem_fun_eq_NoneI)
+  fix n
+  show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (infinite_loop, \<phi>) = None" proof (induct n)
+    case 0
+    show ?case by simp
+  next
+    case infinite_loop_eq_None: (Suc n)
+    show ?case proof (simp add: infinite_loop_def, subst One_nat_def[symmetric], subst infinite_loop_def[symmetric])
+      show "(case Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (Empty, \<phi>)
+        of None \<Rightarrow> None
+         | Some \<phi>' \<Rightarrow> Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (infinite_loop, \<phi>')) = None"
+      proof (cases "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (Empty, \<phi>)")
+        case eq: None
+        show ?thesis unfolding eq by simp
+      next
+        case eq: (Some a)
+        have a_eq: "a = \<phi>" using eq proof (induct n)
+          case 0
+          hence False by simp
+          thus ?case by (rule FalseE)
+        next
+          case (Suc n)
+          thus ?case by simp
+        qed
+        show ?thesis unfolding eq proof simp
+          show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (infinite_loop, a) = None" unfolding a_eq by (rule infinite_loop_eq_None)
+        qed
+      qed
+    qed
+  qed
+qed
+
 lemma sem_fun_Assign: "sem_fun (Assign var expr, \<phi>) = Some (\<phi>(var := eval expr \<phi>))"
 proof (rule sem_fun_eq_SomeI)
   show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ 1) (Abs_pfun \<emptyset>)) (Assign var expr, \<phi>) = Some (\<phi>(var := eval expr \<phi>))" by simp
@@ -640,9 +671,10 @@ qed
 
 lemma sem_fun_While_False:
   assumes eval_eq: "eval expr \<phi> = 0"
-  shows "sem_fun (While expr stmt, \<phi>) = Some \<phi>"
+    and \<phi>'_eq: "\<phi>' = \<phi>"
+  shows "sem_fun (While expr stmt, \<phi>) = Some \<phi>'"
 proof (rule sem_fun_eq_SomeI)
-  show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ 1) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>) = Some \<phi>" by (simp add: eval_eq)
+  show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ 1) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>) = Some \<phi>'" by (simp add: \<phi>'_eq eval_eq)
 qed
 
 lemma sem_fun_While_True:
