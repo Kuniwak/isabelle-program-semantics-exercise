@@ -538,6 +538,18 @@ begin
 definition le_pfun :: "('a, 'b) pfun \<Rightarrow> ('a, 'b) pfun \<Rightarrow> bool"
   where "f \<sqsubseteq> g \<equiv> \<forall>x y. (Rep_pfun f) x = Some y \<longrightarrow> (Rep_pfun g) x = Some y"
 
+lemma pfun_leI:
+  fixes f g :: "('a, 'b) pfun"
+  assumes "\<And>a b. Rep_pfun f a = Some b \<Longrightarrow> Rep_pfun g a = Some b"
+  shows "f \<sqsubseteq> g"
+unfolding le_pfun_def using assms by blast
+
+lemma pfun_leE:
+  assumes "f \<sqsubseteq> g"
+    and "Rep_pfun f a = Some b"
+  shows "Rep_pfun g a = Some b"
+using assms unfolding le_pfun_def by blast
+
 instance proof
   fix a :: "('a, 'b) pfun"
   show "a \<sqsubseteq> a" unfolding le_pfun_def by blast
@@ -569,6 +581,105 @@ next
   assume a_le_b: "a \<sqsubseteq> b" and b_le_c: "b \<sqsubseteq> c"
   thus "a \<sqsubseteq> c" unfolding le_pfun_def by auto
 qed
+
+lemma pfun_upperI:
+  fixes u :: "('a, 'b) pfun"  
+  assumes "\<And>f a b. \<lbrakk> f \<in> F; Rep_pfun f a = Some b \<rbrakk> \<Longrightarrow> Rep_pfun u a = Some b"
+  shows "F \<^sub>s\<sqsubseteq> u"
+unfolding upper_def le_pfun_def using assms by blast
+
+lemma pfun_upperE:
+  fixes u :: "('a, 'b) pfun"
+  assumes "F \<^sub>s\<sqsubseteq> u"
+    and "f \<in> F"
+    and "Rep_pfun f a = Some b"
+  shows "Rep_pfun u a = Some b"
+using assms unfolding upper_def le_pfun_def by blast
+
+lemma pfun_supremumI:
+  fixes s :: "('a, 'b) pfun"
+  assumes "\<And>f a b. \<lbrakk> f \<in> F; Rep_pfun f a = Some b \<rbrakk> \<Longrightarrow> Rep_pfun s a = Some b"
+    and "\<And>u a b. \<lbrakk> \<And>f a b. \<lbrakk> f \<in> F; Rep_pfun f a = Some b \<rbrakk> \<Longrightarrow> Rep_pfun u a = Some b; Rep_pfun s a = Some b \<rbrakk> \<Longrightarrow> Rep_pfun u a = Some b"
+  shows "supremum F s"
+unfolding supremum_def upper_def le_pfun_def using assms by blast
+
+lemma pfun_supremum_leE:
+  fixes s :: "('a, 'b) pfun"
+  assumes "supremum F s"
+    and "f \<in> F"
+    and "Rep_pfun f a = Some b"
+  shows "Rep_pfun s a = Some b"
+using assms unfolding supremum_def upper_def le_pfun_def by blast
+
+lemma pfun_supremum_leastE:
+  fixes s :: "('a, 'b) pfun"
+  assumes "supremum F s"
+    and "\<And>f a b. \<lbrakk> f \<in> F; Rep_pfun f a = Some b \<rbrakk> \<Longrightarrow> Rep_pfun u a = Some b"
+    and "Rep_pfun s a = Some b"
+  shows "Rep_pfun u a = Some b"
+using assms unfolding supremum_def upper_def le_pfun_def by blast
+
+definition sup_pfun :: "('a, 'b) pfun set \<Rightarrow> 'a \<Rightarrow> 'b option"
+  where "sup_pfun X \<equiv> (\<lambda>x.
+    if (\<exists>f \<in> Rep_pfun ` X. \<exists>y. f x = Some y)
+    then Some (THE y. \<exists>f \<in> Rep_pfun ` X. f x = Some y)
+    else None
+  )"
+
+lemma supremum_pfunI:
+  fixes X :: "('a, 'b) pfun set"      
+  assumes directed: "directed X"
+  shows "supremum X (Abs_pfun (sup_pfun X))"
+proof (rule pfun_supremumI)
+  fix f a b
+  assume f_mem: "f \<in> X"
+    and Rep_pfun_f_a_eq: "Rep_pfun f a = Some b"
+  have eq: "(THE y. \<exists>f\<in>Rep_pfun ` X. f a = Some y) = b" proof (rule the_equality)
+    show "\<exists>f\<in>Rep_pfun ` X. f a = Some b" proof (rule bexI)
+      show "Rep_pfun f a = Some b" by (rule Rep_pfun_f_a_eq)
+    next
+      show "Rep_pfun f \<in> Rep_pfun ` X" using f_mem by blast
+    qed
+  next
+    fix b'
+    assume "\<exists>f\<in>Rep_pfun ` X. f a = Some b'"
+    then obtain g where Rep_pfun_g_a_eq': "Rep_pfun g a = Some b'" and g_mem: "g \<in> X" by blast
+    obtain h where h_mem: "h \<in> X" and Rep_pfun_h_a_eq1: "Rep_pfun h a = Some b" and Rep_pfun_h_a_eq2: "Rep_pfun h a = Some b'"
+      using directed_exE[OF directed f_mem g_mem] Rep_pfun_f_a_eq Rep_pfun_g_a_eq' unfolding le_pfun_def by blast
+    thus "b' = b" by simp
+  qed
+  show "Rep_pfun (Abs_pfun (sup_pfun X)) a = Some b" unfolding sup_pfun_def Rep_pfun_Abs_pfun eq proof -
+    show "(if \<exists>f\<in>Rep_pfun ` X. \<exists>y. f a = Some y then Some b else None) = Some b" proof simp
+      show "\<exists>f\<in>X. \<exists>y. Rep_pfun f a = Some y" using f_mem Rep_pfun_f_a_eq by blast
+    qed
+  qed
+next
+  fix u a b
+  assume 1: "\<And>f a b. \<lbrakk>f \<in> X; Rep_pfun f a = Some b\<rbrakk> \<Longrightarrow> Rep_pfun u a = Some b"
+    and 2: "Rep_pfun (Abs_pfun (sup_pfun X)) a = Some b"
+  have bex: "\<exists>f \<in> Rep_pfun ` X. \<exists>y. f a = Some y" using 2 unfolding Rep_pfun_Abs_pfun proof (rule contrapos_pp)
+    assume "\<not> (\<exists>f \<in> Rep_pfun ` X. \<exists>y. f a = Some y)"
+    thus "sup_pfun X a \<noteq> Some b" unfolding sup_pfun_def by simp
+  qed
+  then obtain f :: "('a, 'b) pfun" where ex: "\<exists>b'. Rep_pfun f a = Some b'" and f_mem: "f \<in> X" by blast
+  then obtain b' where Rep_pfun_f_a_eq': "Rep_pfun f a = Some b'" by blast
+  show "Rep_pfun u a = Some b" using 1[OF f_mem Rep_pfun_f_a_eq'] proof simp
+    have b_eq: "b = (THE y. \<exists>f\<in>Rep_pfun ` X. f a = Some y)" proof -
+      have "sup_pfun X a = Some (THE y. \<exists>f\<in>Rep_pfun ` X. f a = Some y)" unfolding sup_pfun_def Rep_pfun_Abs_pfun using bex by simp
+      thus "b = (THE y. \<exists>f\<in>Rep_pfun ` X. f a = Some y)" using 2 by simp
+    qed
+    show "b' = b" unfolding b_eq proof (rule sym, rule the_equality)
+      show "\<exists>f\<in>Rep_pfun ` X. f a = Some b'" using Rep_pfun_f_a_eq' f_mem by blast
+    next
+      fix b
+      assume "\<exists>f\<in>Rep_pfun ` X. f a = Some b"
+      then obtain g where Rep_pfun_f_a_eq: "Rep_pfun g a = Some b" and g_mem: "g \<in> X" by blast
+      obtain h where "Rep_pfun h a = Some b" and "Rep_pfun h a = Some b'"
+        using directed_exE[OF directed f_mem g_mem] Rep_pfun_f_a_eq Rep_pfun_f_a_eq' unfolding le_pfun_def by blast
+      thus "b = b'" by simp
+    qed
+  qed
+qed
 end
 
 instantiation pfun :: (type, type) po_bot
@@ -590,52 +701,7 @@ begin
 instance proof
   fix X :: "('a, 'b) pfun set"
   assume directed: "directed X"
-  let ?m = "\<lambda>x. if (\<exists>f \<in> Rep_pfun ` X. \<exists>y. f x = Some y) then Some (THE y. \<exists>f \<in> Rep_pfun ` X. f x = Some y) else None"
-  have eq: "Rep_pfun (Abs_pfun ?m) = ?m" by (rule Abs_pfun_inverse, rule UNIV_I)
-  show "\<exists>d. supremum X d" proof (rule exI)
-    show "supremum X (Abs_pfun ?m)" proof (rule supremumI)
-      show "X \<^sub>s\<sqsubseteq> Abs_pfun ?m" proof (rule upperI)
-        fix f1
-        assume f1_mem: "f1 \<in> X"
-        show "f1 \<sqsubseteq> (Abs_pfun ?m)" unfolding le_pfun_def eq using f1_mem proof auto
-          fix x y1
-          assume f1_x_eq: "Rep_pfun f1 x = Some y1"
-          show "(THE y. \<exists>f\<in>X. Rep_pfun f x = Some y) = y1" proof (rule the_equality)
-            show "\<exists>f\<in>X. Rep_pfun f x = Some y1" using f1_mem proof
-              show "Rep_pfun f1 x = Some y1" by (rule f1_x_eq)
-            qed
-          next
-            fix y2
-            assume "\<exists>f\<in>X. Rep_pfun f x = Some y2"
-            then obtain f2 where f2_x_eq: "Rep_pfun f2 x = Some y2" and f2_mem: "f2 \<in> X" by blast
-            show "y2 = y1" using directed_exE[OF directed f1_mem f2_mem] unfolding le_pfun_def
-              by (metis f2_x_eq f1_x_eq option.inject)
-          qed
-        qed
-      qed
-    next
-      fix f1
-      assume upper_f1: "X \<^sub>s\<sqsubseteq> f1"
-      show "Abs_pfun ?m \<sqsubseteq> f1" unfolding le_pfun_def eq proof auto
-        fix f2 x y
-        assume f2_mem: "f2 \<in> X"
-          and f2_x_eq: "Rep_pfun f2 x = Some y"
-        have THE_eq: "(THE y. \<exists>f\<in>X. Rep_pfun f x = Some y) = y" proof (rule the_equality)
-          show "\<exists>f\<in>X. Rep_pfun f x = Some y" using f2_mem proof
-            show "Rep_pfun f2 x = Some y" by (rule f2_x_eq)
-          qed
-        next
-          fix y'
-          assume "\<exists>f\<in>X. Rep_pfun f x = Some y'"
-          then obtain f3 where f3_x_eq: "Rep_pfun f3 x = Some y'" and f3_mem: "f3 \<in> X" by blast
-          show "y' = y" using directed_exE[OF directed f2_mem f3_mem] unfolding le_pfun_def
-            by (metis f2_x_eq f3_x_eq option.inject)
-        qed
-        have "f2 \<sqsubseteq> f1" using upper_f1 f2_mem by (rule upperE)
-        thus "Rep_pfun f1 x = Some (THE y. \<exists>f\<in>X. Rep_pfun f x = Some y)" unfolding THE_eq le_pfun_def using f2_x_eq by blast
-      qed
-    qed
-  qed
+  show "\<exists>d. supremum X d" using supremum_pfunI[OF directed] by blast
 qed
 end
 
