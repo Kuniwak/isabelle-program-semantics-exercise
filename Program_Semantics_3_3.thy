@@ -513,4 +513,94 @@ definition sem_fun :: "stmt \<times> env \<Rightarrow> env option"
   where "sem_fun \<equiv> Rep_pfun (\<Squnion>{(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True})"
   \<comment> \<open>部分関数の上限として定義することによって、直接は定義できなかった意味関数を定義できた！\<close>
 
+lemma supremum_sem_fun: "supremum {(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True} (Abs_pfun sem_fun)"
+proof -
+  obtain sem_fun' where sup_sem_fun': "supremum {(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True} sem_fun'" by (rule ex_sem_fun)
+  have eq: "sem_fun = Rep_pfun sem_fun'" unfolding sem_fun_def Sup_eq[OF sup_sem_fun'] by (rule HOL.refl)
+  show "supremum {(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True} (Abs_pfun sem_fun)" unfolding eq Rep_pfun_inverse by (rule sup_sem_fun')
+qed
+
+lemma sem_fun_eq:
+  defines X_def: "X \<equiv> {(((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) |n. True}"
+  shows "sem_fun = sup_pfun X"
+proof -
+  have "Abs_pfun sem_fun = Abs_pfun (sup_pfun X)" proof (rule supremum_uniq)
+    show supremum_sup_pfun: "supremum X (Abs_pfun (sup_pfun X))" proof (rule supremum_pfunI)
+      show "directed X" using directed_powI[OF mono_sem_pfun bot_le] unfolding bot_pfun_def X_def .
+    qed
+  next
+    show "supremum X (Abs_pfun sem_fun)" unfolding X_def by (rule supremum_sem_fun)
+  qed
+  thus "sem_fun = sup_pfun X" unfolding Abs_pfun_inject[OF UNIV_I UNIV_I] .
+qed
+
+lemma sem_fun_eq_SomeI:
+  assumes "(Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>))) (stmt, \<phi>) = Some \<phi>'" 
+  shows "sem_fun (stmt, \<phi>) = Some \<phi>'"
+proof -
+  have 1: "\<exists>na. ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) = ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ na) (Abs_pfun \<emptyset>)" by fastforce
+  show "sem_fun (stmt, \<phi>) = Some \<phi>'" using supremum_leE[OF supremum_sem_fun, where ?x="((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)"] unfolding le_pfun_def proof (auto simp add: 1)
+    assume "\<forall>a b y. Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (a, b) = Some y \<longrightarrow> sem_fun (a, b) = Some y"
+    thus "sem_fun (stmt, \<phi>) = Some \<phi>'" using assms by blast
+  qed
+qed
+
+lemma sem_fun_eq_NoneE:
+  defines f_def: "f n \<equiv> (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>))"
+  assumes sem_fun_eq_None: "sem_fun (stmt, \<phi>) = None"
+  shows "Rep_pfun (f n) (stmt, \<phi>) = None"
+proof -
+  have sup_pfun_eq: "(sup_pfun {f n |n. True}) (stmt, \<phi>) = None" using sem_fun_eq_None unfolding sem_fun_eq f_def .
+  have "\<nexists>g. g \<in> Rep_pfun ` {f n |n. True} \<and> (\<exists>y. g (stmt, \<phi>) = Some y)" using sup_pfun_eq proof (rule contrapos_pp, unfold not_not)
+    assume "\<exists>g. g \<in> Rep_pfun ` {f n |n. True} \<and> (\<exists>y. g (stmt, \<phi>) = Some y)"
+    thus "sup_pfun {f n |n. True} (stmt, \<phi>) \<noteq> None" unfolding sup_pfun_def by simp
+  qed
+  thus "Rep_pfun (f n) (stmt, \<phi>) = None" by fastforce
+qed
+
+lemma sem_fun_eq_SomeE:
+  defines f_def: "f n \<equiv> (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>))"
+  assumes sem_fun_eq_Some: "sem_fun (stmt, \<phi>) = Some \<phi>'"
+  obtains n where "Rep_pfun (f n) (stmt, \<phi>) = Some \<phi>'"
+proof -
+  have sup_pfun_eq: "(sup_pfun {f n |n. True}) (stmt, \<phi>) = Some \<phi>'" using sem_fun_eq_Some unfolding sem_fun_eq f_def .
+  have ex_g: "\<exists>f\<in>Rep_pfun ` {f n |n. True}. \<exists>y. f (stmt, \<phi>) = Some y" using sup_pfun_eq unfolding sup_pfun_def proof (rule contrapos_pp)
+    assume "\<not> (\<exists>f\<in>Rep_pfun ` {f n |n. True}. \<exists>y. f (stmt, \<phi>) = Some y)"
+    hence "(if \<exists>f\<in>Rep_pfun ` {f n |n. True}. \<exists>y. f (stmt, \<phi>) = Some y
+      then Some (THE y. \<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some y)
+      else None) = None" by simp
+    thus "(if \<exists>f\<in>Rep_pfun ` {f n |n. True}. \<exists>y. f (stmt, \<phi>) = Some y
+      then Some (THE y. \<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some y)
+      else None) \<noteq> Some \<phi>'" by simp
+  qed
+  obtain g where g_mem: "g \<in> {f n |n. True}" and ex_\<phi>'': "\<exists>y. Rep_pfun g (stmt, \<phi>) = Some y" using ex_g by blast
+  obtain n where g_eq: "g = f n" using g_mem by blast
+  obtain \<phi>'' where g_eq_Some: "Rep_pfun g (stmt, \<phi>) = Some \<phi>''" using ex_\<phi>'' by blast
+  have Rep_pfun_f_n_eq: "Rep_pfun (f n) (stmt, \<phi>) = Some \<phi>''" using g_eq g_eq_Some by simp
+  show ?thesis proof
+    show "Rep_pfun (f n) (stmt, \<phi>) = Some \<phi>'" using g_eq_Some unfolding g_eq proof simp
+      have eq: "(THE y. \<exists>f \<in> Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some y) = \<phi>'" using sup_pfun_eq unfolding sup_pfun_def proof -
+        assume 1: "(if \<exists>f\<in>Rep_pfun ` {f n |n. True}. \<exists>y. f (stmt, \<phi>) = Some y then Some (THE y. \<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some y) else None) = Some \<phi>'"
+        have 2: "(if \<exists>f\<in>Rep_pfun ` {f n |n. True}. \<exists>y. f (stmt, \<phi>) = Some y then Some (THE y. \<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some y) else None) = Some (THE y. \<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some y)" using ex_g by simp
+        show "(THE y. \<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some y) = \<phi>'" using 1 2 by simp
+      qed
+      show "\<phi>'' = \<phi>'" unfolding eq[symmetric] proof (rule sym, rule the_equality)
+        show "\<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some \<phi>''" proof (rule bexI)
+          show "Rep_pfun g (stmt, \<phi>) = Some \<phi>''" by (rule g_eq_Some)
+        next
+          show "Rep_pfun g \<in> Rep_pfun ` {f n |n. True}" using g_mem by (rule imageI)
+        qed
+      next
+        fix \<phi>'
+        assume "\<exists>f\<in>Rep_pfun ` {f n |n. True}. f (stmt, \<phi>) = Some \<phi>'"
+        then obtain h where h_mem: "h \<in> {f n |n. True}" and f_eq: "Rep_pfun h (stmt, \<phi>) = Some \<phi>'" by blast
+        then obtain m where Rep_pfun_f_m_eq: "Rep_pfun (f m) (stmt, \<phi>) = Some \<phi>'" by blast
+        have directed: "directed {f n |n. True}" unfolding f_def using mono_sem_pfun proof (rule directed_powI)
+          show "Abs_pfun \<emptyset> \<sqsubseteq> Abs_pfun (sem_pfun (Rep_pfun (Abs_pfun \<emptyset>)))" using bot_le[where ?a="Abs_pfun (sem_pfun (Rep_pfun (Abs_pfun \<emptyset>)))"] unfolding bot_pfun_def .
+        qed
+        show "\<phi>' = \<phi>''" by (metis Rep_pfun_f_m_eq f_def g_eq g_eq_Some option.inject sem_fun_eq_SomeI)
+      qed
+    qed
+  qed
+qed
 end
