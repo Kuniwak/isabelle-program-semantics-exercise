@@ -478,7 +478,7 @@ proof (rule monoI)
       show "sem_pfun (Rep_pfun b) (stmt, \<phi>) = Some \<phi>''" using sem_pfun_a_eq unfolding stmt_eq by simp
     qed
   qed
-qed
+qed  
 
 lemma mono_pow_sem_pfun: "mono (\<lambda>n. (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)))"
 using mono_sem_pfun proof (rule mono_pow)
@@ -554,7 +554,7 @@ qed
 lemma sem_fun_eq_SomeE:
   defines f_def: "f n \<equiv> (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>))"
   assumes sem_fun_eq_Some: "sem_fun (stmt, \<phi>) = Some \<phi>'"
-  obtains n where "Rep_pfun (f n) (stmt, \<phi>) = Some \<phi>'"
+  obtains n where "Rep_pfun (f n) (stmt, \<phi>) = Some \<phi>'" and "n > 0"
 proof -
   have sup_pfun_eq: "(sup_pfun {f n |n. True}) (stmt, \<phi>) = Some \<phi>'" using sem_fun_eq_Some unfolding sem_fun_eq f_def .
   have ex_g: "\<exists>f\<in>Rep_pfun ` {f n |n. True}. \<exists>y. f (stmt, \<phi>) = Some y" using sup_pfun_eq unfolding sup_pfun_def proof (rule contrapos_pp)
@@ -593,6 +593,13 @@ proof -
         qed
         show "\<phi>' = \<phi>''" by (metis Rep_pfun_f_m_eq f_def g_eq g_eq_Some option.inject sem_fun_eq_SomeI)
       qed
+    qed
+  next
+    have Rep_pfun_f_n_neq: "Rep_pfun (f n) (stmt, \<phi>) \<noteq> None" using Rep_pfun_f_n_eq by simp
+    show "0 < n" using Rep_pfun_f_n_neq proof (rule contrapos_np)
+      assume "\<not>0 < n"
+      hence n_eq: "n = 0" by simp
+      show "Rep_pfun (f n) (stmt, \<phi>) = None" unfolding n_eq f_def by simp
     qed
   qed
 qed
@@ -638,7 +645,23 @@ proof (rule sem_fun_eq_SomeI)
   show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ 1) (Abs_pfun \<emptyset>)) (Assign var expr, \<phi>) = Some (\<phi>(var := eval expr \<phi>))" by simp
 qed
 
-lemma sem_fun_Seq:
+lemma sem_fun_Assign_eq_SomeI:
+  assumes "\<phi>' = \<phi>(var := eval expr \<phi>)"
+  shows "sem_fun (Assign var expr, \<phi>) = Some \<phi>'"
+unfolding assms by (rule sem_fun_Assign)
+
+lemma sem_fun_Assign_eq_NoneE:
+  assumes "sem_fun (Assign var expr, \<phi>) = None"
+  shows "thesis"
+proof -
+  have "False" using assms proof (rule contrapos_pp)
+    have "sem_fun (Assign var expr, \<phi>) = Some (\<phi>(var := eval expr \<phi>))" by (rule sem_fun_Assign)
+    thus "sem_fun (Assign var expr, \<phi>) \<noteq> None" by simp
+  qed
+  thus thesis by (rule FalseE)
+qed
+
+lemma sem_fun_SeqI:
   assumes 1: "sem_fun (stmt1, \<phi>) = Some \<phi>'"
     and 2: "sem_fun (stmt2, \<phi>') = Some \<phi>''"
   shows "sem_fun (Seq stmt1 stmt2, \<phi>) = Some \<phi>''"
@@ -647,7 +670,7 @@ proof -
   obtain n2 where pow_n2_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n2) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = Some \<phi>''" using 2 by (rule sem_fun_eq_SomeE)
   show ?thesis proof (rule sem_fun_eq_SomeI)
     show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ Suc (max n1 n2)) (Abs_pfun \<emptyset>)) (Seq stmt1 stmt2, \<phi>) = Some \<phi>''" proof simp
-      have eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) = Some \<phi>'" proof (rule pfun_leE)
+      have eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) = Some \<phi>'" proof (rule pfun_le_SomeE)
         show "((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n1) (Abs_pfun \<emptyset>) \<sqsubseteq> ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)" using mono_pow_sem_pfun proof (rule monoE)
           show "n1 \<sqsubseteq> max n1 n2" unfolding le_nat_def by linarith
         qed
@@ -657,7 +680,7 @@ proof -
       show "(case Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)) (stmt1, \<phi>)
               of None \<Rightarrow> None
                | Some \<phi>' \<Rightarrow> Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)) (stmt2, \<phi>')) = Some \<phi>''" unfolding eq proof simp
-        show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = Some \<phi>''" proof (rule pfun_leE)
+        show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = Some \<phi>''" proof (rule pfun_le_SomeE)
           show "((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n2) (Abs_pfun \<emptyset>) \<sqsubseteq> ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n1 n2) (Abs_pfun \<emptyset>)" using mono_pow_sem_pfun proof (rule monoE)
             show "n2 \<sqsubseteq> max n1 n2" unfolding le_nat_def by linarith
           qed
@@ -669,6 +692,78 @@ proof -
   qed
 qed
 
+lemma sem_fun_Seq_eq_SomeE:
+  assumes "sem_fun (Seq stmt1 stmt2, \<phi>) = Some \<phi>''"
+  obtains \<phi>' where "sem_fun (stmt1, \<phi>) = Some \<phi>'" and "sem_fun (stmt2, \<phi>') = Some \<phi>''"
+unfolding sem_fun_eq proof -
+  have directed: "directed {((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) |n. True}" using mono_sem_pfun bot_le[where ?a="Abs_pfun (sem_pfun (Rep_pfun (Abs_pfun \<emptyset>)))"] unfolding bot_pfun_def by (rule directed_powI)
+  have sup_pfun_eq: "sup_pfun {((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) |n. True} (Seq stmt1 stmt2, \<phi>) = Some \<phi>''"
+    using assms unfolding sem_fun_eq .
+  obtain n where pow_n_Seq_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (Seq stmt1 stmt2, \<phi>) = Some \<phi>''"
+    using sup_pfun_eq_SomeE[OF directed sup_pfun_eq] by blast
+  have "n \<noteq> 0" using pow_n_Seq_eq proof (rule contrapos_pn)
+    assume n_eq: "n = 0"
+    show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (Seq stmt1 stmt2, \<phi>) \<noteq> Some \<phi>''" unfolding n_eq by simp
+  qed
+  then obtain m where n_eq: "n = Suc m" using not0_implies_Suc by presburger
+  have "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) \<noteq> None" using pow_n_Seq_eq unfolding n_eq proof simp
+    assume "(case Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt1, \<phi>)
+              of None \<Rightarrow> None
+               | Some \<phi>' \<Rightarrow> Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt2, \<phi>')
+            ) = Some \<phi>''"
+    hence "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) \<noteq> None" by (rule contrapos_pn, simp)
+    thus "\<exists>y. Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) = Some y" by blast
+  qed
+  then obtain \<phi>' where pow_m_stmt1_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) = Some \<phi>'" by blast
+  have pow_m_stmt2_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = Some \<phi>''" using pow_n_Seq_eq pow_m_stmt1_eq by (simp add: n_eq)
+  show ?thesis proof
+    show "sem_fun (stmt1, \<phi>) = Some \<phi>'" using pow_m_stmt1_eq by (rule sem_fun_eq_SomeI)
+  next
+    show "sem_fun (stmt2, \<phi>') = Some \<phi>''" using pow_m_stmt2_eq by (rule sem_fun_eq_SomeI)
+  qed
+qed
+
+lemma sem_fun_Seq_eq_NoneE:
+  assumes sem_fun_Seq_eq_None: "sem_fun (Seq stmt1 stmt2, \<phi>) = None"
+    and 1: "sem_fun (stmt1, \<phi>) = None \<Longrightarrow> thesis"
+    and 2: "\<And>\<phi>'. \<lbrakk> sem_fun (stmt1, \<phi>) = Some \<phi>'; sem_fun (stmt2, \<phi>') = None \<rbrakk> \<Longrightarrow> thesis"
+  shows "thesis"
+proof -
+  have "sem_fun (stmt1, \<phi>) = None \<or> sem_fun (stmt2, the (sem_fun (stmt1, \<phi>))) = None" proof (cases "sem_fun (stmt1, \<phi>)"; simp)
+    fix \<phi>'
+    assume sem_fun_stmt1_eq: "sem_fun (stmt1, \<phi>) = Some \<phi>'"
+    obtain n where pow_n_stmt1_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) = Some \<phi>'"
+      using sem_fun_stmt1_eq by (rule sem_fun_eq_SomeE)
+    show "sem_fun (stmt2, \<phi>') = None" proof (rule sem_fun_eq_NoneI)
+      fix m
+      have "sup_pfun {((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) |n. True} (Seq stmt1 stmt2, \<phi>) = None" using sem_fun_Seq_eq_None unfolding sem_fun_eq .
+      hence "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ Suc (max m n)) (Abs_pfun \<emptyset>)) (Seq stmt1 stmt2, \<phi>) = None" by (rule sup_pfun_eq_NoneE, blast)
+      thus "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = None" using sem_fun_stmt1_eq proof simp
+        assume 3: "(case Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max m n) (Abs_pfun \<emptyset>)) (stmt1, \<phi>)
+                  of None \<Rightarrow> None
+                   | Some \<phi>' \<Rightarrow> Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max m n) (Abs_pfun \<emptyset>)) (stmt2, \<phi>')
+                ) = None"
+        have "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ (max m n)) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) = Some \<phi>'" proof (rule pfun_le_SomeE)
+          show "((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) \<sqsubseteq>  ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max m n) (Abs_pfun \<emptyset>)" using mono_pow[OF mono_sem_pfun bot_le] unfolding bot_pfun_def proof (rule monoE)
+            show "n \<sqsubseteq> max m n" unfolding le_nat_def by linarith
+          qed
+        next
+          show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (stmt1, \<phi>) = Some \<phi>'" by (rule pow_n_stmt1_eq)
+        qed
+        hence pow_max_stmt2_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max m n) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = None" using 3 by simp
+        show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = None" proof (rule pfun_le_NoneE)
+          show "((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>) \<sqsubseteq> ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max m n) (Abs_pfun \<emptyset>)" using mono_pow[OF mono_sem_pfun bot_le] unfolding bot_pfun_def proof (rule monoE)
+            show "m \<sqsubseteq> max m n" unfolding le_nat_def by linarith
+          qed
+        next
+          show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max m n) (Abs_pfun \<emptyset>)) (stmt2, \<phi>') = None" by (rule pow_max_stmt2_eq)
+        qed
+      qed
+    qed
+  qed
+  thus thesis using 1 2 by fastforce
+qed
+
 lemma sem_fun_While_False:
   assumes eval_eq: "eval expr \<phi> = 0"
     and \<phi>'_eq: "\<phi>' = \<phi>"
@@ -677,7 +772,7 @@ proof (rule sem_fun_eq_SomeI)
   show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ 1) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>) = Some \<phi>'" by (simp add: \<phi>'_eq eval_eq)
 qed
 
-lemma sem_fun_While_True:
+lemma sem_fun_While_True1:
   assumes eval_gt: "eval expr \<phi> > 0"
     and sem_fun_eq: "sem_fun (stmt, \<phi>) = Some \<phi>'"
   shows "sem_fun (While expr stmt, \<phi>) = sem_fun (While expr stmt, \<phi>')"
@@ -716,7 +811,7 @@ next
   obtain m where pow_m_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt, \<phi>) = Some \<phi>'" using sem_fun_eq by (rule sem_fun_eq_SomeE)
   show ?thesis unfolding sem_fun'_eq proof (rule sem_fun_eq_SomeI)
     show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ Suc (max n m)) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>) = Some \<phi>''" proof (simp add: eval_gt)
-      have pow_max_n_m_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n m) (Abs_pfun \<emptyset>)) (stmt, \<phi>) = Some \<phi>'" proof (rule pfun_leE)
+      have pow_max_n_m_eq: "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n m) (Abs_pfun \<emptyset>)) (stmt, \<phi>) = Some \<phi>'" proof (rule pfun_le_SomeE)
         show "((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>) \<sqsubseteq> ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n m) (Abs_pfun \<emptyset>)" using mono_pow[OF mono_sem_pfun bot_le] unfolding bot_pfun_def proof (rule monoE)
           show "m \<sqsubseteq> max n m" unfolding le_nat_def by linarith
         qed
@@ -727,7 +822,7 @@ next
               of None \<Rightarrow> None
                | Some \<phi>' \<Rightarrow> Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n m) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>')
             ) = Some \<phi>''" unfolding pow_max_n_m_eq proof simp
-        show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n m) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>') = Some \<phi>''" proof (rule pfun_leE)
+        show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n m) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>') = Some \<phi>''" proof (rule pfun_le_SomeE)
           show "((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) \<sqsubseteq> ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ max n m) (Abs_pfun \<emptyset>)" using mono_pow[OF mono_sem_pfun bot_le] unfolding bot_pfun_def proof (rule monoE)
             show "n \<sqsubseteq> max n m" unfolding le_nat_def by linarith
           qed
@@ -737,5 +832,58 @@ next
       qed
     qed
   qed
+qed
+
+lemma sem_fun_While_True2:
+  assumes eval_gt: "eval expr \<phi> > 0"
+    and sem_fun_eq_None: "sem_fun (stmt, \<phi>) = None"
+  shows "sem_fun (While expr stmt, \<phi>) = None"
+unfolding sem_fun_eq proof (rule sup_pfun_eq_NoneI)
+  fix Abs_f
+  assume "Abs_f \<in> {((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) |n. True}"
+  then obtain n where f_eq: "Abs_f = ((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)" by blast
+  show "Rep_pfun Abs_f (While expr stmt, \<phi>) = None" unfolding f_eq proof (cases n)
+    case n_eq: 0
+    show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>) = None" by (simp add: n_eq)
+  next
+    case n_eq: (Suc m)
+    show "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>) = None" proof (simp add: n_eq eval_gt)
+      have "\<And>n. Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>)) (stmt, \<phi>) = None" proof (rule sup_pfun_eq_NoneE)
+        show "sup_pfun {((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) |n. True} (stmt, \<phi>) = None" using sem_fun_eq_None unfolding sem_fun_eq .
+      next
+        fix n
+        show "((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) \<in> {((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ n) (Abs_pfun \<emptyset>) |n. True}" by blast
+      qed
+      hence "Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt, \<phi>) = None" by simp
+      thus "(case Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (stmt, \<phi>)
+              of None \<Rightarrow> None
+               | Some \<phi>' \<Rightarrow> Rep_pfun (((\<lambda>f. Abs_pfun (sem_pfun (Rep_pfun f))) ^^ m) (Abs_pfun \<emptyset>)) (While expr stmt, \<phi>')
+            ) = None" by simp
+    qed
+  qed
+qed
+
+lemma sem_fun_While:
+  assumes f_def: "f =
+    (if eval expr \<phi> > 0
+     then (if sem_fun (stmt, \<phi>) = None
+          then None
+          else sem_fun (While expr stmt, the (sem_fun (stmt, \<phi>))))
+     else Some \<phi>)"
+  shows "sem_fun (While expr stmt, \<phi>) = f"
+proof (cases "eval expr \<phi> > 0")
+  case gt_eval: True
+  show ?thesis proof (cases "sem_fun (stmt, \<phi>) = None")
+    case sem_fun_stmt_eq: True
+    show ?thesis by (simp add: f_def gt_eval sem_fun_stmt_eq, rule sem_fun_While_True2[OF gt_eval sem_fun_stmt_eq])
+  next
+    case sem_fun_stmt_eq_None: False
+    then obtain \<phi>' where sem_fun_stmt_eq: "sem_fun (stmt, \<phi>) = Some \<phi>'" by blast
+    show ?thesis by (simp add: f_def gt_eval sem_fun_stmt_eq_None sem_fun_stmt_eq, rule sem_fun_While_True1[OF gt_eval sem_fun_stmt_eq])
+  qed
+next
+  case False
+  hence eq_eval: "eval expr \<phi> = 0" by simp
+  show ?thesis by (simp add: f_def eq_eval, rule sem_fun_While_False[OF eq_eval HOL.refl])
 qed
 end
