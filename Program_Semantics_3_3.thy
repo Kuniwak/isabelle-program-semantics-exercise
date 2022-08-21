@@ -650,6 +650,14 @@ lemma sem_fun_Assign_eq_SomeI:
   shows "sem_fun (Assign var expr, \<phi>) = Some \<phi>'"
 unfolding assms by (rule sem_fun_Assign)
 
+lemma sem_fun_Assign_eq_SomeE:
+  assumes eq_Some: "sem_fun (Assign var expr, \<phi>) = Some \<phi>''"
+    and eq: "\<phi>' = \<phi>(var := eval expr \<phi>)"
+  shows "\<phi>'' = \<phi>'"
+unfolding eq proof -
+  show "\<phi>'' = \<phi>(var := eval expr \<phi>)" using sem_fun_Assign[where ?var=var and ?expr=expr and ?\<phi>=\<phi>] eq_Some by simp
+qed
+
 lemma sem_fun_Assign_eq_NoneE:
   assumes "sem_fun (Assign var expr, \<phi>) = None"
   shows "thesis"
@@ -885,5 +893,322 @@ next
   case False
   hence eq_eval: "eval expr \<phi> = 0" by simp
   show ?thesis by (simp add: f_def eq_eval, rule sem_fun_While_False[OF eq_eval HOL.refl])
+qed
+
+definition var_r :: var where "var_r = 0"
+definition var_x :: var where "var_x = 1"
+
+lemma var_x_neq_var_r: "var_x \<noteq> var_r" unfolding var_r_def var_x_def by simp
+
+definition fact_stmt :: "stmt"
+  where "fact_stmt \<equiv> Seq
+    (Assign var_r (Val 1))
+    (While
+      (Not (Eq (Ref var_x) (Val 0)))
+      (Seq
+        (Assign var_r (Times (Ref var_r) (Ref var_x)))
+        (Assign var_x (Minus (Ref var_x) (Val 1)))
+      )
+    )"
+
+
+lemma sem_fun_fact_While_eq': "
+  sem_fun (
+    While (Not (Eq (Ref var_x) (Val 0)))
+      (Seq
+        (Assign var_r (Times (Ref var_r) (Ref var_x)))
+        (Assign var_x (Minus (Ref var_x) (Val (Suc 0)))
+      )
+  ), \<psi>) = (
+   if \<psi> var_x = 0
+   then Some \<psi>
+   else sem_fun
+    (
+      While (Not (Eq (Ref var_x) (Val 0)))
+        (Seq
+          (Assign var_r (Times (Ref var_r) (Ref var_x)))
+          (Assign var_x (Minus (Ref var_x) (Val (Suc 0)))
+        )
+      ),
+      \<psi>(var_r := (\<psi> var_r) * (\<psi> var_x), var_x := (\<psi> var_x) - 1)
+    )
+  )"
+proof (rule sem_fun_While, cases "\<psi> var_x = 0", auto)
+  assume "sem_fun (Seq (Assign var_r (Times (Ref var_r) (Ref var_x))) (Assign var_x (Minus (Ref var_x) (Val (Suc 0)))), \<psi>) = None"
+  thus "sem_fun (While (Not (Eq (Ref var_x) (Val 0)))
+          (Seq
+            (Assign var_r (Times (Ref var_r) (Ref var_x)))
+            (Assign var_x (Minus (Ref var_x) (Val (Suc 0))))
+          ),
+          \<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - Suc 0)
+        ) = None" proof (rule sem_fun_Seq_eq_NoneE)
+    assume "sem_fun (Assign var_r (Times (Ref var_r) (Ref var_x)), \<psi>) = None"
+    thus "sem_fun (While (Not (Eq (Ref var_x) (Val 0)))
+            (Seq
+              (Assign var_r (Times (Ref var_r) (Ref var_x)))
+              (Assign var_x (Minus (Ref var_x) (Val (Suc 0))))
+            ),
+            \<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - Suc 0)
+          ) = None" by (rule sem_fun_Assign_eq_NoneE)
+  next
+    fix \<phi>'
+    assume "sem_fun (Assign var_x (Minus (Ref var_x) (Val (Suc 0))), \<phi>') = None"
+    thus "sem_fun (While (Not (Eq (Ref var_x) (Val 0)))
+            (Seq
+              (Assign var_r (Times (Ref var_r) (Ref var_x)))
+              (Assign var_x (Minus (Ref var_x) (Val (Suc 0))))
+            ),
+            \<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - Suc 0)
+          ) = None" by (rule sem_fun_Assign_eq_NoneE)
+  qed
+next
+  fix \<psi>''
+  assume "sem_fun (Seq (Assign var_r (Times (Ref var_r) (Ref var_x))) (Assign var_x (Minus (Ref var_x) (Val (Suc 0)))), \<psi>) = Some \<psi>''"
+  hence \<psi>''_eq: "\<psi>'' = \<psi>(var_r := (\<psi> var_r) * (\<psi> var_x), var_x := (\<psi> var_x) - 1)" proof (rule sem_fun_Seq_eq_SomeE)
+    fix \<psi>'
+    assume 1: "sem_fun (Assign var_r (Times (Ref var_r) (Ref var_x)), \<psi>) = Some \<psi>'"
+      and 2: "sem_fun (Assign var_x (Minus (Ref var_x) (Val (Suc 0))), \<psi>') = Some \<psi>''"
+    have 3: "\<psi>' = \<psi>(var_r := \<psi> var_r * \<psi> var_x)" using 1 by (rule sem_fun_Assign_eq_SomeE, simp)
+    have 4: "\<psi>'' = \<psi>'(var_x := \<psi>' var_x - 1)" using 2 by (rule sem_fun_Assign_eq_SomeE, simp)
+    show "\<psi>'' = \<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - 1)" unfolding 3 4 using var_x_neq_var_r by fastforce
+  qed
+  show "sem_fun (While (Not (Eq (Ref var_x) (Val 0)))
+          (Seq
+            (Assign var_r (Times (Ref var_r) (Ref var_x)))
+            (Assign var_x (Minus (Ref var_x) (Val (Suc 0))))
+          ),
+          \<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - Suc 0)
+        ) = sem_fun
+          (While (Not (Eq (Ref var_x) (Val 0)))
+            (Seq
+              (Assign var_r (Times (Ref var_r) (Ref var_x)))
+              (Assign var_x (Minus (Ref var_x) (Val (Suc 0))))
+          ),
+          \<psi>''
+        )" unfolding \<psi>''_eq by simp
+qed
+
+fun phi_fact2 :: "(env option \<Rightarrow> env option) \<Rightarrow> env option \<Rightarrow> env option"
+  where "phi_fact2 f opt\<psi> = (case opt\<psi> of None \<Rightarrow> None | Some \<psi> \<Rightarrow> (
+   if \<psi> var_x = 0
+   then Some \<psi>
+   else f (Some (\<psi>(var_r := (\<psi> var_r) * (\<psi> var_x), var_x := (\<psi> var_x) - 1)))
+  ))"
+
+lemma mono_phi_fact2: "mono (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun)"
+proof (rule monoI, simp, rule pfun_leI, unfold Rep_pfun_Abs_pfun)
+  fix Abs_f Abs_g :: "(env option, env) pfun"
+    and a b
+  assume f_le_g: "Abs_f \<sqsubseteq> Abs_g"
+    and f_a_eq: "phi_fact2 (Rep_pfun Abs_f) a = Some b"
+  have 1: "\<And>a b. Rep_pfun Abs_f a = Some b \<Longrightarrow> Rep_pfun Abs_g a = Some b" using f_le_g by (rule pfun_le_SomeE)
+  show "phi_fact2 (Rep_pfun Abs_g) a = Some b" proof simp
+    have "a \<noteq> None" using f_a_eq proof (simp only: phi_fact2.simps)
+      assume "(case a
+        of None \<Rightarrow> None
+         | Some \<psi> \<Rightarrow> if \<psi> var_x = 0 then Some \<psi> else Rep_pfun Abs_f (Some (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - 1)))
+      ) = Some b"
+      thus "a \<noteq> None" by (rule contrapos_pn, simp)
+    qed
+    then obtain \<psi> where a_eq: "a = Some \<psi>" by blast
+    show "(case a
+      of None \<Rightarrow> None
+       | Some \<psi> \<Rightarrow>
+        if \<psi> var_x = 0
+        then Some \<psi>
+        else Rep_pfun Abs_g (Some (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - 1)))
+    ) = Some b" unfolding a_eq proof (cases "\<psi> var_x = 0")
+      case \<psi>_var_x_eq: True
+      thus "(case Some \<psi>
+        of None \<Rightarrow> None
+         | Some \<psi> \<Rightarrow> if \<psi> var_x = 0 then Some \<psi> else Rep_pfun Abs_g (Some (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - 1)))
+      ) = Some b" using f_a_eq by (simp add: a_eq)
+    next
+      case \<psi>_var_x_neq: False
+      then obtain n where \<psi>_var_x_eq: "\<psi> var_x = Suc n" using not0_implies_Suc by blast
+      show "(case Some \<psi>
+        of None \<Rightarrow> None
+         | Some \<psi> \<Rightarrow> if \<psi> var_x = 0 then Some \<psi> else Rep_pfun Abs_g (Some (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - 1)))
+      ) = Some b" proof (simp add: \<psi>_var_x_eq )
+        show "Rep_pfun Abs_g (Some (\<psi>(var_r := \<psi> var_r + \<psi> var_r * n, var_x := n))) = Some b" using f_a_eq proof (simp add: \<psi>_var_x_eq a_eq)
+          assume "Rep_pfun Abs_f (Some (\<psi>(var_r := \<psi> var_r + \<psi> var_r * n, var_x := n))) = Some b"
+          thus "Rep_pfun Abs_g (Some (\<psi>(var_r := \<psi> var_r + \<psi> var_r * n, var_x := n))) = Some b" by (rule 1)
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma cont_phi_fact2: "cont (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun)"
+proof (rule contI)
+  fix X :: "(env option, env) pfun set"
+  assume directed: "directed X"
+  show "\<exists>fx. supremum {(Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) x |x. x \<in> X} fx" using directed_Collect_monoI[OF directed mono_phi_fact2] by (rule ex_supremum)
+next
+  fix X :: "(env option, env) pfun set" and x fx
+  assume directed: "directed X"
+    and sup_x: "supremum X x"
+    and sup_fx: "supremum {(Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) x |x. x \<in> X} fx"
+  have x_eq: "Rep_pfun x = sup_pfun X" using directed sup_x by (rule eq_sup_pfun)
+  have fx_eq: "Rep_pfun fx = sup_pfun {(Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) x |x. x \<in> X}" using directed_Collect_monoI[OF directed mono_phi_fact2] sup_fx by (rule eq_sup_pfun)
+  have "(phi_fact2 (Rep_pfun x)) = Rep_pfun fx" unfolding x_eq fx_eq proof
+    fix opt\<phi> :: "env option"
+    show "phi_fact2 (sup_pfun X) opt\<phi> = sup_pfun {(Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) x |x. x \<in> X} opt\<phi>" proof (cases opt\<phi>)
+      case opt\<phi>_eq: None
+      show ?thesis proof (simp add: opt\<phi>_eq, rule sym, rule sup_pfun_eq_NoneI)
+        fix Abs_f
+        assume f_mem: "Abs_f \<in> {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X}"
+        then obtain Abs_g where f_eq: "Abs_f = Abs_pfun (phi_fact2 (Rep_pfun Abs_g))" and g_mem: "Abs_g \<in> X" by blast
+        show "Rep_pfun Abs_f None = None" unfolding f_eq Rep_pfun_Abs_pfun by simp
+      qed
+    next
+      case opt\<phi>_eq: (Some \<phi>)
+      show ?thesis proof (auto simp add: opt\<phi>_eq)
+        assume \<phi>_var_x_eq: "\<phi> var_x = 0"
+        obtain Abs_f where f_mem: "Abs_f \<in> X" using directed_nemptyE[OF directed] by blast
+        show "Some \<phi> = sup_pfun {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X} (Some \<phi>)" proof (rule sym, rule sup_pfun_eq_SomeI)
+          show "directed {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X}" using directed_Collect_monoI[OF directed mono_phi_fact2] by simp
+        next
+          show "Abs_pfun (phi_fact2 (Rep_pfun Abs_f)) \<in> {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X}" using f_mem by blast
+        next
+          show "Rep_pfun (Abs_pfun (phi_fact2 (Rep_pfun Abs_f))) (Some \<phi>) = Some \<phi>" by (simp add: \<phi>_var_x_eq)
+        qed
+      next
+        assume \<phi>_var_x_gt: "0 < \<phi> var_x"
+        then obtain n where \<phi>_var_x_eq: "\<phi> var_x = Suc n" using gr0_implies_Suc by presburger
+        show "sup_pfun X (Some (\<phi>(var_r := \<phi> var_r * \<phi> var_x, var_x := \<phi> var_x - Suc 0))) = sup_pfun {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X} (Some \<phi>)" proof (rule sym, cases "sup_pfun X (Some (\<phi>(var_r := \<phi> var_r * \<phi> var_x, var_x := \<phi> var_x - Suc 0)))")
+          case sup_pfun_X_eq: None
+          show "sup_pfun {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X} (Some \<phi>) = sup_pfun X (Some (\<phi>(var_r := \<phi> var_r * \<phi> var_x, var_x := \<phi> var_x - Suc 0)))" unfolding sup_pfun_X_eq proof (rule sup_pfun_eq_NoneI)
+            fix Abs_f
+            assume "Abs_f \<in> {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X}"
+            then obtain Abs_g where f_eq: "Abs_f = Abs_pfun (phi_fact2 (Rep_pfun Abs_g))" and g_mem: "Abs_g \<in> X" by blast
+            show "Rep_pfun Abs_f (Some \<phi>) = None" unfolding f_eq proof (simp add: \<phi>_var_x_gt)
+              show "Rep_pfun Abs_g (Some (\<phi>(var_r := \<phi> var_r * \<phi> var_x, var_x := \<phi> var_x - Suc 0))) = None" using sup_pfun_X_eq g_mem by (rule sup_pfun_eq_NoneE)
+            qed
+          qed
+        next
+          case sup_pfun_X_eq: (Some \<phi>')
+          obtain Abs_f where f_mem: "Abs_f \<in> X" and f_Some_eq: "Rep_pfun Abs_f (Some (\<phi>(var_r := \<phi> var_r * \<phi> var_x, var_x := \<phi> var_x - Suc 0))) = Some \<phi>'"
+            using directed sup_pfun_X_eq by (rule sup_pfun_eq_SomeE)
+          show "sup_pfun {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X} (Some \<phi>) = sup_pfun X (Some (\<phi>(var_r := \<phi> var_r * \<phi> var_x, var_x := \<phi> var_x - Suc 0)))" unfolding sup_pfun_X_eq proof (rule sup_pfun_eq_SomeI)
+            show "directed {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X}" using directed_Collect_monoI[OF directed mono_phi_fact2] by simp
+          next
+            show "Abs_pfun (phi_fact2 (Rep_pfun Abs_f)) \<in> {Abs_pfun (phi_fact2 (Rep_pfun x)) |x. x \<in> X}" using f_mem by blast
+          next
+            have \<phi>_var_x_neq: "\<phi> var_x \<noteq> 0" unfolding neq0_conv by (rule \<phi>_var_x_gt)
+            show "Rep_pfun (Abs_pfun (phi_fact2 (Rep_pfun Abs_f))) (Some \<phi>) = Some \<phi>'" proof (simp add: \<phi>_var_x_neq)
+              show "Rep_pfun Abs_f (Some (\<phi>(var_r := \<phi> var_r * \<phi> var_x, var_x := \<phi> var_x - Suc 0))) = Some \<phi>'" by (rule f_Some_eq)
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+  thus "(Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) x = fx" by (simp add: Rep_pfun_inverse)
+qed
+
+lemma ex_phi_fact2_star:
+  defines "X \<equiv> {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> | n. True}"
+  obtains Abs_phi_fact2_star where "supremum X Abs_phi_fact2_star"
+proof -
+  have directed: "directed X" unfolding X_def using mono_phi_fact2 bot_le by (rule directed_powI)
+  show "(\<And>Abs_phi_fact2_star. supremum X Abs_phi_fact2_star \<Longrightarrow> thesis) \<Longrightarrow> thesis" using ex_supremum[OF directed] by blast
+qed
+
+definition phi_fact2_star :: "env option \<Rightarrow> env option"
+  where "phi_fact2_star \<equiv> Rep_pfun (\<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> | n. True})"
+
+lemma phi_fact2_star_eq': "phi_fact2_star = sup_pfun {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> | n. True}"
+proof -
+  have directed: "directed {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True}" using mono_phi_fact2 bot_le by (rule directed_powI)
+  show ?thesis unfolding phi_fact2_star_def using directed proof (rule eq_sup_pfun)
+    obtain sup where sup: "supremum {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True} sup" using ex_supremum[OF directed] by blast
+    show "supremum {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True} (\<Squnion> {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True})" unfolding Sup_eq[OF sup] by (rule sup)
+  qed
+qed
+
+lemma phi_fact2_star_is_fp: "phi_fact2 phi_fact2_star = phi_fact2_star"
+unfolding phi_fact2_star_def proof -
+  have "(Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) (\<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> |n. True}) = \<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> |n. True}"
+    using cont_phi_fact2 by (rule lfp_fpI)
+  also have "... = Abs_pfun (Rep_pfun (\<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> |n. True}))" by (simp add: Rep_pfun_inverse)
+  ultimately have "(Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) (\<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> |n. True}) = Abs_pfun (Rep_pfun (\<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> |n. True}))" by (rule HOL.trans)
+  hence "(phi_fact2 \<circ> Rep_pfun) (\<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> |n. True}) = Rep_pfun (\<Squnion> {((\<lambda>Abs_f. (Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) Abs_f) ^^ n) \<bottom> |n. True})" by (simp add: Abs_pfun_inject)
+  thus "phi_fact2 (Rep_pfun (\<Squnion> {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True})) = Rep_pfun (\<Squnion> {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True})" by (subst (asm) (1) comp_def, blast)
+qed
+
+lemma phi_fact2_star_eq: "phi_fact2_star opt\<psi> = (case opt\<psi>
+  of None \<Rightarrow> None
+   | Some \<psi> \<Rightarrow> (
+     if \<psi> var_x = 0
+     then Some \<psi>
+     else phi_fact2_star (Some (\<psi>(var_r := (\<psi> var_r) * (\<psi> var_x), var_x := (\<psi> var_x) - 1)))
+    )
+  )"
+proof (cases opt\<psi>)
+  case opt\<psi>_eq: None
+  show ?thesis proof (simp add: opt\<psi>_eq, subst phi_fact2_star_eq', rule sup_pfun_eq_NoneI)
+    fix Abs_f
+    assume f_mem: "Abs_f \<in> {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True}"
+    then obtain n where f_eq: "Abs_f = ((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom>" by blast
+    show "Rep_pfun Abs_f None = None" unfolding f_eq proof (cases n)
+      case n_eq: 0
+      show "Rep_pfun (((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom>) None = None" by (simp add: n_eq bot_pfun_def)
+    next
+      case n_eq: (Suc m)
+      show "Rep_pfun (((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom>) None = None" by (simp add: n_eq)
+    qed
+  qed
+next
+  case opt\<psi>_eq: (Some \<psi>)
+  show ?thesis proof (auto simp add: opt\<psi>_eq)
+    assume \<psi>_var_x_eq: "\<psi> var_x = 0"
+    show "phi_fact2_star (Some \<psi>) = Some \<psi>" unfolding phi_fact2_star_eq' using directed_powI[OF mono_phi_fact2 bot_le] proof (rule sup_pfun_eq_SomeI)
+      show "((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ 1) \<bottom> \<in>  {((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ n) \<bottom> |n. True}" by blast
+    next
+      show "Rep_pfun (((Abs_pfun \<circ> phi_fact2 \<circ> Rep_pfun) ^^ 1) \<bottom>) (Some \<psi>) = Some \<psi>" by (simp add: \<psi>_var_x_eq)
+    qed
+  next
+    assume \<psi>_var_x_gt: "0 < \<psi> var_x"
+    then obtain n where \<psi>_var_x_eq: "\<psi> var_x = Suc n" using gr0_implies_Suc by presburger
+    show "phi_fact2_star (Some \<psi>) = phi_fact2_star (Some (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := \<psi> var_x - Suc 0)))" by (subst (1) phi_fact2_star_is_fp[symmetric], simp add: \<psi>_var_x_eq)
+  qed
+qed
+
+lemma sem_fun_fact_While_eq: "sem_fun (
+    While (Not (Eq (Ref var_x) (Val 0)))
+      (Seq
+        (Assign var_r (Times (Ref var_r) (Ref var_x)))
+        (Assign var_x (Minus (Ref var_x) (Val (Suc 0)))
+      )
+    ),
+    \<psi>
+  ) = phi_fact2_star (Some \<psi>)"
+proof (induct "\<psi> var_x" arbitrary: \<psi>)
+  case \<psi>_var_x_eq[symmetric]: 0
+  show ?case by (subst sem_fun_fact_While_eq', subst phi_fact2_star_eq, simp add: \<psi>_var_x_eq)
+next
+  case (Suc n)
+  have "n = (\<psi>(var_x := n)) var_x" by simp
+  hence step: "sem_fun (While (Not (Eq (Ref var_x) (Val 0)))
+      (Seq
+        (Assign var_r (Times (Ref var_r) (Ref var_x)))
+        (Assign var_x (Minus (Ref var_x) (Val (Suc 0))))
+      ),
+      (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := n))
+    ) = phi_fact2_star (Some (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := n)))"
+    using Suc(1) by simp
+  have \<psi>_var_x_neq: "\<psi> var_x \<noteq> 0" using Suc(2) by simp
+  have \<psi>_var_x_minus_1_eq: "\<psi> var_x - Suc 0 = n" using Suc(2) by simp
+  show ?case proof (subst sem_fun_fact_While_eq', subst phi_fact2_star_eq, simp add: \<psi>_var_x_neq \<psi>_var_x_minus_1_eq)
+    show "sem_fun
+      (While (Not (Eq (Ref var_x) (Val 0)))
+        (Seq
+          (Assign var_r (Times (Ref var_r) (Ref var_x)))
+          (Assign var_x (Minus (Ref var_x) (Val (Suc 0))))
+        ),
+        \<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := n)
+      ) = phi_fact2_star (Some (\<psi>(var_r := \<psi> var_r * \<psi> var_x, var_x := n)))" by (rule step)
+  qed
 qed
 end
